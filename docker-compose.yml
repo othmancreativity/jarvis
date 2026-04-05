@@ -1,0 +1,12 @@
+services:
+  jarvis:
+    build: .
+    container_name: jarvis
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data/memory.db:/app/data/memory.db
+      - ./tokens/google-oauth.json:/app/tokens/google-oauth.json
+      - ./tokens/google-token.json:/app/tokens/google-token.json
+      - ./tokens/firebase.json:/app/tokens/firebase.json

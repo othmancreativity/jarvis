@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+memory.db
+*.db-journal
+data/*.db
+data/*.db-shm
+data/*.db-wal
+service-account.json
+tokens/*.json
+!tokens/.gitkeep
+uploads/

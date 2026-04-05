@@ -1,0 +1,12 @@
+{
+  "_comment": "مسارات أساسية (مجلدات وملفات رئيسية) نسبة لجذر المشروع. عدّل هنا عند نقل الهيكل.",
+  "dirs": {
+    "tokens": "tokens",
+    "uploads": "uploads",
+    "logs": "logs",
+    "data": "data"
+  },
+  "files": {
+    "database": "data/memory.db"
+  }
+}

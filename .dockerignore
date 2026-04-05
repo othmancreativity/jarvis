@@ -1,0 +1,11 @@
+node_modules
+dist
+*.db
+.env
+tokens/
+data/*.db
+.env.local
+*.json.bak
+.git
+.gitignore
+*.md
