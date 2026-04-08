@@ -10,7 +10,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY tsconfig.json ./
-COPY paths.json more_paths.json ./
+COPY paths.json ./
 COPY src/ ./src/
 
 RUN npm run build

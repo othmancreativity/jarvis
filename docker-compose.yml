@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data/memory.db:/app/data/memory.db
-      - ./tokens/google-oauth.json:/app/tokens/google-oauth.json
-      - ./tokens/google-token.json:/app/tokens/google-token.json
-      - ./tokens/firebase.json:/app/tokens/firebase.json
+      - ./user/data/memory.db:/app/user/data/memory.db
+      - ./src/tokens/google-oauth.json:/app/src/tokens/google-oauth.json
+      - ./src/tokens/google-token.json:/app/src/tokens/google-token.json
+      - ./src/tokens/firebase.json:/app/src/tokens/firebase.json
