@@ -1,0 +1,13 @@
+{
+  "name": "Othman",
+  "preferences": {
+    "response_style": "direct",
+    "verbosity": "low",
+    "speed_priority": true
+  },
+  "interests": [
+    "AI",
+    "automation"
+  ],
+  "behavior_patterns": []
+}
