@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from jarvis.core.bootstrap import get_chat_service
-from jarvis.logging_config import setup_logging
+from core.bootstrap import get_chat_service
+from settings.logging import setup_logging
+
+if TYPE_CHECKING:
+    from settings.app_settings import AppSettings
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +34,14 @@ class ChatResponse(BaseModel):
     reason: str
 
 
-def create_app() -> FastAPI:
+def create_app(settings: "AppSettings | None" = None) -> FastAPI:
     """Build and return the ASGI application."""
-    setup_logging()
+    from settings.loader import load_settings
+
+    resolved = settings or load_settings()
+    setup_logging(level=resolved.logging.level)
     app = FastAPI(title="Jarvis", version="0.1.0")
-    service = get_chat_service()
+    service = get_chat_service(resolved)
 
     @app.get("/health")
     def health() -> dict[str, str]:

@@ -1,0 +1,78 @@
+# Per-model generation defaults + capability profiles for dynamic routing (weights are tunable)
+
+defaults:
+  temperature: 0.7
+  top_p: 0.9
+  max_tokens: 4096
+
+# Ollama model ids → parameters + capability metadata (used by router scoring)
+models:
+  qwen2.5:7b:
+    temperature: 0.7
+    top_p: 0.9
+    max_tokens: 4096
+    capability:
+      reasoning_tier: high
+      arabic_quality: 0.95
+      code_bias: 0.4
+      latency_tier: medium
+      vram_estimate_gb: 4.5
+
+  qwen2.5-coder:7b:
+    temperature: 0.3
+    top_p: 0.95
+    max_tokens: 8192
+    capability:
+      reasoning_tier: medium
+      arabic_quality: 0.75
+      code_bias: 0.95
+      latency_tier: medium
+      vram_estimate_gb: 4.5
+
+  gemma3:4b:
+    temperature: 0.6
+    top_p: 0.9
+    max_tokens: 2048
+    capability:
+      reasoning_tier: low
+      arabic_quality: 0.85
+      code_bias: 0.35
+      latency_tier: fast
+      vram_estimate_gb: 3.0
+
+  qwen3:8b:
+    temperature: 0.6
+    top_p: 0.9
+    max_tokens: 8192
+    capability:
+      reasoning_tier: very_high
+      arabic_quality: 0.95
+      code_bias: 0.5
+      latency_tier: slow
+      vram_estimate_gb: 5.0
+
+  llava:7b:
+    temperature: 0.4
+    top_p: 0.9
+    max_tokens: 2048
+    capability:
+      reasoning_tier: medium
+      arabic_quality: 0.7
+      vision_required: true
+      latency_tier: medium
+      vram_estimate_gb: 4.5
+
+# Routing weights / thresholds (optional; tune without code changes)
+routing:
+  weights:
+    fit_complexity: 1.0
+    fit_mode: 1.0
+    cost_penalty: 0.35
+    quality_need: 1.2
+    memory_bias: 0.25
+  thresholds:
+    confidence_high: 0.75
+    confidence_medium: 0.45
+  escalation:
+    max_iterations: 5
+    max_escalation_depth: 2

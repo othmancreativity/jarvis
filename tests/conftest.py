@@ -1,4 +1,4 @@
-"""CLI entry (``python -m app.cli`` or ``python app/cli.py``)."""
+"""Pytest: ensure project root is on ``sys.path`` for ``settings``, ``core``, ``models``."""
 
 from __future__ import annotations
 
@@ -8,8 +8,3 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-from app.main import main
-
-if __name__ == "__main__":
-    main()
