@@ -1,0 +1,43 @@
+# Core AI
+ollama>=0.1.0
+openai-whisper>=20231117
+torch>=2.0.0
+transformers>=4.35.0
+diffusers>=0.24.0
+accelerate>=0.24.0
+
+# Audio
+sounddevice>=0.4.6
+pyaudio>=0.2.13
+piper-tts>=1.2.0
+openwakeword>=0.6.0
+
+# Memory & Storage
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+redis>=5.0.0
+
+# Web & API
+fastapi>=0.104.0
+uvicorn>=0.24.0
+websockets>=12.0
+jinja2>=3.1.0
+
+# Telegram
+python-telegram-bot>=20.7
+
+# Google APIs
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-api-python-client>=2.108.0
+
+# Browser Automation
+playwright>=1.40.0
+
+# Utilities
+psutil>=5.9.6
+pyautogui>=0.9.54
+loguru>=0.7.2
+pyyaml>=6.0.1
+python-dotenv>=1.0.0
+rich>=13.7.0
