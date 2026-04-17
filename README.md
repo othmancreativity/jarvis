@@ -3,10 +3,12 @@
 # 🤖 JARVIS
 ### Personal AI Assistant — Local, Free, Unlimited
 
-![Version](https://img.shields.io/badge/version-0.2.0--alpha-blue)
+![Version](https://img.shields.io/badge/version-0.3.0--alpha-blue)
 ![Python](https://img.shields.io/badge/python-3.10+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-in--development-yellow)
+![Arabic](https://img.shields.io/badge/language-Arabic%20%2B%20English-red)
+![Platform](https://img.shields.io/badge/platform-Windows%2011-lightblue)
 
 **A fully local, privacy-first AI assistant with adaptive intelligence, multi-model routing, and autonomous reasoning — built for consumer hardware.**
 
@@ -59,11 +61,23 @@ Jarvis is a fully local, free, and unlimited personal AI assistant designed to r
 - 👂 **Wake Word** — "Hey Jarvis" activation (openWakeWord)
 
 ### System Control
-- 🖥️ **OS Control** — Files, processes, system settings
-- 🌐 **Browser Automation** — Playwright-based web control
-- 💻 **Code Execution** — Python + Shell sandbox
-- 📅 **Google Calendar** — Create and read events
-- 📺 **YouTube** — Search and control
+- 🖥️ **OS Control** — Files, processes, system settings, startup items, scheduled tasks
+- 🚀 **App Launcher** — Open/close any Windows app by name (searches PATH, Start Menu, Program Files)
+- 📋 **Clipboard** — Read, write, and monitor clipboard content
+- 🔔 **Notifications** — Native Windows Toast alerts for task completion and reminders
+- 🌐 **Browser Automation** — Full Playwright control: navigate, click, fill, download, upload, multi-tab
+- 🔐 **Session Persistence** — Browser sessions saved between runs — stays logged in
+- 💻 **Code Execution** — Python + Shell sandbox with timeout and structured output
+- 🖼️ **Screen Capture** — Screenshots + lightweight OCR (no LLM needed for text reading)
+- ⌨️ **Global Hotkeys** — System-wide shortcuts to activate Jarvis from any context
+
+### External APIs
+- 📅 **Google Calendar** — Read, create, update, delete events
+- 📧 **Gmail** — Read, search, send, and reply to emails
+- 📁 **Google Drive** — List, search, upload, download, and share files
+- 👤 **Google Contacts** — Search and retrieve contact information
+- 📺 **YouTube** — Search videos, get info, open in browser
+- 💬 **WhatsApp Web** — Send messages and read conversations via browser automation
 
 ### Interfaces
 - 🖥️ **CLI** — Terminal interface with Rich formatting
@@ -84,11 +98,12 @@ Jarvis is a fully local, free, and unlimited personal AI assistant designed to r
 
 | Model | Capability Profile | Reasoning | Speed | Typical Use |
 |-------|-------------------|-----------|-------|-------------|
-| `qwen2.5:7b` | Strong AR/EN understanding; balanced default | Medium–High | Fast | Normal dialogue, general assistance |
-| `qwen3:8b` | Deep reasoning; best for long chains or ambiguity | **High** | Moderate | Deep mode, escalation, replanning |
-| `gemma3:4b` | Very fast; weaker long-horizon reasoning | Lower | **Fastest** | Fast mode, classification, pre-checks |
+| `qwen3:8b` | Deep reasoning; best Arabic + EN; planning | **High** | Moderate | Main brain — deep mode, escalation, planning |
+| `gemma3:4b` | Very fast; weaker long-horizon reasoning | Lower | **Fastest** | Fast mode, classification, quick answers |
 | `qwen2.5-coder:7b` | Code synthesis/analysis; tool-friendly | Medium (code) | Very Fast | Code intent, execution, structured patches |
 | `llava:7b` | Vision + image-grounded QA | N/A (vision) | Medium | When pixels are present |
+
+> `qwen2.5:7b` removed — superseded by `qwen3:8b` in all capability profiles.
 
 *Profiles are data (YAML in `config/models.yaml`) — weights and thresholds evolve without code forks.*
 
@@ -107,12 +122,11 @@ Jarvis is a fully local, free, and unlimited personal AI assistant designed to r
 > **Rule:** Never load more than one large Ollama model at a time. Queue or serialize vision / chat / code requests if needed. Diffusion (SD) competes for the same GPU — unload LLM/vision before image generation.
 
 ```
-Default chat:     qwen2.5:7b       (~4–5 GB VRAM — primary brain)
-Code / tools:     qwen2.5-coder:7b (~4–5 GB VRAM)
-Fast / light:     gemma3:4b        (~3.0 GB VRAM)
-Deep reasoning:   qwen3:8b         (~5.0 GB VRAM — use when depth required)
-Vision:           llava:7b         (~4.5 GB VRAM)
-Image gen:        SD 1.5           (~4.0 GB VRAM float16)
+Default/deep chat:  qwen3:8b         (~5.0 GB VRAM — primary brain)
+Code / tools:       qwen2.5-coder:7b (~4.7 GB VRAM)
+Fast / light:       gemma3:4b        (~3.0 GB VRAM)
+Vision tasks:       llava:7b         (~4.5 GB VRAM)
+Image gen:          SD 1.5           (~4.0 GB VRAM float16) — unload LLM first
 ```
 
 ---
@@ -278,7 +292,7 @@ Modes are orthogonal to model IDs. A mode defines how the assistant should think
 | **planning** | Decompose into steps before execution |
 | **research** | Multi-source, tool-heavy, cite sources |
 
-Same model, different modes — e.g. `qwen2.5:7b` can run fast or normal by swapping system prompt fragments and sampling parameters.
+Same model, different modes — e.g. `qwen3:8b` can run fast or normal by swapping system prompt fragments and sampling parameters.
 
 ---
 
@@ -362,9 +376,10 @@ Capabilities live in the `skills/` tree as a callable tool system:
 
 | Area | What Shipped |
 |------|-------------|
-| **Phase 1** | `config/*.yaml`, `.env.example`, `requirements.txt`, `app/main.py` entry points, `scripts/install.sh` + `install.ps1`, `settings/` loaders, `core/agents/extensions`, `skills/` + `config/schemas/` skeleton |
-| **Phase 2** | `models/llm/` engine + router + prompts + profiles; `core/runtime/` decision, evaluate, escalation, limits, memory hints stub; `core/brain/orchestrator` + dispatcher; `core/events/event_bus`; `core/bootstrap`; `tests/test_phase2_*.py` |
+| **Phase 1** | `config/*.yaml`, `.env.example`, `requirements.txt`, `app/main.py` entry points, `scripts/install.sh` + `install.ps1`, `settings/` loaders, skeleton directories |
+| **Phase 2** | `models/llm/` engine + router + prompts + profiles; `core/runtime/` decision, evaluate, escalation, limits; `core/brain/` orchestrator + dispatcher; `core/events/` event_bus; `core/bootstrap`; test suite phase 2 |
 | **Phase 3** | `core/memory/` short-term + long-term + database + manager + user profiling; `core/context/` buffer system; `core/identity/` Jarvis profile + user identity + prompt builder + model awareness + system awareness |
+| **Phases 4–16** | Roadmap — see TASKS.md |
 
 ---
 
@@ -376,11 +391,10 @@ Capabilities live in the `skills/` tree as a callable tool system:
 # 1. Install Ollama
 winget install Ollama.Ollama
 
-# 2. Pull required models
-ollama pull qwen2.5:7b
+# 2. Pull required models (qwen2.5:7b removed — superseded by qwen3:8b)
+ollama pull qwen3:8b
 ollama pull qwen2.5-coder:7b
 ollama pull gemma3:4b
-ollama pull qwen3:8b
 ollama pull llava:7b
 
 # 3. Install Python dependencies
@@ -424,10 +438,9 @@ jarvis:
   wake_word: "hey_jarvis"
 
 models:
-  default_llm: "qwen2.5:7b"
+  default_llm: "qwen3:8b"
   code_llm: "qwen2.5-coder:7b"
   fast_llm: "gemma3:4b"
-  deep_llm: "qwen3:8b"
   vision_llm: "llava:7b"
 
 hardware:
@@ -446,15 +459,19 @@ See [TASKS.md](./TASKS.md) for the full checklist with checkboxes updated as wor
 | Phase 1 | Foundation — config, logging, project skeleton | ✅ Complete |
 | Phase 2 | LLM + Runtime + Decision Layer + Dynamic Router | ✅ Complete |
 | Phase 3 | Memory + Adaptive Memory + Context Buffer + Identity | ✅ Complete |
-| Phase 4 | CLI Interface — Rich UX, slash commands | ⏳ Pending |
+| Phase 4 | CLI Interface — Rich UX, slash commands, hotkeys | ⏳ Next |
 | Phase 5 | Tool System — registry, schemas, calling pipeline | ⏳ Pending |
-| Phase 6 | Agents — Planner / Thinker / ReAct | ⏳ Pending |
-| Phase 7 | Task Decomposition Engine | ⏳ Pending |
-| Phase 8 | Feedback & Learning | ⏳ Pending |
-| Phase 9 | Web UI + Voice + Vision | ⏳ Pending |
-| Phase 10 | Integrations — Telegram + GUI | ⏳ Pending |
-| Phase 11 | QA + Optimization + Security | ⏳ Pending |
-| Phase 12 | Personality Layer | ⏳ Pending |
+| Phase 6 | System Control — apps, files, clipboard, notifications, OCR | ⏳ Pending |
+| Phase 7 | Browser & Web — Playwright + sessions + WhatsApp | ⏳ Pending |
+| Phase 8 | External APIs — Gmail, Calendar, Drive, Contacts, YouTube | ⏳ Pending |
+| Phase 9 | Agents — Planner / Thinker / ReAct / Computer Use | ⏳ Pending |
+| Phase 10 | Task Decomposition Engine | ⏳ Pending |
+| Phase 11 | Feedback & Learning | ⏳ Pending |
+| Phase 12 | Web UI + Voice + Vision (multimodal surfaces) | ⏳ Pending |
+| Phase 13 | Telegram Interface | ⏳ Pending |
+| Phase 14 | GUI Desktop App + System Tray | ⏳ Pending |
+| Phase 15 | QA + Optimization + Security | ⏳ Pending |
+| Phase 16 | Personality Layer | ⏳ Pending |
 
 ---
 
@@ -479,6 +496,14 @@ See [TASKS.md](./TASKS.md) for the full checklist with checkboxes updated as wor
 | Config | PyYAML + python-dotenv |
 | Logging | Loguru |
 | Decision / Routing | Policy layer + capability-weighted model scoring |
+| Clipboard | pyperclip + win32clipboard |
+| Global Hotkeys | pynput / keyboard |
+| System Tray | pystray |
+| Windows Notifications | winotify |
+| Screen Capture | mss + Pillow |
+| Lightweight OCR | pytesseract (Tesseract) |
+| Gmail / Drive / Contacts | google-api-python-client |
+| WhatsApp | Playwright (WhatsApp Web) |
 
 ---
 

@@ -18,27 +18,43 @@
 - **Context Buffer** ↔ **Runtime (Observe)** ↔ **Decision** ↔ **Tools:** interfaces enqueue text/files/images/audio into a staging layer; Observe reads a merged snapshot; Decision uses that as the primary input signal; heavy models and tool-side readers run only after Decide (buffer remains preparation-only).
 - **Identity & Profiles** ↔ **Memory** ↔ **Decision** ↔ **Runtime** ↔ **Context Buffer:** user profile + Jarvis system identity feed Observe and Decision priors; system prompt builder ensures every model sees who Jarvis is, who the user is, and shared conversation/tool state — consistent behavior across all routed models.
 
----
+> **Phase order rationale:**
+> - CLI first (Phase 4) = fastest feedback loop, no frontend complexity
+> - Tool system (Phase 5) = prerequisite for everything else — agents need tools, APIs need registry
+> - System Control (Phase 6) + Browser (Phase 7) = core "computer use" skills, built on tool registry
+> - External APIs (Phase 8) = depends on tool registry (Phase 5)
+> - Agents (Phase 9) = need tools (5,6,7) and APIs (8) to be useful
+> - Task Decomposition (Phase 10) = extends agents, needs agents first
+> - Feedback (Phase 11) = closes the loop, needs agents + tools working
+> - Multimodal surfaces (Phase 12) = Web/Voice/Vision — highest value, built on top of everything
+> - Telegram (Phase 13) + GUI (Phase 14) = extra interfaces, lower priority than core function
+> - QA (Phase 15) = after feature-complete
+> - Personality (Phase 16) = polish last
 
+
+---
 ## 📊 Progress Overview
 
 | Phase | Tasks | Done | Progress |
 |-------|-------|------|----------|
 | Phase 1: Foundation | 8 | 8 | ██████████ 100% |
-| Phase 2: LLM + Runtime + Decision | 26 | 26 | ██████████ 100% |
+| Phase 2: LLM + Runtime + Decision | 26 | 22 | █████████░ 85% |
 | Phase 3: Memory + Context Buffer + Identity | 20 | 20 | ██████████ 100% |
-| Phase 4: CLI Interface | 6 | 0 | ░░░░░░░░░░ 0% |
-| Phase 5: Tool System | 17 | 0 | ░░░░░░░░░░ 0% |
-| Phase 6: Agents (Basic → Advanced) | 6 | 0 | ░░░░░░░░░░ 0% |
-| Phase 7: Task Decomposition Engine | 8 | 0 | ░░░░░░░░░░ 0% |
-| Phase 8: Feedback & Learning | 9 | 0 | ░░░░░░░░░░ 0% |
-| Phase 9: Web + Voice + Vision | 32 | 0 | ░░░░░░░░░░ 0% |
-| Phase 10: Integrations | 11 | 0 | ░░░░░░░░░░ 0% |
-| Phase 11: QA + Optimize | 9 | 0 | ░░░░░░░░░░ 0% |
-| Phase 12: Personality Layer | 5 | 0 | ░░░░░░░░░░ 0% |
+| Phase 4: CLI Interface | 8 | 0 | ░░░░░░░░░░ 0% |
+| Phase 5: Tool System | 7 | 0 | ░░░░░░░░░░ 0% |
+| Phase 6: System Control Skills | 9 | 0 | ░░░░░░░░░░ 0% |
+| Phase 7: Browser & Web Skills | 9 | 0 | ░░░░░░░░░░ 0% |
+| Phase 8: External APIs & Integrations | 9 | 0 | ░░░░░░░░░░ 0% |
+| Phase 9: Agents | 8 | 0 | ░░░░░░░░░░ 0% |
+| Phase 10: Task Decomposition Engine | 9 | 0 | ░░░░░░░░░░ 0% |
+| Phase 11: Feedback & Learning | 9 | 0 | ░░░░░░░░░░ 0% |
+| Phase 12: Web UI + Voice + Vision | 23 | 0 | ░░░░░░░░░░ 0% |
+| Phase 13: Telegram Interface | 6 | 0 | ░░░░░░░░░░ 0% |
+| Phase 14: GUI Desktop App | 7 | 0 | ░░░░░░░░░░ 0% |
+| Phase 15: QA + Optimization + Security | 12 | 0 | ░░░░░░░░░░ 0% |
+| Phase 16: Personality Layer | 5 | 0 | ░░░░░░░░░░ 0% |
 
 ---
-
 ## 🏗️ Phase 1 — Foundation & Project Setup
 > **Goal:** Working project skeleton, config system, logging, and base classes
 
@@ -419,8 +435,19 @@
   - [ ] 4.6.3 — Commands test
   - [ ] 4.6.4 — History navigation test
 
----
+- [ ] **4.7** — Global hotkey registration (Windows + Linux)
+  - [ ] 4.7.1 — Register Ctrl+Alt+J to bring Jarvis CLI to focus / open new session
+  - [ ] 4.7.2 — Register Ctrl+Alt+S to start voice input from any context
+  - [ ] 4.7.3 — Use `keyboard` or `pynput` library (Windows-compatible)
+  - [ ] 4.7.4 — Configurable hotkeys in config/settings.yaml
 
+- [ ] **4.8** — Windows system tray process (background daemon)
+  - [ ] 4.8.1 — Run Jarvis as background process on startup
+  - [ ] 4.8.2 — System tray icon with right-click menu (Open CLI, Open Web, Quit)
+  - [ ] 4.8.3 — Use `pystray` + `Pillow` for tray icon
+  - [ ] 4.8.4 — Auto-start on Windows login (optional, user-controlled)
+
+---
 ## 🛠️ Phase 5 — Tool System
 > **Goal:** Real-world actions as callable tools — registry, structured I/O, tool calling, execution pipeline
 > **Solution applied (Security & Scope):** Safely breaks the LLM out of its local box by granting controlled API access. Solves real-world execution limits by introducing human-in-the-loop pauses for auth/captchas, rather than failing silently.
@@ -448,75 +475,14 @@
 
 - [ ] **5.4** — Wire `core/runtime/executor/` to registry
   - [ ] 5.4.1 — Unified `execute_tool(name, args)` with error wrapping
-  - [ ] 5.4.2 — Log tool latency, outcomes, and args fingerprint (for Phase 11 metrics)
+  - [ ] 5.4.2 — Log tool latency, outcomes, and args fingerprint (for Phase 15 metrics)
   - [ ] 5.4.3 — Tool metrics collection: success rate, avg latency, error frequency per tool
-
-- [ ] **5.5** — `skills/search/web_search.py` — web search tool
-  - [ ] 5.5.1 — DuckDuckGo search (no API key needed)
-  - [ ] 5.5.2 — Return top N results with title + snippet + URL
-  - [ ] 5.5.3 — Fast scraping of result pages
-  - [ ] 5.5.4 — Local SearxNG integration (optional)
-
-- [ ] **5.6** — `skills/web/browser.py` — browser automation tool
-  - [ ] 5.6.1 — Open URL in Playwright browser
-  - [ ] 5.6.2 — Click elements by text/selector
-  - [ ] 5.6.3 — Fill forms
-  - [ ] 5.6.4 — Extract page content as text/markdown
-  - [ ] 5.6.5 — Take screenshot of page
-
-- [ ] **5.7** — `skills/control/files/` — file operations
-  - [ ] 5.7.1 — List directory contents
-  - [ ] 5.7.2 — Read file content
-  - [ ] 5.7.3 — Write/create file
-  - [ ] 5.7.4 — Move/copy/delete file
-  - [ ] 5.7.5 — Search files by name/content
-
-- [ ] **5.8** — `skills/control/system/` — system control
-  - [ ] 5.8.1 — Get system info (CPU, RAM, disk)
-  - [ ] 5.8.2 — List running processes
-  - [ ] 5.8.3 — Kill process by name/PID
-  - [ ] 5.8.4 — Get/set volume
-  - [ ] 5.8.5 — Run shell command (sandboxed)
-
-- [ ] **5.9** — `skills/control/apps/` — application control
-  - [ ] 5.9.1 — Open application by name
-  - [ ] 5.9.2 — Close application
-  - [ ] 5.9.3 — List installed apps
-
-- [ ] **5.10** — `skills/coder/executor.py` — code execution tool
-  - [ ] 5.10.1 — Execute Python code safely
-  - [ ] 5.10.2 — Execute shell commands
-  - [ ] 5.10.3 — Capture stdout/stderr
-  - [ ] 5.10.4 — Timeout protection
-  - [ ] 5.10.5 — Return structured result to LLM
-
-- [ ] **5.11** — `skills/api/google_calendar.py` — Google Calendar
-  - [ ] 5.11.1 — OAuth2 authentication flow
-  - [ ] 5.11.2 — List upcoming events
-  - [ ] 5.11.3 — Create new event
-  - [ ] 5.11.4 — Delete event
-  - [ ] 5.11.5 — Search events
-
-- [ ] **5.12** — `skills/api/youtube.py` — YouTube
-  - [ ] 5.12.1 — Search videos
-  - [ ] 5.12.2 — Get video info
-  - [ ] 5.12.3 — Open video in browser
-
-- [ ] **5.13** — `skills/reader/pdf/` — PDF reading
-  - [ ] 5.13.1 — Extract text from PDF
-  - [ ] 5.13.2 — Extract images from PDF
-  - [ ] 5.13.3 — Summarize PDF via LLM
-
-- [ ] **5.14** — `skills/reader/office/` — Office documents
-  - [ ] 5.14.1 — Read Word (.docx) files
-  - [ ] 5.14.2 — Read Excel (.xlsx) files
-  - [ ] 5.14.3 — Read PowerPoint (.pptx) files
 
 - [ ] **5.15** — Parallel execution system
   - [ ] 5.15.1 — Concurrent tool execution (no shared mutable resource)
   - [ ] 5.15.2 — Async runtime tasks with backpressure + cancellation
   - [ ] 5.15.3 — Background jobs for long I/O
-  - [ ] 5.15.4 — Integration with Task Decomposition (Phase 7) scheduler
+  - [ ] 5.15.4 — Integration with Task Decomposition (Phase 10) scheduler
 
 - [ ] **5.16** — Context Buffer ↔ executor / tools
   - [ ] 5.16.1 — Resolve buffer references to concrete file paths
@@ -528,531 +494,830 @@
   - [ ] 5.17.3 — Resource cleanup: release browser instances, temp files on shutdown
 
 ---
+## 💻 Phase 6 — System Control Skills
+> **Goal:** Full OS and application control on Windows — open/close apps, clipboard, notifications, file ops, code execution, and global hotkeys as registered tools in the skill registry.
+> **Dependency:** Phase 5 (Tool registry must exist before registering these tools)
 
-## 🤖 Phase 6 — Agents (Basic → Advanced)
-> **Goal:** Multi-step autonomy after tools exist
+- [ ] **6.1** — `skills/control/files/` — file operations tool (from old 5.7)
+  - [ ] 6.1.1 — List directory contents
+  - [ ] 6.1.2 — Read file content (text files; binary metadata only)
+  - [ ] 6.1.3 — Write/create file with path safety checks
+  - [ ] 6.1.4 — Move/copy/delete file (with undo-safe trash on Windows)
+  - [ ] 6.1.5 — Search files by name/content (glob + grep)
+  - [ ] 6.1.6 — Windows path normalization (backslash ↔ forward slash)
+
+- [ ] **6.2** — `skills/control/system/` — system control tool (from old 5.8)
+  - [ ] 6.2.1 — Get system info (CPU %, RAM used/total, disk space, GPU VRAM)
+  - [ ] 6.2.2 — List running processes (name, PID, CPU%, RAM%)
+  - [ ] 6.2.3 — Kill process by name or PID (`taskkill` on Windows, `kill` on Linux)
+  - [ ] 6.2.4 — Get/set system volume (Windows: `pycaw`; Linux: `amixer`)
+  - [ ] 6.2.5 — Run shell command in controlled sandbox (allowlist or confirm-first)
+  - [ ] 6.2.6 — Get/set environment variables (session-scoped only)
+  - [ ] 6.2.7 — List and manage Windows startup items
+  - [ ] 6.2.8 — List and manage Windows Scheduled Tasks (read + basic create)
+  - [ ] 6.2.9 — Network status: adapter list, IP addresses, connectivity check
+
+- [ ] **6.3** — `skills/control/apps/` — Windows application launcher (from old 5.9 + expanded)
+  - [ ] 6.3.1 — Open application by name using `ShellExecute` / `subprocess.Popen`
+  - [ ] 6.3.2 — Search for app in `%APPDATA%`, `Program Files`, `Program Files (x86)`, PATH
+  - [ ] 6.3.3 — Search Windows Start Menu shortcuts (.lnk files) by name
+  - [ ] 6.3.4 — Close application by name or PID (`taskkill /IM name.exe /F`)
+  - [ ] 6.3.5 — List installed applications (registry `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall`)
+  - [ ] 6.3.6 — Bring application window to foreground (`pywin32` / `ctypes`)
+  - [ ] 6.3.7 — Minimize/maximize/restore application window
+  - [ ] 6.3.8 — Graceful shutdown: try close message first, then force kill
+
+- [ ] **6.4** — `skills/coder/executor.py` — code execution tool (from old 5.10)
+  - [ ] 6.4.1 — Execute Python code safely in subprocess with timeout
+  - [ ] 6.4.2 — Execute shell/PowerShell commands (confirm-first for destructive ops)
+  - [ ] 6.4.3 — Capture stdout/stderr; return structured result
+  - [ ] 6.4.4 — Timeout protection (configurable, default 30s)
+  - [ ] 6.4.5 — Return structured result: {stdout, stderr, returncode, duration}
+
+- [ ] **6.5** — `skills/control/clipboard.py` — Clipboard manager tool (NEW)
+  - [ ] 6.5.1 — Read current clipboard content (text, image detection)
+  - [ ] 6.5.2 — Write text to clipboard
+  - [ ] 6.5.3 — Monitor clipboard for changes (background thread, event on change)
+  - [ ] 6.5.4 — Use `pyperclip` (cross-platform) + `win32clipboard` for images
+  - [ ] 6.5.5 — Integration: "translate what I copied", "explain this code" flows
+
+- [ ] **6.6** — `skills/control/notifications.py` — Windows notification tool (NEW)
+  - [ ] 6.6.1 — Send Windows Toast notification (title + body + optional icon)
+  - [ ] 6.6.2 — Use `win10toast` or `winotify` library
+  - [ ] 6.6.3 — Notification types: info / warning / success / reminder
+  - [ ] 6.6.4 — Integration: task completion alerts, Calendar reminders, long-task done
+  - [ ] 6.6.5 — Fallback: print to console if Windows toast fails
+
+- [ ] **6.7** — `skills/screen/` — Screen capture and lightweight OCR (NEW)
+  - [ ] 6.7.1 — Full screenshot capture (`Pillow` + `mss` for speed)
+  - [ ] 6.7.2 — Region screenshot (user-defined bounding box)
+  - [ ] 6.7.3 — Lightweight OCR without vision model: `pytesseract` / `easyocr`
+  - [ ] 6.7.4 — "Read what's on my screen" without loading LLaVA (fast path)
+  - [ ] 6.7.5 — Save screenshots to configurable output folder
+  - [ ] 6.7.6 — Pass screenshot to vision model (LLaVA) when semantic understanding needed
+
+- [ ] **6.8** — Global hotkey tool registration
+  - [ ] 6.8.1 — Register hotkeys as a registered tool in the skill registry
+  - [ ] 6.8.2 — `skills/control/hotkeys.py` — manage hotkey bindings at runtime
+  - [ ] 6.8.3 — Configurable bindings in config/settings.yaml → hotkeys section
+  - [ ] 6.8.4 — Emit events via EventBus when hotkey fires
+
+- [ ] **6.9** — Test Phase 6 tools
+  - [ ] 6.9.1 — Open and close Notepad by name
+  - [ ] 6.9.2 — Read + write clipboard
+  - [ ] 6.9.3 — Send Windows notification
+  - [ ] 6.9.4 — Screenshot + OCR test
+  - [ ] 6.9.5 — Kill process by name test
+
+---
+
+## 🌐 Phase 7 — Browser & Web Skills
+> **Goal:** Full browser control via Playwright — navigate, interact, extract, download, upload — with persistent sessions so Jarvis stays logged in between runs.
+> **Dependency:** Phase 5 (Tool registry), Phase 6 (system control for file paths)
+
+- [ ] **7.1** — `skills/search/web_search.py` — web search tool (from old 5.5)
+  - [ ] 7.1.1 — DuckDuckGo search (no API key needed)
+  - [ ] 7.1.2 — Return top N results: title + snippet + URL
+  - [ ] 7.1.3 — Fast page content extraction (readability or trafilatura)
+  - [ ] 7.1.4 — Local SearxNG integration (optional, self-hosted)
+  - [ ] 7.1.5 — Result caching (TTL-based, avoid duplicate searches)
+
+- [ ] **7.2** — `skills/web/browser.py` — browser automation core (from old 5.6, expanded)
+  - [ ] 7.2.1 — Launch Playwright browser (Chromium headless/headed, configurable)
+  - [ ] 7.2.2 — Navigate to URL and wait for load
+  - [ ] 7.2.3 — Click element by text, CSS selector, or XPath
+  - [ ] 7.2.4 — Fill input fields (text, checkbox, select dropdown)
+  - [ ] 7.2.5 — Extract page content as clean text/Markdown (readability)
+  - [ ] 7.2.6 — Take full-page or viewport screenshot
+
+- [ ] **7.3** — `skills/web/session_manager.py` — persistent browser session (NEW)
+  - [ ] 7.3.1 — Save browser storage state (cookies + localStorage) to JSON file per site
+  - [ ] 7.3.2 — Load saved session on browser open (stay logged in between Jarvis restarts)
+  - [ ] 7.3.3 — Session keyed by domain: e.g. `sessions/google.com.json`
+  - [ ] 7.3.4 — Auto-detect if session expired → prompt user to re-login once, then save again
+  - [ ] 7.3.5 — Session vault in config-defined path (not in git, gitignored)
+  - [ ] 7.3.6 — Integration: all browser tools use session manager by default
+
+- [ ] **7.4** — `skills/web/downloader.py` — file download management (NEW)
+  - [ ] 7.4.1 — Intercept Playwright download events
+  - [ ] 7.4.2 — Save to configured download folder with original filename
+  - [ ] 7.4.3 — Return download result: {path, filename, size, duration}
+  - [ ] 7.4.4 — Progress feedback for large files
+
+- [ ] **7.5** — `skills/web/uploader.py` — file upload via browser (NEW)
+  - [ ] 7.5.1 — Set file input fields with local file path (`page.set_input_files`)
+  - [ ] 7.5.2 — Handle multiple file uploads
+  - [ ] 7.5.3 — Validate file exists before upload attempt
+
+- [ ] **7.6** — Multi-tab and multi-window support (NEW)
+  - [ ] 7.6.1 — Open new tab / switch between tabs by index or title
+  - [ ] 7.6.2 — Close specific tab
+  - [ ] 7.6.3 — Handle popup windows and new window events
+  - [ ] 7.6.4 — Handle alert/confirm/prompt dialogs (auto-accept or ask user)
+
+- [ ] **7.7** — Human-in-the-loop pause for auth (NEW)
+  - [ ] 7.7.1 — Detect login/captcha pages (title check + URL patterns)
+  - [ ] 7.7.2 — Pause automation and notify user via notification + CLI prompt
+  - [ ] 7.7.3 — Resume after user signals completion (press Enter / button)
+  - [ ] 7.7.4 — Do not silently fail on auth walls — always surface to user
+
+- [ ] **7.8** — WhatsApp Web automation (NEW)
+  - [ ] 7.8.1 — Open WhatsApp Web using saved session
+  - [ ] 7.8.2 — Search for contact by name
+  - [ ] 7.8.3 — Send text message to contact
+  - [ ] 7.8.4 — Read last N messages from a conversation
+  - [ ] 7.8.5 — Handle QR code login (show QR, wait for scan, save session)
+  - [ ] 7.8.6 — Integration: "send X a message saying Y" natural language command
+
+- [ ] **7.9** — Test Phase 7 tools
+  - [ ] 7.9.1 — Web search + content extraction test
+  - [ ] 7.9.2 — Session persistence test (login, restart, verify still logged in)
+  - [ ] 7.9.3 — File download test
+  - [ ] 7.9.4 — File upload test
+  - [ ] 7.9.5 — Multi-tab navigation test
+  - [ ] 7.9.6 — WhatsApp send message test
+
+---
+
+## 🔌 Phase 8 — External APIs & Integrations
+> **Goal:** Connect Jarvis to Google services, YouTube, and other external APIs. All integrations registered as tools in Phase 5 registry.
+> **Dependency:** Phase 5 (Tool registry), Phase 7 (browser session for OAuth flows)
+
+- [ ] **8.1** — `skills/api/google_calendar.py` — Google Calendar (from old 5.11)
+  - [ ] 8.1.1 — OAuth2 authentication flow (browser-based, save token to file)
+  - [ ] 8.1.2 — List upcoming events (configurable N days)
+  - [ ] 8.1.3 — Create new event (title, datetime, description, attendees)
+  - [ ] 8.1.4 — Delete event by ID
+  - [ ] 8.1.5 — Search events by keyword and date range
+  - [ ] 8.1.6 — Update existing event fields
+
+- [ ] **8.2** — `skills/api/youtube.py` — YouTube (from old 5.12)
+  - [ ] 8.2.1 — Search videos by query (YouTube Data API v3)
+  - [ ] 8.2.2 — Get video info (title, duration, channel, views)
+  - [ ] 8.2.3 — Open video in default browser
+  - [ ] 8.2.4 — Get channel info and recent uploads
+
+- [ ] **8.3** — `skills/reader/pdf/` — PDF reading tool (from old 5.13)
+  - [ ] 8.3.1 — Extract text from PDF (pypdf / pdfplumber)
+  - [ ] 8.3.2 — Extract images from PDF pages
+  - [ ] 8.3.3 — Summarize PDF via LLM (chunked for long docs)
+  - [ ] 8.3.4 — Extract tables from PDF as structured data
+
+- [ ] **8.4** — `skills/reader/office/` — Office documents (from old 5.14)
+  - [ ] 8.4.1 — Read Word (.docx) files (python-docx)
+  - [ ] 8.4.2 — Read Excel (.xlsx) files (openpyxl / pandas)
+  - [ ] 8.4.3 — Read PowerPoint (.pptx) files (python-pptx)
+  - [ ] 8.4.4 — Write/create simple Word documents
+  - [ ] 8.4.5 — Write/create simple Excel spreadsheets
+
+- [ ] **8.5** — `skills/api/gmail.py` — Gmail integration (NEW)
+  - [ ] 8.5.1 — OAuth2 auth (reuse Google token from Calendar if same account)
+  - [ ] 8.5.2 — Read latest N emails (sender, subject, preview, date)
+  - [ ] 8.5.3 — Search emails by query (Gmail search syntax)
+  - [ ] 8.5.4 — Send email (to, subject, body, optional attachments)
+  - [ ] 8.5.5 — Reply to email by message ID
+  - [ ] 8.5.6 — Mark email as read/unread/starred
+  - [ ] 8.5.7 — Move email to label/folder
+  - [ ] 8.5.8 — Integration: "read my latest emails" / "send email to X about Y"
+
+- [ ] **8.6** — `skills/api/google_drive.py` — Google Drive (NEW)
+  - [ ] 8.6.1 — OAuth2 auth (reuse Google token)
+  - [ ] 8.6.2 — List files in Drive root and folders
+  - [ ] 8.6.3 — Search files by name or content
+  - [ ] 8.6.4 — Download file by name or ID
+  - [ ] 8.6.5 — Upload local file to Drive
+  - [ ] 8.6.6 — Share file with email address (view/edit permission)
+
+- [ ] **8.7** — `skills/api/google_contacts.py` — Google Contacts (NEW)
+  - [ ] 8.7.1 — OAuth2 auth (reuse Google token, People API)
+  - [ ] 8.7.2 — List contacts (name, email, phone)
+  - [ ] 8.7.3 — Search contacts by name or email
+  - [ ] 8.7.4 — Get contact details
+  - [ ] 8.7.5 — Create new contact
+
+- [ ] **8.8** — Unified Google OAuth manager (NEW)
+  - [ ] 8.8.1 — Single `skills/api/google_auth.py` that handles OAuth2 for all Google APIs
+  - [ ] 8.8.2 — Scopes: Calendar + Gmail + Drive + Contacts + YouTube in one token
+  - [ ] 8.8.3 — Token persistence: save/load from `data/google_token.json`
+  - [ ] 8.8.4 — Auto-refresh expired tokens silently
+  - [ ] 8.8.5 — Re-auth flow: open browser → user consents → token saved
+
+- [ ] **8.9** — Test Phase 8 integrations
+  - [ ] 8.9.1 — Google OAuth flow end-to-end
+  - [ ] 8.9.2 — Calendar CRUD test
+  - [ ] 8.9.3 — Gmail send + read test
+  - [ ] 8.9.4 — Drive upload + download test
+  - [ ] 8.9.5 — Contacts search test
+
+---
+
+## 🤖 Phase 9 — Agents (Basic → Advanced)
+> **Goal:** Multi-step autonomy. Agents coordinate tools (Phases 6–8), plan subtasks, reason, and execute complex goals without step-by-step user guidance.
+> **Dependency:** Phases 5–8 (tools + browser + APIs must exist before agents can use them)
 
 ### Basic (core autonomy)
-- [ ] **6.1** — Create `core/agents/planner/planner.py` — step decomposition + sequencing
-  - [ ] 6.1.1 — Break complex request into ordered steps
-  - [ ] 6.1.2 — Assign each step to a tool or model role
-  - [ ] 6.1.3 — Execute steps sequentially via runtime
-  - [ ] 6.1.4 — Pass output of step N as input to step N+1
-  - [ ] 6.1.5 — Report progress to user
+- [ ] **9.1** — Create `core/agents/planner/planner.py` — step decomposition + sequencing
+  - [ ] 9.1.1 — Break complex request into ordered steps
+  - [ ] 9.1.2 — Assign each step to a tool or model role
+  - [ ] 9.1.3 — Execute steps sequentially via runtime
+  - [ ] 9.1.4 — Pass output of step N as input to step N+1
+  - [ ] 9.1.5 — Report progress to user
 
-- [ ] **6.2** — Create `core/agents/thinker/thinker.py` — deeper reasoning
-  - [ ] 6.2.1 — Extended Chain-of-Thought reasoning
-  - [ ] 6.2.2 — Self-verification of answers
-  - [ ] 6.2.3 — Confidence scoring
+- [ ] **9.2** — Create `core/agents/thinker/thinker.py` — deeper reasoning
+  - [ ] 9.2.1 — Extended Chain-of-Thought reasoning
+  - [ ] 9.2.2 — Self-verification of answers
+  - [ ] 9.2.3 — Confidence scoring
 
-- [ ] **6.3** — ReAct loop integration (Reason + Act) with runtime
-  - [ ] 6.3.1 — Observe → Think → Act → Observe with tool calls
-  - [ ] 6.3.2 — Max iterations guard
-  - [ ] 6.3.3 — Optional: show reasoning steps to user
+- [ ] **9.3** — ReAct loop integration (Reason + Act) with runtime
+  - [ ] 9.3.1 — Observe → Think → Act → Observe with tool calls
+  - [ ] 9.3.2 — Max iterations guard
+  - [ ] 9.3.3 — Optional: show reasoning steps to user
 
 ### Advanced
-- [ ] **6.4** — Create `core/agents/researcher.py` — deep research agent
-  - [ ] 6.4.1 — Multi-query web search
-  - [ ] 6.4.2 — Scrape and summarize multiple sources
-  - [ ] 6.4.3 — Cross-reference and fact-check
-  - [ ] 6.4.4 — Generate structured report
+- [ ] **9.4** — Create `core/agents/researcher.py` — deep research agent
+  - [ ] 9.4.1 — Multi-query web search
+  - [ ] 9.4.2 — Scrape and summarize multiple sources
+  - [ ] 9.4.3 — Cross-reference and fact-check
+  - [ ] 9.4.4 — Generate structured report
 
-- [ ] **6.5** — `skills/screen/screen_agent.py` — visual computer control
-  - [ ] 6.5.1 — Take screenshot
-  - [ ] 6.5.2 — Describe screen via vision
-  - [ ] 6.5.3 — Move mouse and click based on vision
-  - [ ] 6.5.4 — Type text
-  - [ ] 6.5.5 — Full GUI automation loop (guarded)
+- [ ] **9.5** — `skills/screen/screen_agent.py` — visual computer control
+  - [ ] 9.5.1 — Take screenshot
+  - [ ] 9.5.2 — Describe screen via vision
+  - [ ] 9.5.3 — Move mouse and click based on vision
+  - [ ] 9.5.4 — Type text
+  - [ ] 9.5.5 — Full GUI automation loop (guarded)
 
-- [ ] **6.6** — Test agents
-  - [ ] 6.6.1 — Multi-step task test
-  - [ ] 6.6.2 — ReAct + tool calling test
-  - [ ] 6.6.3 — Screen agent test
+- [ ] **9.6** — Test agents
+  - [ ] 9.6.1 — Multi-step task test
+  - [ ] 9.6.2 — ReAct + tool calling test
+  - [ ] 9.6.3 — Screen agent test
+
+- [ ] **9.7** — `core/agents/extensions/` — pluggable agent extensions (was "New folder")
+  - [ ] 9.7.1 — Define AgentExtension base class (hook: before/after plan execution)
+  - [ ] 9.7.2 — Example extension: auto-summarize completed plan to memory
+  - [ ] 9.7.3 — Example extension: post-plan notification via 6.6
+
+- [ ] **9.8** — Computer use agent — full autonomous loop (NEW)
+  - [ ] 9.8.1 — Observe screen via 6.7 (screenshot)
+  - [ ] 9.8.2 — Describe what's visible using LLaVA (vision tool)
+  - [ ] 9.8.3 — Decide next action (click, type, open app, search) using LLM
+  - [ ] 9.8.4 — Execute via pyautogui (mouse + keyboard control)
+  - [ ] 9.8.5 — Loop: screenshot → describe → decide → execute → screenshot
+  - [ ] 9.8.6 — Safety: require user confirmation before destructive actions
+  - [ ] 9.8.7 — Max-step guard (configurable) to prevent infinite loops
+  - [ ] 9.8.8 — Integration: uses app launcher (6.3), browser (Phase 7), OCR (6.7)
 
 ---
 
-## 🧩 Phase 7 — Task Decomposition Engine
-> **Goal:** Turn a goal into a structured plan — execution graph, dependencies, selective retry
+## 🧩 Phase 10 — Task Decomposition Engine
+> **Goal:** Turn a high-level goal into a structured execution graph. Enables complex multi-step automation.
+> **Dependency:** Phase 9 (Agents must exist as execution units)
 > **Solution applied (Zero-Shot Limits):** Overcomes local LLM logic failure limits by breaking massive, abstract tasks (which crash 8B models) into tiny, measurable micro-tasks that small models excel at.
 
-- [ ] **7.1** — Decomposition API — input: user goal + DecisionOutput; output: DAG of steps
-  - [ ] 7.1.1 — Subtask schema: id, type, inputs/outputs, depends_on, retry_group
-  - [ ] 7.1.2 — Break tasks into subtasks (LLM or template-assisted)
-  - [ ] 7.1.3 — Human-in-the-loop nodes (optional approval gates)
+- [ ] **10.1** — Decomposition API — input: user goal + DecisionOutput; output: DAG of steps
+  - [ ] 10.1.1 — Subtask schema: id, type, inputs/outputs, depends_on, retry_group
+  - [ ] 10.1.2 — Break tasks into subtasks (LLM or template-assisted)
+  - [ ] 10.1.3 — Human-in-the-loop nodes (optional approval gates)
 
-- [ ] **7.2** — Execution graph runtime — deterministic scheduler
-  - [ ] 7.2.1 — Topological order with parallel frontier
-  - [ ] 7.2.2 — Handle dependencies: pass outputs as typed artifacts
-  - [ ] 7.2.3 — Idempotency: stable keys for re-run after resume
+- [ ] **10.2** — Execution graph runtime — deterministic scheduler
+  - [ ] 10.2.1 — Topological order with parallel frontier
+  - [ ] 10.2.2 — Handle dependencies: pass outputs as typed artifacts
+  - [ ] 10.2.3 — Idempotency: stable keys for re-run after resume
 
-- [ ] **7.3** — Retry only failed steps
-  - [ ] 7.3.1 — Mark failed node with error class; skip successful siblings
-  - [ ] 7.3.2 — Partial replan: optional subgraph regeneration
+- [ ] **10.3** — Retry only failed steps
+  - [ ] 10.3.1 — Mark failed node with error class; skip successful siblings
+  - [ ] 10.3.2 — Partial replan: optional subgraph regeneration
 
-- [ ] **7.4** — Integration with agents + runtime
-  - [ ] 7.4.1 — Planner (6.1) can delegate to engine
-  - [ ] 7.4.2 — Dispatcher routes "complex plan" intents here
+- [ ] **10.4** — Integration with agents + runtime
+  - [ ] 10.4.1 — Planner (9.1) can delegate to engine
+  - [ ] 10.4.2 — Dispatcher routes "complex plan" intents here
 
-- [ ] **7.5** — Observability — export graph to logs/UI (Mermaid or JSON)
+- [ ] **10.5** — Observability — export graph to logs/UI (Mermaid or JSON)
 
-- [ ] **7.6** — Tests
-  - [ ] 7.6.1 — Diamond dependency graph (parallel then join)
-  - [ ] 7.6.2 — Failure mid-graph → retry one branch only
-  - [ ] 7.6.3 — Resume after disconnect with same run_id
+- [ ] **10.6** — Tests
+  - [ ] 10.6.1 — Diamond dependency graph (parallel then join)
+  - [ ] 10.6.2 — Failure mid-graph → retry one branch only
+  - [ ] 10.6.3 — Resume after disconnect with same run_id
 
-- [ ] **7.7** — Feedback hooks — on node success/failure emit signals for Phase 8
+- [ ] **10.7** — Natural language goal → plan (end-to-end)
+  - [ ] 10.7.1 — "Book a meeting with X about Y on Friday" → decompose → Calendar tool
+  - [ ] 10.7.2 — "Summarize my last 5 emails and save to Drive" → Gmail + Drive tools
+  - [ ] 10.7.3 — "Open Chrome, go to YouTube, search for X, click first result" → browser agent
+  - [ ] 10.7.4 — Test that decomposition uses available tools correctly (tool registry must be consulted)
 
-- [ ] **7.8** — Cost / budget awareness — inherit cost_estimate; prune when over budget
+- [ ] **10.8** — Feedback hooks — on node success/failure emit signals for Phase 11
 
----
-
-## 📈 Phase 8 — Feedback & Learning System
-> **Goal:** Learn from implicit and explicit signals; persist attributed outcomes for memory and decision priors
-
-- [ ] **8.1** — Implicit feedback detection
-  - [ ] 8.1.1 — User continues: new message within τ → weak positive
-  - [ ] 8.1.2 — User repeats question: rephrase → negative / confusion signal
-  - [ ] 8.1.3 — User ignores response: no follow-up within session → weak negative
-
-- [ ] **8.2** — Explicit feedback (optional UI) — thumbs up/down, correction messages
-
-- [ ] **8.3** — Success / failure scoring — map events + Evaluate + error class to scalar per turn
-
-- [ ] **8.4** — Store feedback linked to:
-  - [ ] 8.4.1 — Decisions: snapshot DecisionOutput
-  - [ ] 8.4.2 — Models: resolved model id + mode pack
-  - [ ] 8.4.3 — Tools: tool name + version + args fingerprint
-
-- [ ] **8.5** — Learning surfaces (incremental, safe)
-  - [ ] 8.5.1 — Router weights: nudge scores from rolling aggregates
-  - [ ] 8.5.2 — Escalation aggressiveness: tune thresholds
-  - [ ] 8.5.3 — Memory writes: "what worked" summaries into long-term
-
-- [ ] **8.6** — Privacy & controls — per-user opt-out; retention TTL; export/delete
-
-- [ ] **8.7** — Integration tests — synthetic sessions; verify attribution chain
-
-- [ ] **8.8** — Anti-feedback hacking — detect spam toggles; rate-limit weight updates
-
-- [ ] **8.9** — Dashboard hooks (optional) — expose aggregates to Phase 11 monitoring
+- [ ] **10.9** — Cost / budget awareness — inherit cost_estimate; prune when over budget
 
 ---
 
-## 🌐 Phase 9 — Web + Voice + Vision
-> **Goal:** Multimodal surfaces on top of the same runtime, tools, memory, and feedback loops
+## 🔁 Phase 11 — Feedback & Learning
+> **Goal:** Close the loop — outcomes feed back into memory, model priors, and decision weights.
+> **Dependency:** Phase 9 (Agents) + Phase 10 (Decomposition) must produce outcomes to learn from.
+
+- [ ] **11.1** — Implicit feedback detection
+  - [ ] 11.1.1 — User continues: new message within τ → weak positive
+  - [ ] 11.1.2 — User repeats question: rephrase → negative / confusion signal
+  - [ ] 11.1.3 — User ignores response: no follow-up within session → weak negative
+
+- [ ] **11.2** — Explicit feedback (optional UI) — thumbs up/down, correction messages
+
+- [ ] **11.3** — Success / failure scoring — map events + Evaluate + error class to scalar per turn
+
+- [ ] **11.4** — Store feedback linked to:
+  - [ ] 11.4.1 — Decisions: snapshot DecisionOutput
+  - [ ] 11.4.2 — Models: resolved model id + mode pack
+  - [ ] 11.4.3 — Tools: tool name + version + args fingerprint
+
+- [ ] **11.5** — Learning surfaces (incremental, safe)
+  - [ ] 11.5.1 — Router weights: nudge scores from rolling aggregates
+  - [ ] 11.5.2 — Escalation aggressiveness: tune thresholds
+  - [ ] 11.5.3 — Memory writes: "what worked" summaries into long-term
+
+- [ ] **11.6** — Privacy & controls — per-user opt-out; retention TTL; export/delete
+
+- [ ] **11.7** — Integration tests — synthetic sessions; verify attribution chain
+
+- [ ] **11.8** — Anti-feedback hacking — detect spam toggles; rate-limit weight updates
+
+- [ ] **11.9** — Dashboard hooks (optional) — expose aggregates to Phase 15 monitoring
+
+---
+
+## 🌐 Phase 12 — Web UI + Voice + Vision
+> **Goal:** Rich multimodal interfaces — real-time web chat, voice pipeline, image understanding, image generation.
+> **Dependency:** Core brain (Phases 1–11) must be complete for interfaces to have real capabilities.
 
 ### Web UI — Glassmorphism + Frosted Acrylic AI Chat Interface
 > **Design philosophy:** A premium, state-of-the-art chat interface that synthesizes the best UX patterns from modern AI platforms (ChatGPT, Claude, Gemini, Perplexity, HuggingChat) into a unified, beautiful, and cohesive design. Core aesthetic: **Glassmorphism** panels with **Frosted Acrylic/Lucite** depth layers, heavy blur compositing, and sophisticated micro-animations.
 
-#### 9.1 — Backend: FastAPI Application (`interfaces/web/app.py`)
-- [ ] 9.1.1 — Static files serving (CSS, JS, fonts, icons)
-- [ ] 9.1.2 — Jinja2 template rendering with SSR fallback
-- [ ] 9.1.3 — CORS configuration for development and production
-- [ ] 9.1.4 — Session management middleware (session ID, expiry, cookie-based)
-- [ ] 9.1.5 — Rate limiting middleware (per-session, per-IP)
-- [ ] 9.1.6 — Gzip compression for static assets
+#### 12.1 — Backend: FastAPI Application (`interfaces/web/app.py`)
+- [ ] 12.1.1 — Static files serving (CSS, JS, fonts, icons)
+- [ ] 12.1.2 — Jinja2 template rendering with SSR fallback
+- [ ] 12.1.3 — CORS configuration for development and production
+- [ ] 12.1.4 — Session management middleware (session ID, expiry, cookie-based)
+- [ ] 12.1.5 — Rate limiting middleware (per-session, per-IP)
+- [ ] 12.1.6 — Gzip compression for static assets
 
-#### 9.2 — WebSocket Handler (`interfaces/web/websocket.py`)
-- [ ] 9.2.1 — Accept connection with session validation
-- [ ] 9.2.2 — Receive message → pass to runtime / orchestrator with session context
-- [ ] 9.2.3 — Stream response tokens back to client (JSON text frames)
-- [ ] 9.2.4 — Handle disconnection gracefully (cleanup state, log)
-- [ ] 9.2.5 — Auto-reconnect protocol: client detects disconnect → reconnect → resume stream
-- [ ] 9.2.6 — Heartbeat / ping-pong keep-alive to detect stale connections
-- [ ] 9.2.7 — Support concurrent sessions per user (multiple tabs)
+#### 12.2 — WebSocket Handler (`interfaces/web/websocket.py`)
+- [ ] 12.2.1 — Accept connection with session validation
+- [ ] 12.2.2 — Receive message → pass to runtime / orchestrator with session context
+- [ ] 12.2.3 — Stream response tokens back to client (JSON text frames)
+- [ ] 12.2.4 — Handle disconnection gracefully (cleanup state, log)
+- [ ] 12.2.5 — Auto-reconnect protocol: client detects disconnect → reconnect → resume stream
+- [ ] 12.2.6 — Heartbeat / ping-pong keep-alive to detect stale connections
+- [ ] 12.2.7 — Support concurrent sessions per user (multiple tabs)
 
-#### 9.3 — Chat Page (`interfaces/web/templates/index.html`)
-- [ ] 9.3.1 — Single-page chat application (no framework, vanilla JS)
-- [ ] 9.3.2 — Responsive layout: fluid mobile-first, desktop-optimized
-- [ ] 9.3.3 — Arabic RTL support: auto-detect text direction, proper alignment
-- [ ] 9.3.4 — Streaming message display with real-time animated cursor
-- [ ] 9.3.5 — Code blocks with syntax highlighting (Highlight.js or Prism) + copy-to-clipboard button
-- [ ] 9.3.6 — Markdown rendering for assistant responses (headings, lists, bold, links, tables)
-- [ ] 9.3.7 — LaTeX / math equation rendering (KaTeX inline)
-- [ ] 9.3.8 — Image preview for uploaded / generated images (lightbox on click)
-- [ ] 9.3.9 — File attachment cards: filename, size, type icon, remove button
-- [ ] 9.3.10 — Message actions: copy full message, regenerate, edit user message, delete
+#### 12.3 — Chat Page (`interfaces/web/templates/index.html`)
+- [ ] 12.3.1 — Single-page chat application (no framework, vanilla JS)
+- [ ] 12.3.2 — Responsive layout: fluid mobile-first, desktop-optimized
+- [ ] 12.3.3 — Arabic RTL support: auto-detect text direction, proper alignment
+- [ ] 12.3.4 — Streaming message display with real-time animated cursor
+- [ ] 12.3.5 — Code blocks with syntax highlighting (Highlight.js or Prism) + copy-to-clipboard button
+- [ ] 12.3.6 — Markdown rendering for assistant responses (headings, lists, bold, links, tables)
+- [ ] 12.3.7 — LaTeX / math equation rendering (KaTeX inline)
+- [ ] 12.3.8 — Image preview for uploaded / generated images (lightbox on click)
+- [ ] 12.3.9 — File attachment cards: filename, size, type icon, remove button
+- [ ] 12.3.10 — Message actions: copy full message, regenerate, edit user message, delete
 
-#### 9.4 — Design System: Glassmorphism + Frosted Acrylic Aesthetic (`interfaces/web/static/style.css`)
+#### 12.4 — Design System: Glassmorphism + Frosted Acrylic Aesthetic (`interfaces/web/static/style.css`)
 
-##### 9.4.1 — Color System & Theme Engine
-- [ ] 9.4.1.1 — **Dark theme (default):** deep navy/charcoal base (`#0a0a1a`, `#12122a`), frosted glass panels with `rgba(255,255,255,0.04–0.08)` backgrounds
-- [ ] 9.4.1.2 — **Accent gradients:** electric blue → teal → violet (`#3b82f6` → `#06b6d4` → `#8b5cf6`), used in action buttons, active states, and glow effects
-- [ ] 9.4.1.3 — **Light theme:** soft white/cream base, warm gray panels with frosted overlays, muted accents
-- [ ] 9.4.1.4 — **Theme toggle:** smooth CSS transition (0.4s ease) between dark↔light; persist in localStorage
-- [ ] 9.4.1.5 — **CSS custom properties:** full token system (`--color-bg-primary`, `--glass-blur`, `--border-glow`, `--shadow-depth`) for easy theme extension
-- [ ] 9.4.1.6 — **Luminous glow effects:** subtle box-shadow halos on active elements (`0 0 20px rgba(59,130,246,0.15)`)
+##### 12.4.1 — Color System & Theme Engine
+- [ ] 12.4.1.1 — **Dark theme (default):** deep navy/charcoal base (`#0a0a1a`, `#12122a`), frosted glass panels with `rgba(255,255,255,0.04–0.08)` backgrounds
+- [ ] 12.4.1.2 — **Accent gradients:** electric blue → teal → violet (`#3b82f6` → `#06b6d4` → `#8b5cf6`), used in action buttons, active states, and glow effects
+- [ ] 12.4.1.3 — **Light theme:** soft white/cream base, warm gray panels with frosted overlays, muted accents
+- [ ] 12.4.1.4 — **Theme toggle:** smooth CSS transition (0.4s ease) between dark↔light; persist in localStorage
+- [ ] 12.4.1.5 — **CSS custom properties:** full token system (`--color-bg-primary`, `--glass-blur`, `--border-glow`, `--shadow-depth`) for easy theme extension
+- [ ] 12.4.1.6 — **Luminous glow effects:** subtle box-shadow halos on active elements (`0 0 20px rgba(59,130,246,0.15)`)
 
-##### 9.4.2 — Glass & Blur Compositing
-- [ ] 9.4.2.1 — **Multi-layer blur depth:** ambient background blur (24px), sidebar glass (16px), card-level blur (12px), input bar blur (8px)
-- [ ] 9.4.2.2 — **Frosted glass panels:** `backdrop-filter: blur()` + `background: rgba()` + subtle `border: 1px solid rgba(255,255,255,0.06)`
-- [ ] 9.4.2.3 — **Depth layers:** z-index system with opacity gradient — deeper = more opaque, surface = more transparent
-- [ ] 9.4.2.4 — **Inner light borders:** 1px top/left border with `rgba(255,255,255,0.08)` to simulate light refraction
-- [ ] 9.4.2.5 — **Background ambient mesh:** CSS radial gradients at positions behind content (moving or fixed), creating a living background under glass
+##### 12.4.2 — Glass & Blur Compositing
+- [ ] 12.4.2.1 — **Multi-layer blur depth:** ambient background blur (24px), sidebar glass (16px), card-level blur (12px), input bar blur (8px)
+- [ ] 12.4.2.2 — **Frosted glass panels:** `backdrop-filter: blur()` + `background: rgba()` + subtle `border: 1px solid rgba(255,255,255,0.06)`
+- [ ] 12.4.2.3 — **Depth layers:** z-index system with opacity gradient — deeper = more opaque, surface = more transparent
+- [ ] 12.4.2.4 — **Inner light borders:** 1px top/left border with `rgba(255,255,255,0.08)` to simulate light refraction
+- [ ] 12.4.2.5 — **Background ambient mesh:** CSS radial gradients at positions behind content (moving or fixed), creating a living background under glass
 
-##### 9.4.3 — Typography
-- [ ] 9.4.3.1 — **Primary font:** Inter (Google Fonts) — fallback: system-ui, -apple-system, sans-serif
-- [ ] 9.4.3.2 — **Monospace font:** JetBrains Mono or Fira Code — for code blocks and technical output
-- [ ] 9.4.3.3 — **Type scale:** 12px / 14px / 16px / 18px / 24px / 32px with proper line-height and letter-spacing
-- [ ] 9.4.3.4 — **Arabic typography:** Noto Sans Arabic or IBM Plex Arabic for RTL content with correct bidi handling
+##### 12.4.3 — Typography
+- [ ] 12.4.3.1 — **Primary font:** Inter (Google Fonts) — fallback: system-ui, -apple-system, sans-serif
+- [ ] 12.4.3.2 — **Monospace font:** JetBrains Mono or Fira Code — for code blocks and technical output
+- [ ] 12.4.3.3 — **Type scale:** 12px / 14px / 16px / 18px / 24px / 32px with proper line-height and letter-spacing
+- [ ] 12.4.3.4 — **Arabic typography:** Noto Sans Arabic or IBM Plex Arabic for RTL content with correct bidi handling
 
-##### 9.4.4 — Icons
-- [ ] 9.4.4.1 — **Icon library:** Lucide Icons (consistent weight, radius, and style)
-- [ ] 9.4.4.2 — **Icon sizing:** 16px (inline), 20px (buttons), 24px (navigation), 32px (features)
-- [ ] 9.4.4.3 — **Icon colors:** inherit from text color; accent color on hover/active states
-- [ ] 9.4.4.4 — **Mode icons:** unique icon per thinking mode — lightning (fast), brain (normal), atom (deep), layers (planning), telescope (research)
-- [ ] 9.4.4.5 — **Animated icons:** subtle scale (1.1×) + color transition on hover
+##### 12.4.4 — Icons
+- [ ] 12.4.4.1 — **Icon library:** Lucide Icons (consistent weight, radius, and style)
+- [ ] 12.4.4.2 — **Icon sizing:** 16px (inline), 20px (buttons), 24px (navigation), 32px (features)
+- [ ] 12.4.4.3 — **Icon colors:** inherit from text color; accent color on hover/active states
+- [ ] 12.4.4.4 — **Mode icons:** unique icon per thinking mode — lightning (fast), brain (normal), atom (deep), layers (planning), telescope (research)
+- [ ] 12.4.4.5 — **Animated icons:** subtle scale (1.1×) + color transition on hover
 
-##### 9.4.5 — Animations & Micro-Interactions
-- [ ] 9.4.5.1 — **Message entry:** staggered scale+fade from bottom (0→1 opacity, 0.95→1 scale, 0.3s cubic-bezier)
-- [ ] 9.4.5.2 — **Typing indicator:** 3-dot pulse animation with sequential delay (0.6s period)
-- [ ] 9.4.5.3 — **Loading skeleton:** shimmer gradient sweep (left→right, 1.5s, infinite) on glassmorphic placeholder cards
-- [ ] 9.4.5.4 — **Button hover:** glow intensify (box-shadow spread), border brighten, background lighten — smooth 0.2s transition
-- [ ] 9.4.5.5 — **Sidebar open/close:** slide + fade (transform: translateX + opacity, 0.3s ease-out)
-- [ ] 9.4.5.6 — **Theme transition:** cross-fade all color custom properties with 0.4s ease
-- [ ] 9.4.5.7 — **Scroll-to-bottom:** smooth scroll with CSS `scroll-behavior: smooth`; auto-scroll on new messages
-- [ ] 9.4.5.8 — **Input focus:** border glow intensify + subtle shadow expansion
-- [ ] 9.4.5.9 — **Toast notifications:** slide-in from top-right with fade, auto-dismiss after 4s
-- [ ] 9.4.5.10 — **Parallax ambient background:** subtle movement on mouse move (CSS transform or JS requestAnimationFrame)
+##### 12.4.5 — Animations & Micro-Interactions
+- [ ] 12.4.5.1 — **Message entry:** staggered scale+fade from bottom (0→1 opacity, 0.95→1 scale, 0.3s cubic-bezier)
+- [ ] 12.4.5.2 — **Typing indicator:** 3-dot pulse animation with sequential delay (0.6s period)
+- [ ] 12.4.5.3 — **Loading skeleton:** shimmer gradient sweep (left→right, 1.5s, infinite) on glassmorphic placeholder cards
+- [ ] 12.4.5.4 — **Button hover:** glow intensify (box-shadow spread), border brighten, background lighten — smooth 0.2s transition
+- [ ] 12.4.5.5 — **Sidebar open/close:** slide + fade (transform: translateX + opacity, 0.3s ease-out)
+- [ ] 12.4.5.6 — **Theme transition:** cross-fade all color custom properties with 0.4s ease
+- [ ] 12.4.5.7 — **Scroll-to-bottom:** smooth scroll with CSS `scroll-behavior: smooth`; auto-scroll on new messages
+- [ ] 12.4.5.8 — **Input focus:** border glow intensify + subtle shadow expansion
+- [ ] 12.4.5.9 — **Toast notifications:** slide-in from top-right with fade, auto-dismiss after 4s
+- [ ] 12.4.5.10 — **Parallax ambient background:** subtle movement on mouse move (CSS transform or JS requestAnimationFrame)
 
-#### 9.5 — Input Bar System (`interfaces/web/static/chat.js`)
+#### 12.5 — Input Bar System (`interfaces/web/static/chat.js`)
 
-##### 9.5.1 — Smart Text Input
-- [ ] 9.5.1.1 — **Multilingual text bar:** contenteditable div or textarea with full Unicode support (Arabic, English, Chinese, etc.)
-- [ ] 9.5.1.2 — **Auto-expanding height:** grow with content (min 1 line → max 8 lines), then scroll internally
-- [ ] 9.5.1.3 — **Placeholder text:** "Message Jarvis..." (disappears on focus/type)
-- [ ] 9.5.1.4 — **RTL auto-detection:** switch text direction based on first character typed
-- [ ] 9.5.1.5 — **Keyboard shortcuts:** Enter to send, Shift+Enter for newline, Escape to clear
+##### 12.5.1 — Smart Text Input
+- [ ] 12.5.1.1 — **Multilingual text bar:** contenteditable div or textarea with full Unicode support (Arabic, English, Chinese, etc.)
+- [ ] 12.5.1.2 — **Auto-expanding height:** grow with content (min 1 line → max 8 lines), then scroll internally
+- [ ] 12.5.1.3 — **Placeholder text:** "Message Jarvis..." (disappears on focus/type)
+- [ ] 12.5.1.4 — **RTL auto-detection:** switch text direction based on first character typed
+- [ ] 12.5.1.5 — **Keyboard shortcuts:** Enter to send, Shift+Enter for newline, Escape to clear
 
-##### 9.5.2 — Attachment System (+ Button)
-- [ ] 9.5.2.1 — **"+" button:** positioned left of the text input; opens attachment menu on click
-- [ ] 9.5.2.2 — **Attachment menu:** popup with options: Upload File, Upload Image, Take Photo (mobile), Paste from Clipboard
-- [ ] 9.5.2.3 — **File upload:** accept any file type; drag-and-drop support on entire chat area
-- [ ] 9.5.2.4 — **Image upload:** accept images with inline preview thumbnail above the input bar
-- [ ] 9.5.2.5 — **Clipboard paste:** auto-detect image paste (Ctrl+V) and attach
-- [ ] 9.5.2.6 — **Attachment preview strip:** horizontal row above input showing attached files with remove (×) button per item
-- [ ] 9.5.2.7 — **Multiple attachments:** allow stacking multiple files/images before sending
-- [ ] 9.5.2.8 — **File type icons:** show appropriate icon per file type (PDF, doc, image, audio, code, etc.)
-- [ ] 9.5.2.9 — **Size validation:** reject files over configurable max size; show friendly error toast
-- [ ] 9.5.2.10 — **Upload progress:** animated progress bar on large files
+##### 12.5.2 — Attachment System (+ Button)
+- [ ] 12.5.2.1 — **"+" button:** positioned left of the text input; opens attachment menu on click
+- [ ] 12.5.2.2 — **Attachment menu:** popup with options: Upload File, Upload Image, Take Photo (mobile), Paste from Clipboard
+- [ ] 12.5.2.3 — **File upload:** accept any file type; drag-and-drop support on entire chat area
+- [ ] 12.5.2.4 — **Image upload:** accept images with inline preview thumbnail above the input bar
+- [ ] 12.5.2.5 — **Clipboard paste:** auto-detect image paste (Ctrl+V) and attach
+- [ ] 12.5.2.6 — **Attachment preview strip:** horizontal row above input showing attached files with remove (×) button per item
+- [ ] 12.5.2.7 — **Multiple attachments:** allow stacking multiple files/images before sending
+- [ ] 12.5.2.8 — **File type icons:** show appropriate icon per file type (PDF, doc, image, audio, code, etc.)
+- [ ] 12.5.2.9 — **Size validation:** reject files over configurable max size; show friendly error toast
+- [ ] 12.5.2.10 — **Upload progress:** animated progress bar on large files
 
-##### 9.5.3 — Mode Selector (Icon Row)
-- [ ] 9.5.3.1 — **Mode icon bar:** row of clickable icons next to the "+" button, each representing a thinking mode
-- [ ] 9.5.3.2 — **Normal mode icon (default):** brain icon — balanced response
-- [ ] 9.5.3.3 — **Deep thinking icon:** atom/nucleus icon — extended chain-of-thought
-- [ ] 9.5.3.4 — **Research mode icon:** telescope/magnifying glass — multi-source, tool-heavy
-- [ ] 9.5.3.5 — **Planning mode icon:** layers/stack icon — decompose into steps
-- [ ] 9.5.3.6 — **Fast mode icon:** lightning bolt — quick, concise answers
-- [ ] 9.5.3.7 — **Active mode indicator:** highlighted/glowing icon with accent color when selected
-- [ ] 9.5.3.8 — **Mode tooltip:** hover shows mode name and brief description
-- [ ] 9.5.3.9 — **Mode persists:** selected mode persists until user changes it
-- [ ] 9.5.3.10 — **Compact/expand:** on small screens, collapse into a single dropdown selector
+##### 12.5.3 — Mode Selector (Icon Row)
+- [ ] 12.5.3.1 — **Mode icon bar:** row of clickable icons next to the "+" button, each representing a thinking mode
+- [ ] 12.5.3.2 — **Normal mode icon (default):** brain icon — balanced response
+- [ ] 12.5.3.3 — **Deep thinking icon:** atom/nucleus icon — extended chain-of-thought
+- [ ] 12.5.3.4 — **Research mode icon:** telescope/magnifying glass — multi-source, tool-heavy
+- [ ] 12.5.3.5 — **Planning mode icon:** layers/stack icon — decompose into steps
+- [ ] 12.5.3.6 — **Fast mode icon:** lightning bolt — quick, concise answers
+- [ ] 12.5.3.7 — **Active mode indicator:** highlighted/glowing icon with accent color when selected
+- [ ] 12.5.3.8 — **Mode tooltip:** hover shows mode name and brief description
+- [ ] 12.5.3.9 — **Mode persists:** selected mode persists until user changes it
+- [ ] 12.5.3.10 — **Compact/expand:** on small screens, collapse into a single dropdown selector
 
-##### 9.5.4 — Send / Voice Button (Dynamic)
-- [ ] 9.5.4.1 — **Empty input → microphone icon:** when text bar is empty, show a microphone icon as send button
-- [ ] 9.5.4.2 — **Typing → send arrow icon:** when user types any character, morph into a send (arrow-up) icon
-- [ ] 9.5.4.3 — **Icon morph animation:** smooth transition between mic ↔ send (scale + fade crossover, 0.2s)
-- [ ] 9.5.4.4 — **Voice mode activation:** clicking mic icon activates speech-to-text recording mode
-- [ ] 9.5.4.5 — **Recording indicator:** pulsing red ring around mic icon; waveform visualization in input area
-- [ ] 9.5.4.6 — **Stop recording:** click mic again or press Enter to send transcribed text
-- [ ] 9.5.4.7 — **Send button states:** idle, hover (glow), active (pressed scale), loading (spinner while processing)
-- [ ] 9.5.4.8 — **Disable on empty:** send button is non-interactive when input is empty (mic mode takes priority)
+##### 12.5.4 — Send / Voice Button (Dynamic)
+- [ ] 12.5.4.1 — **Empty input → microphone icon:** when text bar is empty, show a microphone icon as send button
+- [ ] 12.5.4.2 — **Typing → send arrow icon:** when user types any character, morph into a send (arrow-up) icon
+- [ ] 12.5.4.3 — **Icon morph animation:** smooth transition between mic ↔ send (scale + fade crossover, 0.2s)
+- [ ] 12.5.4.4 — **Voice mode activation:** clicking mic icon activates speech-to-text recording mode
+- [ ] 12.5.4.5 — **Recording indicator:** pulsing red ring around mic icon; waveform visualization in input area
+- [ ] 12.5.4.6 — **Stop recording:** click mic again or press Enter to send transcribed text
+- [ ] 12.5.4.7 — **Send button states:** idle, hover (glow), active (pressed scale), loading (spinner while processing)
+- [ ] 12.5.4.8 — **Disable on empty:** send button is non-interactive when input is empty (mic mode takes priority)
 
-#### 9.6 — Sidebar System
+#### 12.6 — Sidebar System
 
-##### 9.6.1 — Sidebar Layout & Structure
-- [ ] 9.6.1.1 — **Collapsible sidebar:** left-side panel with frosted glass background, slide animation
-- [ ] 9.6.1.2 — **Toggle button:** hamburger / X icon at top of sidebar or main area
-- [ ] 9.6.1.3 — **Sidebar width:** 280px desktop; full-width overlay on mobile
-- [ ] 9.6.1.4 — **Persistent state:** remember open/closed state in localStorage
-- [ ] 9.6.1.5 — **Resize handle:** optional drag-to-resize sidebar width (min 240px, max 400px)
+##### 12.6.1 — Sidebar Layout & Structure
+- [ ] 12.6.1.1 — **Collapsible sidebar:** left-side panel with frosted glass background, slide animation
+- [ ] 12.6.1.2 — **Toggle button:** hamburger / X icon at top of sidebar or main area
+- [ ] 12.6.1.3 — **Sidebar width:** 280px desktop; full-width overlay on mobile
+- [ ] 12.6.1.4 — **Persistent state:** remember open/closed state in localStorage
+- [ ] 12.6.1.5 — **Resize handle:** optional drag-to-resize sidebar width (min 240px, max 400px)
 
-##### 9.6.2 — Conversation History Section
-- [ ] 9.6.2.1 — **Conversation list:** scrollable list of past conversations, sorted by last activity (newest first)
-- [ ] 9.6.2.2 — **Conversation card:** title (auto-generated or user-edited), last message preview, timestamp, message count
-- [ ] 9.6.2.3 — **Active conversation highlight:** accent border-left or background tint
-- [ ] 9.6.2.4 — **New conversation button:** prominent "+" or "New Chat" button at top
-- [ ] 9.6.2.5 — **Edit title:** inline edit (click pencil icon → contenteditable → Enter to save)
-- [ ] 9.6.2.6 — **Delete conversation:** swipe or right-click context menu → confirmation dialog → delete
-- [ ] 9.6.2.7 — **Archive conversation:** move to archive section (collapsible "Archived" folder at bottom)
-- [ ] 9.6.2.8 — **Pin conversation:** pin to top of list (star icon toggle)
-- [ ] 9.6.2.9 — **Conversation grouping:** auto-group by date: Today, Yesterday, Previous 7 Days, Previous 30 Days, Older
-- [ ] 9.6.2.10 — **Bulk actions:** multi-select with checkboxes → bulk delete / archive / export
+##### 12.6.2 — Conversation History Section
+- [ ] 12.6.2.1 — **Conversation list:** scrollable list of past conversations, sorted by last activity (newest first)
+- [ ] 12.6.2.2 — **Conversation card:** title (auto-generated or user-edited), last message preview, timestamp, message count
+- [ ] 12.6.2.3 — **Active conversation highlight:** accent border-left or background tint
+- [ ] 12.6.2.4 — **New conversation button:** prominent "+" or "New Chat" button at top
+- [ ] 12.6.2.5 — **Edit title:** inline edit (click pencil icon → contenteditable → Enter to save)
+- [ ] 12.6.2.6 — **Delete conversation:** swipe or right-click context menu → confirmation dialog → delete
+- [ ] 12.6.2.7 — **Archive conversation:** move to archive section (collapsible "Archived" folder at bottom)
+- [ ] 12.6.2.8 — **Pin conversation:** pin to top of list (star icon toggle)
+- [ ] 12.6.2.9 — **Conversation grouping:** auto-group by date: Today, Yesterday, Previous 7 Days, Previous 30 Days, Older
+- [ ] 12.6.2.10 — **Bulk actions:** multi-select with checkboxes → bulk delete / archive / export
 
-##### 9.6.3 — Search System
-- [ ] 9.6.3.1 — **Search bar:** positioned above conversation list; frosted glass input with search icon
-- [ ] 9.6.3.2 — **Search by title:** filter conversations by matching title text (instant, client-side)
-- [ ] 9.6.3.3 — **Search within conversations:** full-text search across all message content (server-side via memory)
-- [ ] 9.6.3.4 — **Search results:** highlighted matching text snippets with conversation title and date
-- [ ] 9.6.3.5 — **Search keyboard shortcut:** Ctrl+K or Cmd+K opens search with focus
-- [ ] 9.6.3.6 — **Clear search:** X button or Escape to clear and return to full list
+##### 12.6.3 — Search System
+- [ ] 12.6.3.1 — **Search bar:** positioned above conversation list; frosted glass input with search icon
+- [ ] 12.6.3.2 — **Search by title:** filter conversations by matching title text (instant, client-side)
+- [ ] 12.6.3.3 — **Search within conversations:** full-text search across all message content (server-side via memory)
+- [ ] 12.6.3.4 — **Search results:** highlighted matching text snippets with conversation title and date
+- [ ] 12.6.3.5 — **Search keyboard shortcut:** Ctrl+K or Cmd+K opens search with focus
+- [ ] 12.6.3.6 — **Clear search:** X button or Escape to clear and return to full list
 
-##### 9.6.4 — Settings Panel
-- [ ] 9.6.4.1 — **Settings button:** gear icon at bottom of sidebar; opens settings panel (slide-in overlay or modal)
-- [ ] 9.6.4.2 — **Appearance settings:**
-  - [ ] 9.6.4.2.1 — Theme selector: Dark / Light / System (auto)
-  - [ ] 9.6.4.2.2 — Accent color picker: preset palette or custom hex
-  - [ ] 9.6.4.2.3 — Font size: slider (Small / Medium / Large / Extra Large)
-  - [ ] 9.6.4.2.4 — Message density: Compact / Comfortable / Spacious
-  - [ ] 9.6.4.2.5 — Blur intensity: slider (None / Light / Medium / Heavy) for accessibility
-  - [ ] 9.6.4.2.6 — Animation toggle: enable/disable all animations (reduce motion preference)
-  - [ ] 9.6.4.2.7 — Chat bubble style: rounded / squared / minimal
-- [ ] 9.6.4.3 — **Behavior settings:**
-  - [ ] 9.6.4.3.1 — Default thinking mode selector
-  - [ ] 9.6.4.3.2 — Default language: Arabic / English / Auto-detect
-  - [ ] 9.6.4.3.3 — Response style: Concise / Balanced / Detailed
-  - [ ] 9.6.4.3.4 — Auto-scroll on new messages: toggle
-  - [ ] 9.6.4.3.5 — Sound notifications: toggle + volume
-  - [ ] 9.6.4.3.6 — Enter key behavior: Send message / New line
-  - [ ] 9.6.4.3.7 — Show model/mode indicator in chat: toggle
-  - [ ] 9.6.4.3.8 — Show confidence scores: toggle
-- [ ] 9.6.4.4 — **Model settings:**
-  - [ ] 9.6.4.4.1 — Active model selector (dropdown of available Ollama models)
-  - [ ] 9.6.4.4.2 — Temperature slider (0.0 – 1.5)
-  - [ ] 9.6.4.4.3 — Max tokens slider
-  - [ ] 9.6.4.4.4 — Model override toggle: always use selected model vs auto-route
-- [ ] 9.6.4.5 — **Data & Privacy:**
-  - [ ] 9.6.4.5.1 — Export all conversations (JSON/Markdown)
-  - [ ] 9.6.4.5.2 — Clear all conversations (with confirmation)
-  - [ ] 9.6.4.5.3 — Clear memory (short-term / long-term / all)
-  - [ ] 9.6.4.5.4 — Reset user profile to defaults
-- [ ] 9.6.4.6 — **About section:** version, build info, system status, link to documentation
+##### 12.6.4 — Settings Panel
+- [ ] 12.6.4.1 — **Settings button:** gear icon at bottom of sidebar; opens settings panel (slide-in overlay or modal)
+- [ ] 12.6.4.2 — **Appearance settings:**
+  - [ ] 12.6.4.2.1 — Theme selector: Dark / Light / System (auto)
+  - [ ] 12.6.4.2.2 — Accent color picker: preset palette or custom hex
+  - [ ] 12.6.4.2.3 — Font size: slider (Small / Medium / Large / Extra Large)
+  - [ ] 12.6.4.2.4 — Message density: Compact / Comfortable / Spacious
+  - [ ] 12.6.4.2.5 — Blur intensity: slider (None / Light / Medium / Heavy) for accessibility
+  - [ ] 12.6.4.2.6 — Animation toggle: enable/disable all animations (reduce motion preference)
+  - [ ] 12.6.4.2.7 — Chat bubble style: rounded / squared / minimal
+- [ ] 12.6.4.3 — **Behavior settings:**
+  - [ ] 12.6.4.3.1 — Default thinking mode selector
+  - [ ] 12.6.4.3.2 — Default language: Arabic / English / Auto-detect
+  - [ ] 12.6.4.3.3 — Response style: Concise / Balanced / Detailed
+  - [ ] 12.6.4.3.4 — Auto-scroll on new messages: toggle
+  - [ ] 12.6.4.3.5 — Sound notifications: toggle + volume
+  - [ ] 12.6.4.3.6 — Enter key behavior: Send message / New line
+  - [ ] 12.6.4.3.7 — Show model/mode indicator in chat: toggle
+  - [ ] 12.6.4.3.8 — Show confidence scores: toggle
+- [ ] 12.6.4.4 — **Model settings:**
+  - [ ] 12.6.4.4.1 — Active model selector (dropdown of available Ollama models)
+  - [ ] 12.6.4.4.2 — Temperature slider (0.0 – 1.5)
+  - [ ] 12.6.4.4.3 — Max tokens slider
+  - [ ] 12.6.4.4.4 — Model override toggle: always use selected model vs auto-route
+- [ ] 12.6.4.5 — **Data & Privacy:**
+  - [ ] 12.6.4.5.1 — Export all conversations (JSON/Markdown)
+  - [ ] 12.6.4.5.2 — Clear all conversations (with confirmation)
+  - [ ] 12.6.4.5.3 — Clear memory (short-term / long-term / all)
+  - [ ] 12.6.4.5.4 — Reset user profile to defaults
+- [ ] 12.6.4.6 — **About section:** version, build info, system status, link to documentation
 
-#### 9.7 — REST API Routes (`interfaces/web/routes/`)
-- [ ] 9.7.1 — `GET /` — serve chat page
-- [ ] 9.7.2 — `GET /api/models` — list available models with status
-- [ ] 9.7.3 — `GET /api/conversations` — list all conversations (paginated)
-- [ ] 9.7.4 — `GET /api/conversations/:id` — get conversation messages
-- [ ] 9.7.5 — `PUT /api/conversations/:id` — update conversation title
-- [ ] 9.7.6 — `DELETE /api/conversations/:id` — delete conversation
-- [ ] 9.7.7 — `POST /api/conversations/:id/archive` — archive/unarchive conversation
-- [ ] 9.7.8 — `GET /api/memory` — get conversation history summary
-- [ ] 9.7.9 — `DELETE /api/memory` — clear conversation memory
-- [ ] 9.7.10 — `POST /api/upload` — file upload endpoint (returns file reference ID)
-- [ ] 9.7.11 — `GET /api/settings` — get user settings
-- [ ] 9.7.12 — `PUT /api/settings` — update user settings
-- [ ] 9.7.13 — `GET /api/search` — search across conversations
+#### 12.7 — REST API Routes (`interfaces/web/routes/`)
+- [ ] 12.7.1 — `GET /` — serve chat page
+- [ ] 12.7.2 — `GET /api/models` — list available models with status
+- [ ] 12.7.3 — `GET /api/conversations` — list all conversations (paginated)
+- [ ] 12.7.4 — `GET /api/conversations/:id` — get conversation messages
+- [ ] 12.7.5 — `PUT /api/conversations/:id` — update conversation title
+- [ ] 12.7.6 — `DELETE /api/conversations/:id` — delete conversation
+- [ ] 12.7.7 — `POST /api/conversations/:id/archive` — archive/unarchive conversation
+- [ ] 12.7.8 — `GET /api/memory` — get conversation history summary
+- [ ] 12.7.9 — `DELETE /api/memory` — clear conversation memory
+- [ ] 12.7.10 — `POST /api/upload` — file upload endpoint (returns file reference ID)
+- [ ] 12.7.11 — `GET /api/settings` — get user settings
+- [ ] 12.7.12 — `PUT /api/settings` — update user settings
+- [ ] 12.7.13 — `GET /api/search` — search across conversations
 
-#### 9.8 — Notification & Feedback System
-- [ ] 9.8.1 — Toast notification system (success, error, info, warning)
-- [ ] 9.8.2 — Connection status indicator (connected / reconnecting / offline badge)
-- [ ] 9.8.3 — Message feedback: thumbs up/down per assistant message
-- [ ] 9.8.4 — Error messages with retry button
-- [ ] 9.8.5 — Session timeout warning with extend option
+#### 12.8 — Notification & Feedback System
+- [ ] 12.8.1 — Toast notification system (success, error, info, warning)
+- [ ] 12.8.2 — Connection status indicator (connected / reconnecting / offline badge)
+- [ ] 12.8.3 — Message feedback: thumbs up/down per assistant message
+- [ ] 12.8.4 — Error messages with retry button
+- [ ] 12.8.5 — Session timeout warning with extend option
 
-#### 9.9 — Create `app/server.py` entry point
+#### 12.9 — Create `app/server.py` entry point
 
-#### 9.10 — Test Web UI
-- [ ] 9.10.1 — WebSocket connection + reconnect test
-- [ ] 9.10.2 — Streaming response rendering test
-- [ ] 9.10.3 — Arabic RTL rendering test
-- [ ] 9.10.4 — File upload flow test
-- [ ] 9.10.5 — Settings persistence test
-- [ ] 9.10.6 — Conversation CRUD test
-- [ ] 9.10.7 — Responsive layout test (mobile / tablet / desktop)
+#### 12.10 — Test Web UI
+- [ ] 12.10.1 — WebSocket connection + reconnect test
+- [ ] 12.10.2 — Streaming response rendering test
+- [ ] 12.10.3 — Arabic RTL rendering test
+- [ ] 12.10.4 — File upload flow test
+- [ ] 12.10.5 — Settings persistence test
+- [ ] 12.10.6 — Conversation CRUD test
+- [ ] 12.10.7 — Responsive layout test (mobile / tablet / desktop)
 
 ### Voice pipeline — speak and listen (Arabic + English)
-- [ ] **9.11** — Create `models/speech/stt.py` — Speech-to-Text (Whisper)
-  - [ ] 9.11.1 — Load Whisper medium model
-  - [ ] 9.11.2 — `record_audio(duration)` — capture from microphone
-  - [ ] 9.11.3 — `transcribe(audio)` — convert speech to text
-  - [ ] 9.11.4 — Auto-detect language (Arabic/English)
-  - [ ] 9.11.5 — Handle background noise
+- [ ] **12.11** — Create `models/speech/stt.py` — Speech-to-Text (Whisper)
+  - [ ] 12.11.1 — Load Whisper medium model
+  - [ ] 12.11.2 — `record_audio(duration)` — capture from microphone
+  - [ ] 12.11.3 — `transcribe(audio)` — convert speech to text
+  - [ ] 12.11.4 — Auto-detect language (Arabic/English)
+  - [ ] 12.11.5 — Handle background noise
 
-- [ ] **9.12** — Create `models/speech/tts.py` — Text-to-Speech (Piper)
-  - [ ] 9.12.1 — Load Piper Arabic voice model
-  - [ ] 9.12.2 — Load Piper English voice model
-  - [ ] 9.12.3 — `synthesize(text, lang)` → audio bytes
-  - [ ] 9.12.4 — `play(audio)` — play audio output
-  - [ ] 9.12.5 — Language auto-detect → select voice
+- [ ] **12.12** — Create `models/speech/tts.py` — Text-to-Speech (Piper)
+  - [ ] 12.12.1 — Load Piper Arabic voice model
+  - [ ] 12.12.2 — Load Piper English voice model
+  - [ ] 12.12.3 — `synthesize(text, lang)` → audio bytes
+  - [ ] 12.12.4 — `play(audio)` — play audio output
+  - [ ] 12.12.5 — Language auto-detect → select voice
 
-- [ ] **9.13** — Create `interfaces/voice/wake_word.py` — Wake Word listener
-  - [ ] 9.13.1 — Load openWakeWord model
-  - [ ] 9.13.2 — Continuous microphone monitoring
-  - [ ] 9.13.3 — Detect "Hey Jarvis" trigger
-  - [ ] 9.13.4 — Fire event on wake word detection
-  - [ ] 9.13.5 — Visual + audio confirmation feedback
+- [ ] **12.13** — Create `interfaces/voice/wake_word.py` — Wake Word listener
+  - [ ] 12.13.1 — Load openWakeWord model
+  - [ ] 12.13.2 — Continuous microphone monitoring
+  - [ ] 12.13.3 — Detect "Hey Jarvis" trigger
+  - [ ] 12.13.4 — Fire event on wake word detection
+  - [ ] 12.13.5 — Visual + audio confirmation feedback
 
-- [ ] **9.14** — Create `interfaces/voice/voice_interface.py` — full pipeline
-  - [ ] 9.14.1 — Wait for wake word → record → transcribe → orchestrator → synthesize → play → listen
+- [ ] **12.14** — Create `interfaces/voice/voice_interface.py` — full pipeline
+  - [ ] 12.14.1 — Wait for wake word → record → transcribe → orchestrator → synthesize → play → listen
 
-- [ ] **9.15** — Silence detection and noise handling
-  - [ ] 9.15.1 — VAD-based end-of-speech detection
-  - [ ] 9.15.2 — Noise reduction filter + gain normalization
+- [ ] **12.15** — Silence detection and noise handling
+  - [ ] 12.15.1 — VAD-based end-of-speech detection
+  - [ ] 12.15.2 — Noise reduction filter + gain normalization
 
-- [ ] **9.16** — Test voice pipeline
-  - [ ] 9.16.1 — Wake word detection test
-  - [ ] 9.16.2 — Arabic STT accuracy test
-  - [ ] 9.16.3 — TTS output quality test
+- [ ] **12.16** — Test voice pipeline
+  - [ ] 12.16.1 — Wake word detection test
+  - [ ] 12.16.2 — Arabic STT accuracy test
+  - [ ] 12.16.3 — TTS output quality test
 
 ### Vision & image generation
-- [ ] **9.17** — Create `models/vision/engine.py` — image understanding
-  - [ ] 9.17.1 — Load LLaVA via Ollama
-  - [ ] 9.17.2 — `describe(image_path, question)` → text description
-  - [ ] 9.17.3 — Encode image to base64 for Ollama
-  - [ ] 9.17.4 — OCR capability (read text in images)
+- [ ] **12.17** — Create `models/vision/engine.py` — image understanding
+  - [ ] 12.17.1 — Load LLaVA via Ollama
+  - [ ] 12.17.2 — `describe(image_path, question)` → text description
+  - [ ] 12.17.3 — Encode image to base64 for Ollama
+  - [ ] 12.17.4 — OCR capability (read text in images)
 
-- [ ] **9.18** — Create `models/diffusion/generator.py` — image generation
-  - [ ] 9.18.1 — Load Stable Diffusion 1.5 with float16
-  - [ ] 9.18.2 — `generate(prompt, width, height, steps)` → PIL Image
-  - [ ] 9.18.3 — VRAM management (unload when not in use)
-  - [ ] 9.18.4 — Save generated images to disk
-  - [ ] 9.18.5 — Negative prompt support
+- [ ] **12.18** — Create `models/diffusion/generator.py` — image generation
+  - [ ] 12.18.1 — Load Stable Diffusion 1.5 with float16
+  - [ ] 12.18.2 — `generate(prompt, width, height, steps)` → PIL Image
+  - [ ] 12.18.3 — VRAM management (unload when not in use)
+  - [ ] 12.18.4 — Save generated images to disk
+  - [ ] 12.18.5 — Negative prompt support
 
-- [ ] **9.19** — Integrate vision into orchestrator + router
-  - [ ] 9.19.1 — Detect image attached to message
-  - [ ] 9.19.2 — Auto-route to vision engine
-  - [ ] 9.19.3 — Combine vision output with LLM response
+- [ ] **12.19** — Integrate vision into orchestrator + router
+  - [ ] 12.19.1 — Detect image attached to message
+  - [ ] 12.19.2 — Auto-route to vision engine
+  - [ ] 12.19.3 — Combine vision output with LLM response
 
-- [ ] **9.20** — Test vision pipeline
-  - [ ] 9.20.1 — Image description test
-  - [ ] 9.20.2 — Image generation test
-  - [ ] 9.20.3 — OCR test
+- [ ] **12.20** — Test vision pipeline
+  - [ ] 12.20.1 — Image description test
+  - [ ] 12.20.2 — Image generation test
+  - [ ] 12.20.3 — OCR test
 
----
+- [ ] **12.21** — Web UI Dashboard panel (NEW)
+  - [ ] 12.21.1 — Real-time VRAM meter (poll Ollama API for GPU stats)
+  - [ ] 12.21.2 — Active tool panel: show which tool is currently running
+  - [ ] 12.21.3 — Task queue viewer: list of pending/running/completed tasks
+  - [ ] 12.21.4 — Memory browser: search long-term memory from Web UI
+  - [ ] 12.21.5 — Model selector panel: switch active model from Web UI
+  - [ ] 12.21.6 — System status card: CPU%, RAM, disk, GPU all in one view
 
-## 🔌 Phase 10 — Integrations (Telegram + GUI)
-> **Goal:** Secondary surfaces sharing the same runtime and tools
+- [ ] **12.22** — Voice: Voice Activity Detection (VAD) (NEW)
+  - [ ] 12.22.1 — Auto-stop recording when user stops speaking (silence detection)
+  - [ ] 12.22.2 — Use `webrtcvad` or energy threshold method
+  - [ ] 12.22.3 — Configurable silence threshold and min/max recording duration
+  - [ ] 12.22.4 — Integrate into voice_interface.py pipeline (replaces fixed-duration recording)
 
-### Telegram
-- [ ] **10.1** — Create `interfaces/telegram/bot.py` — bot setup
-  - [ ] 10.1.1 — Initialize python-telegram-bot Application
-  - [ ] 10.1.2 — Register all handlers
-  - [ ] 10.1.3 — Start polling
-
-- [ ] **10.2** — Create `interfaces/telegram/handlers.py` — message handlers
-  - [ ] 10.2.1 — Text message → orchestrator → reply
-  - [ ] 10.2.2 — Photo message → vision engine → reply
-  - [ ] 10.2.3 — Voice message → STT → orchestrator → reply
-  - [ ] 10.2.4 — Document message → reader tool → reply
-
-- [ ] **10.3** — Create `interfaces/telegram/commands.py` — bot commands
-  - [ ] 10.3.1 — `/start` — welcome message
-  - [ ] 10.3.2 — `/clear` — clear conversation
-  - [ ] 10.3.3 — `/model` — switch model
-  - [ ] 10.3.4 — `/image [prompt]` — generate image
-  - [ ] 10.3.5 — `/search [query]` — web search
-
-- [ ] **10.4** — Streaming response simulation for Telegram
-  - [ ] 10.4.1 — "Typing..." indicator while generating
-  - [ ] 10.4.2 — Edit message as tokens arrive
-
-- [ ] **10.5** — Media handling
-  - [ ] 10.5.1 — Download photos and pass to vision
-  - [ ] 10.5.2 — Download voice notes and pass to STT
-  - [ ] 10.5.3 — Send generated images back to user
-
-- [ ] **10.6** — Test Telegram bot
-  - [ ] 10.6.1 — Conversation test
-  - [ ] 10.6.2 — Image upload test
-  - [ ] 10.6.3 — Voice message test
-
-### GUI Desktop
-- [ ] **10.7** — Create `interfaces/gui/main_window.py` — PyQt6 desktop app
-  - [ ] 10.7.1 — Chat message area (scrollable)
-  - [ ] 10.7.2 — Input text box
-  - [ ] 10.7.3 — Send button
-  - [ ] 10.7.4 — Model selector dropdown
-  - [ ] 10.7.5 — Microphone button (voice input)
-
-- [ ] **10.8** — Create `interfaces/gui/settings_dialog.py`
-  - [ ] 10.8.1 — Model selection
-  - [ ] 10.8.2 — Language preference
-  - [ ] 10.8.3 — Voice settings
-
-- [ ] **10.9** — Arabic RTL text rendering in GUI
-  - [ ] 10.9.1 — Set Qt layout direction for Arabic
-  - [ ] 10.9.2 — RTL text alignment in chat bubbles
-
-- [ ] **10.10** — System tray integration
-  - [ ] 10.10.1 — Minimize to system tray
-  - [ ] 10.10.2 — Wake word activates window
-  - [ ] 10.10.3 — Tray menu: Open, Settings, Quit
-
-- [ ] **10.11** — Test GUI
-  - [ ] 10.11.1 — Conversation test
-  - [ ] 10.11.2 — Settings dialog test
+- [ ] **12.23** — Voice: Mid-sentence language detection (NEW)
+  - [ ] 12.23.1 — Detect dominant language in Whisper output (Arabic vs English)
+  - [ ] 12.23.2 — Auto-select TTS voice: Arabic Piper voice OR English voice
+  - [ ] 12.23.3 — Handle code-switching (Arabic sentence with English terms)
 
 ---
 
-## ✅ Phase 11 — Optimization, QA & Production Hardening
-> **Goal:** Production-ready, fast, stable, documented — performance, reliability, security, observability
+## 📱 Phase 13 — Telegram Interface
+> **Goal:** Full Jarvis capabilities via Telegram bot.
+> **Dependency:** Phase 12 (voice pipeline for voice message handling)
 
-- [ ] **11.1** — Create `tests/` test suite
-  - [ ] 11.1.1 — `tests/test_llm.py` — LLM engine tests
-  - [ ] 11.1.2 — `tests/test_memory.py` — memory system tests
-  - [ ] 11.1.3 — `tests/test_tools.py` — tool registry + representative tools
-  - [ ] 11.1.4 — `tests/test_voice.py` — STT/TTS pipeline test
-  - [ ] 11.1.5 — `tests/test_vision.py` — vision engine test
-  - [ ] 11.1.6 — `tests/test_runtime.py` — loop + executor boundaries
-  - [ ] 11.1.7 — `tests/test_identity.py` — prompt builder output consistency
-  - [ ] 11.1.8 — `tests/test_context_buffer.py` — buffer lifecycle tests
+- [ ] **13.1** — Create `interfaces/telegram/bot.py` — bot setup
+  - [ ] 13.1.1 — Initialize python-telegram-bot Application
+  - [ ] 13.1.2 — Register all handlers
+  - [ ] 13.1.3 — Start polling
 
-- [ ] **11.2** — Performance optimization (Overcoming Hardware Constraints)
-  - [ ] 11.2.1 — Profile slow operations
-  - [ ] 11.2.2 — Model preloading strategy (VRAM-safe)
-  - [ ] 11.2.3 — Response caching for repeated queries
-  - [ ] 11.2.4 — Async all I/O operations
-  - [ ] 11.2.5 — Vector Database Speed Optimization (Batched embedding ingestion to prevent RAM spikes on large PDFs)
-  - [ ] 11.2.6 — Context Window Compression (Auto-summarize middle-history so the GPU avoids re-processing 8k+ tokens)
-  - [ ] 11.2.7 — Tool Execution Parallelism (Run multiple independent I/O tools simultaneously without locking the orchestrator)
-  - [ ] 11.2.8 — Hardware Control: Enforce Flash Attention locally on Ollama runtimes for deep/planning modes
-  - [ ] 11.2.9 — Auto-KV Cache Management: dynamically adjust context window limits based on real-time VRAM usage
+- [ ] **13.2** — Create `interfaces/telegram/handlers.py` — message handlers
+  - [ ] 13.2.1 — Text message → orchestrator → reply
+  - [ ] 13.2.2 — Photo message → vision engine → reply
+  - [ ] 13.2.3 — Voice message → STT → orchestrator → reply
+  - [ ] 13.2.4 — Document message → reader tool → reply
 
-- [ ] **11.3** — Error handling and resilience
-  - [ ] 11.3.1 — Graceful Ollama connection failure
-  - [ ] 11.3.2 — Model loading failure fallback
-  - [ ] 11.3.3 — Tool execution error recovery
-  - [ ] 11.3.4 — Retry logic with exponential backoff
-  - [ ] 11.3.5 — End-to-end error class → retry / switch model tests
+- [ ] **13.3** — Create `interfaces/telegram/commands.py` — bot commands
+  - [ ] 13.3.1 — `/start` — welcome message
+  - [ ] 13.3.2 — `/clear` — clear conversation
+  - [ ] 13.3.3 — `/model` — switch model
+  - [ ] 13.3.4 — `/image [prompt]` — generate image
+  - [ ] 13.3.5 — `/search [query]` — web search
 
-- [ ] **11.4** — Logging and monitoring
-  - [ ] 11.4.1 — Structured logging (Loguru)
-  - [ ] 11.4.2 — Log all model calls with latency
-  - [ ] 11.4.3 — Log all tool executions
-  - [ ] 11.4.4 — Log errors with full stack trace
+- [ ] **13.4** — Streaming response simulation for Telegram
+  - [ ] 13.4.1 — "Typing..." indicator while generating
+  - [ ] 13.4.2 — Edit message as tokens arrive
 
-- [ ] **11.5** — Windows compatibility
-  - [ ] 11.5.1 — Test all features on Windows 11 + PowerShell
-  - [ ] 11.5.2 — Path handling (Windows vs Linux)
-  - [ ] 11.5.3 — Audio device detection on Windows
-  - [ ] 11.5.4 — Verify `scripts/install.ps1` on clean system
+- [ ] **13.5** — Media handling
+  - [ ] 13.5.1 — Download photos and pass to vision
+  - [ ] 13.5.2 — Download voice notes and pass to STT
+  - [ ] 13.5.3 — Send generated images back to user
 
-- [ ] **11.6** — Security review
-  - [ ] 11.6.1 — Sandbox code execution (no system access)
-  - [ ] 11.6.2 — Validate all user inputs and tool args
-  - [ ] 11.6.3 — Secure API key storage
-
-- [ ] **11.7** — Update documentation
-  - [ ] 11.7.1 — Update README.md with final instructions
-  - [ ] 11.7.2 — Add docstrings to all modules
-  - [ ] 11.7.3 — Update TASKS.md progress table (all 12 phases)
-
-- [ ] **11.8** — Final integration test
-  - [ ] 11.8.1 — Full conversation in Arabic
-  - [ ] 11.8.2 — Voice → response → TTS full cycle
-  - [ ] 11.8.3 — Multi-step agent task
-  - [ ] 11.8.4 — Telegram + Web simultaneously
-
-- [ ] **11.9** — Continuous integration
-  - [ ] 11.9.1 — GitHub Actions or pre-commit hooks for linting
-  - [ ] 11.9.2 — Automated test run on push
-  - [ ] 11.9.3 — Code coverage reporting
+- [ ] **13.6** — Test Telegram bot
+  - [ ] 13.6.1 — Conversation test
+  - [ ] 13.6.2 — Image upload test
+  - [ ] 13.6.3 — Voice message test
 
 ---
 
-## 🎭 Phase 12 — Personality Layer (tone, style, adaptation)
-> **Goal:** Consistent Jarvis voice across interfaces while adapting to user prefs — composes with prompt packs and Adaptive Memory; does not bypass safety, caps, or tool policy
+## 🖥️ Phase 14 — GUI Desktop App
+> **Goal:** Native Windows desktop window with full Jarvis interface.
+> **Dependency:** Phase 4 (CLI patterns), Phase 12 (voice integration)
 
-- [ ] **12.1** — Tone control — formal/casual/warm; locale-aware; user override via config + memory profile
+- [ ] **14.1** — Create `interfaces/gui/main_window.py` — PyQt6 desktop app
+  - [ ] 14.1.1 — Chat message area (scrollable)
+  - [ ] 14.1.2 — Input text box
+  - [ ] 14.1.3 — Send button
+  - [ ] 14.1.4 — Model selector dropdown
+  - [ ] 14.1.5 — Microphone button (voice input)
 
-- [ ] **12.2** — Response style — length presets; bullet vs prose; "teacher mode" vs "executive summary"
+- [ ] **14.2** — Create `interfaces/gui/settings_dialog.py`
+  - [ ] 14.2.1 — Model selection
+  - [ ] 14.2.2 — Language preference
+  - [ ] 14.2.3 — Voice settings
 
-- [ ] **12.3** — Adaptive personality — drift slowly from Feedback (Phase 8) + explicit prefs; bounded deltas; audit log
+- [ ] **14.3** — Arabic RTL text rendering in GUI
+  - [ ] 14.3.1 — Set Qt layout direction for Arabic
+  - [ ] 14.3.2 — RTL text alignment in chat bubbles
 
-- [ ] **12.4** — Integration — inject Personality fragments into mode packs + system prompts via 3.17; ensure router still picks model by capability
+- [ ] **14.4** — System tray integration
+  - [ ] 14.4.1 — Minimize to system tray
+  - [ ] 14.4.2 — Wake word activates window
+  - [ ] 14.4.3 — Tray menu: Open, Settings, Quit
 
-- [ ] **12.5** — Tests — A/B prompt fixtures; regression that safety refusals still occur when required
+- [ ] **14.5** — Test GUI
+  - [ ] 14.5.1 — Conversation test
+  - [ ] 14.5.2 — Settings dialog test
+
+- [ ] **14.12** — Jarvis system tray (Windows)
+  - [ ] 14.12.1 — Run as background process: pystray tray icon
+  - [ ] 14.12.2 — Right-click tray menu: Open GUI / Open Web UI / Settings / Quit
+  - [ ] 14.12.3 — Wake word detection activates GUI window from tray
+  - [ ] 14.12.4 — Notification integration: tray shows Windows toast via 6.6
+  - [ ] 14.12.5 — Auto-start on Windows login (optional, user-toggle in settings)
+
+- [ ] **14.13** — Clipboard integration in GUI
+  - [ ] 14.13.1 — "Analyze clipboard" button: send clipboard content to Jarvis
+  - [ ] 14.13.2 — Auto-detect clipboard type: code / URL / plain text / image
+  - [ ] 14.13.3 — One-click: translate clipboard, summarize clipboard, explain clipboard
+
+---
+
+## ✅ Phase 15 — QA + Optimization + Security
+> **Goal:** Production-hardened, fast, safe, and fully documented.
+> **Dependency:** All phases complete.
+
+- [ ] **15.1** — Create `tests/` test suite
+  - [ ] 15.1.1 — `tests/test_llm.py` — LLM engine tests
+  - [ ] 15.1.2 — `tests/test_memory.py` — memory system tests
+  - [ ] 15.1.3 — `tests/test_tools.py` — tool registry + representative tools
+  - [ ] 15.1.4 — `tests/test_voice.py` — STT/TTS pipeline test
+  - [ ] 15.1.5 — `tests/test_vision.py` — vision engine test
+  - [ ] 15.1.6 — `tests/test_runtime.py` — loop + executor boundaries
+  - [ ] 15.1.7 — `tests/test_identity.py` — prompt builder output consistency
+  - [ ] 15.1.8 — `tests/test_context_buffer.py` — buffer lifecycle tests
+
+- [ ] **15.2** — Performance optimization (Overcoming Hardware Constraints)
+  - [ ] 15.2.1 — Profile slow operations
+  - [ ] 15.2.2 — Model preloading strategy (VRAM-safe)
+  - [ ] 15.2.3 — Response caching for repeated queries
+  - [ ] 15.2.4 — Async all I/O operations
+  - [ ] 15.2.5 — Vector Database Speed Optimization (Batched embedding ingestion to prevent RAM spikes on large PDFs)
+  - [ ] 15.2.6 — Context Window Compression (Auto-summarize middle-history so the GPU avoids re-processing 8k+ tokens)
+  - [ ] 15.2.7 — Tool Execution Parallelism (Run multiple independent I/O tools simultaneously without locking the orchestrator)
+  - [ ] 15.2.8 — Hardware Control: Enforce Flash Attention locally on Ollama runtimes for deep/planning modes
+  - [ ] 15.2.9 — Auto-KV Cache Management: dynamically adjust context window limits based on real-time VRAM usage
+
+- [ ] **15.3** — Error handling and resilience
+  - [ ] 15.3.1 — Graceful Ollama connection failure
+  - [ ] 15.3.2 — Model loading failure fallback
+  - [ ] 15.3.3 — Tool execution error recovery
+  - [ ] 15.3.4 — Retry logic with exponential backoff
+  - [ ] 15.3.5 — End-to-end error class → retry / switch model tests
+
+- [ ] **15.4** — Logging and monitoring
+  - [ ] 15.4.1 — Structured logging (Loguru)
+  - [ ] 15.4.2 — Log all model calls with latency
+  - [ ] 15.4.3 — Log all tool executions
+  - [ ] 15.4.4 — Log errors with full stack trace
+
+- [ ] **15.5** — Windows compatibility
+  - [ ] 15.5.1 — Test all features on Windows 11 + PowerShell
+  - [ ] 15.5.2 — Path handling (Windows vs Linux)
+  - [ ] 15.5.3 — Audio device detection on Windows
+  - [ ] 15.5.4 — Verify `scripts/install.ps1` on clean system
+
+- [ ] **15.6** — Security review
+  - [ ] 15.6.1 — Sandbox code execution (no system access)
+  - [ ] 15.6.2 — Validate all user inputs and tool args
+  - [ ] 15.6.3 — Secure API key storage
+
+- [ ] **15.7** — Update documentation
+  - [ ] 15.7.1 — Update README.md with final instructions
+  - [ ] 15.7.2 — Add docstrings to all modules
+  - [ ] 15.7.3 — Update TASKS.md progress table (all 16 phases)
+
+- [ ] **15.8** — Final integration test
+  - [ ] 15.8.1 — Full conversation in Arabic
+  - [ ] 15.8.2 — Voice → response → TTS full cycle
+  - [ ] 15.8.3 — Multi-step agent task
+  - [ ] 15.8.4 — Telegram + Web simultaneously
+
+- [ ] **15.9** — Continuous integration
+  - [ ] 15.9.1 — GitHub Actions or pre-commit hooks for linting
+  - [ ] 15.9.2 — Automated test run on push
+  - [ ] 15.9.3 — Code coverage reporting
+
+- [ ] **15.10** — Phase 6–8 skill integration tests
+  - [ ] 15.10.1 — Open app → verify window active → close app test
+  - [ ] 15.10.2 — Browser session → login → restart → verify session preserved
+  - [ ] 15.10.3 — Gmail + Calendar same OAuth token test
+  - [ ] 15.10.4 — Clipboard read → translate → write back test
+  - [ ] 15.10.5 — Notification → user sees toast → acknowledged test
+
+- [ ] **15.11** — Security review for system control tools
+  - [ ] 15.11.1 — Confirm-before-execute for: delete file, kill process, send email, run shell
+  - [ ] 15.11.2 — Allowlist for shell commands: reject rm -rf, format, etc.
+  - [ ] 15.11.3 — Browser credential vault: encrypt session JSON at rest (Fernet)
+  - [ ] 15.11.4 — Google OAuth token: stored in data/ (gitignored), not config/
+
+- [ ] **15.12** — End-to-end integration tests (full scenarios)
+  - [ ] 15.12.1 — "Send an email to X and add a Calendar reminder" — 2 tools, 1 OAuth token
+  - [ ] 15.12.2 — "Open Notepad, type Hello, save as test.txt on Desktop" — app + keyboard + file
+  - [ ] 15.12.3 — Voice → "what's on my screen?" → OCR + LLaVA → spoken answer
+  - [ ] 15.12.4 — "Search YouTube for X, open first result" — search + browser
+  - [ ] 15.12.5 — Multi-agent task: research + summarize + save to Drive
+
+---
+
+## 🎭 Phase 16 — Personality Layer
+> **Goal:** Consistent Jarvis voice across all interfaces with adaptive tone.
+> **Dependency:** All phases complete — this is polish, not function.
+
+- [ ] **16.1** — Tone control — formal/casual/warm; locale-aware; user override via config + memory profile
+
+- [ ] **16.2** — Response style — length presets; bullet vs prose; "teacher mode" vs "executive summary"
+
+- [ ] **16.3** — Adaptive personality — drift slowly from Feedback (Phase 11) + explicit prefs; bounded deltas; audit log
+
+- [ ] **16.4** — Integration — inject Personality fragments into mode packs + system prompts via 3.17; ensure router still picks model by capability
+
+- [ ] **16.5** — Tests — A/B prompt fixtures; regression that safety refusals still occur when required
 
 ---
 
@@ -1085,13 +1350,54 @@ SD 1.5          → ~4.0 GB (float16)  — optional; unload Ollama first
 1. Phases 1–3 (Foundation → LLM + Runtime → Memory + adaptive hooks)
 2. Phase 4 CLI (fast feedback)
 3. Phase 5 Tool System + parallel execution (enables real autonomy)
-4. Phase 6 Agents (behaviors on top of tools)
-5. Phase 7 Task Decomposition Engine (graphs, dependencies, selective retry)
-6. Phase 8 Feedback & Learning (close the loop with memory + decision)
-7. Phase 9 Web + Voice + Vision (multimodal surfaces)
-8. Phase 10 Integrations
-9. Phase 11 Optimization & QA
-10. Phase 12 Personality (polish and adaptation last)
+4. Phase 6 System Control Skills (apps, files, clipboard, notifications, OCR)
+5. Phase 7 Browser & Web Skills
+6. Phase 8 External APIs & Integrations
+7. Phase 9 Agents (behaviors on top of tools)
+8. Phase 10 Task Decomposition Engine (graphs, dependencies, selective retry)
+9. Phase 11 Feedback & Learning (close the loop with memory + decision)
+10. Phase 12 Web + Voice + Vision (multimodal surfaces)
+11. Phase 13 Telegram Interface
+12. Phase 14 GUI Desktop App
+13. Phase 15 Optimization & QA
+14. Phase 16 Personality (polish and adaptation last)
+
+### Model Inventory (final — as of Phase 1 completion)
+```
+gemma3:4b          — Fast / lightweight; tight latency or low complexity
+qwen3:8b           — General / balanced / deep reasoning (main brain)
+qwen2.5-coder:7b   — Code + execution tasks
+llava:7b           — Vision tasks
+```
+> `qwen2.5:7b` has been removed — superseded by `qwen3:8b` in all profiles.
+
+### New Phase Skill Dependencies
+```
+Phase 6 requires: Phase 5 (tool registry)
+Phase 7 requires: Phase 5 (tool registry), Phase 6 (file paths)
+Phase 8 requires: Phase 5 (tool registry), Phase 7 (OAuth browser flow)
+Phase 9 requires: Phases 5–8 (tools + browser + APIs)
+Phase 10 requires: Phase 9 (agents as execution units)
+Phase 11 requires: Phase 9 + 10 (outcomes to learn from)
+Phase 12 requires: Phase 5+ (interfaces need real tools behind them)
+Phase 13 requires: Phase 12 (voice pipeline for voice messages)
+Phase 14 requires: Phase 4 + 12
+Phase 15 requires: All phases feature-complete
+Phase 16 requires: All phases complete
+```
+
+### Windows-Specific Libraries Required (add to requirements.txt)
+```
+pywin32        — Windows API (app window control, registry)
+pycaw          — Windows audio (volume control)
+pystray        — System tray icon
+winotify       — Windows Toast notifications (or win10toast)
+pyperclip      — Cross-platform clipboard (text)
+pynput         — Global keyboard/mouse hooks
+keyboard       — Global hotkey registration
+mss            — Fast screen capture
+pytesseract    — Lightweight OCR (requires Tesseract binary)
+```
 
 ---
 
