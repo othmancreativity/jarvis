@@ -1,4 +1,8 @@
-"""Posterior confidence estimates (post-generation)."""
+"""Posterior confidence estimates (post-generation).
+
+Enhanced with code detection, completeness heuristics, language alignment,
+and answer quality signals.
+"""
 
 from __future__ import annotations
 
@@ -13,25 +17,60 @@ def posterior_confidence(
     decision: DecisionOutput,
 ) -> float:
     """
-    Lightweight heuristic: not a second LLM call (Phase 2).
+    Lightweight heuristic posterior confidence — no second LLM call.
 
-    Uses length ratio, hedging phrases, and task fit.
+    Combines:
+    - Prior confidence from Decision Layer
+    - Length ratio (response adequacy)
+    - Hedging phrase detection (AR + EN)
+    - Question-answer alignment
+    - Code block presence when code is expected
+    - Completeness signals (truncation, trailing ellipsis)
     """
     text = assistant_text.strip()
     if not text:
         return 0.05
 
     prior = decision.confidence
-    score = 0.55 * prior + 0.45 * min(1.0, len(text) / max(len(user_message), 80))
+    msg_len = max(len(user_message), 80)
 
+    # Base: weighted blend of prior + length adequacy
+    length_ratio = min(1.0, len(text) / msg_len)
+    score = 0.50 * prior + 0.30 * length_ratio
+
+    # --- Penalty: hedging phrases (AR + EN) ---
     hedges = (
-        r"\b(maybe|perhaps|not sure|unclear|might|could be|لا أعلم|ربما|غير واضح)\b",
+        r"\b(maybe|perhaps|not sure|unclear|might|could be|i think|i'm not certain)\b",
+        r"\b(لا أعلم|ربما|غير واضح|قد يكون|لست متأكد|يمكن أن)\b",
     )
-    if any(re.search(h, text, re.I) for h in hedges):
+    hedge_count = sum(1 for h in hedges if re.search(h, text, re.I))
+    score -= 0.08 * min(hedge_count, 3)
+
+    # --- Penalty: unanswered questions ---
+    if "?" in user_message and "?" not in text and len(user_message) < 400:
+        score -= 0.06
+
+    # --- Bonus: code block when code intent ---
+    if decision.intent == "code":
+        if "```" in text or re.search(r"^(def |class |import |const |function )", text, re.M):
+            score += 0.10
+        else:
+            score -= 0.10  # Expected code but didn't get any
+
+    # --- Penalty: truncation signals ---
+    if text.endswith("...") or text.endswith("…"):
+        score -= 0.08
+    if len(text) < 20 and decision.complexity != "low":
         score -= 0.12
 
-    if "?" in user_message and "?" not in text and len(user_message) < 400:
-        score -= 0.08
+    # --- Bonus: structured response for complex tasks ---
+    if decision.complexity in ("medium", "high"):
+        if any(marker in text for marker in ("\n- ", "\n* ", "\n1.", "\n##")):
+            score += 0.05
+
+    # --- Bonus: sufficient length for deep mode ---
+    if decision.mode in ("deep", "planning", "research") and len(text) > 300:
+        score += 0.05
 
     return max(0.05, min(0.99, score))
 
