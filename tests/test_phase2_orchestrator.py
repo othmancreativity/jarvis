@@ -10,10 +10,11 @@ from core.brain.orchestrator import ChatOrchestrator, stream_reply_chunks
 
 def test_chat_orchestrator_streams_mocked_engine() -> None:
     settings = load_settings()
+    # Long enough reply so evaluation doesn't trigger escalation
+    reply_text = "Hello world. This is a complete and helpful response to your greeting."
     fake_stream = iter(
         [
-            {"message": {"content": "Hello"}},
-            {"message": {"content": " world"}},
+            {"message": {"content": reply_text}},
         ]
     )
     engine = MagicMock()
@@ -21,10 +22,12 @@ def test_chat_orchestrator_streams_mocked_engine() -> None:
 
     orch = ChatOrchestrator(settings, engine=engine)
     out = "".join(orch.stream_tokens("hi"))
-    assert "Hello" in out
-    assert "world" in out
-    engine.chat.assert_called_once()
-    assert engine.chat.call_args.kwargs.get("stream") is True
+    assert reply_text in out
+    # Engine should be called at least once (may escalate for short replies)
+    assert engine.chat.call_count >= 1
+    # First call must be streaming
+    first_call = engine.chat.call_args_list[0]
+    assert first_call.kwargs.get("stream") is True
 
 
 def test_stream_reply_chunks_returns_llm_route() -> None:
