@@ -1,0 +1,48 @@
+# Tool / skill registry — enable flags, categories, JSON Schema pointers (Phase 5 implements loaders)
+
+version: 1
+
+schemas_dir: config/schemas
+
+tools:
+  - id: web_search
+    enabled: true
+    category: search
+    module: skills.search.web_search
+    schema: search/web_search.schema.json
+
+  - id: browser
+    enabled: true
+    category: web
+    module: skills.web.browser
+    schema: web/browser.schema.json
+
+  - id: file_ops
+    enabled: true
+    category: control
+    module: skills.control.files
+    schema: control/files.schema.json
+
+  - id: system_info
+    enabled: true
+    category: control
+    module: skills.control.system
+    schema: control/system.schema.json
+
+  - id: code_executor
+    enabled: true
+    category: coder
+    module: skills.coder.executor
+    schema: coder/executor.schema.json
+
+  - id: google_calendar
+    enabled: false
+    category: api
+    module: skills.api.google_calendar
+    schema: api/google_calendar.schema.json
+
+  - id: youtube
+    enabled: false
+    category: api
+    module: skills.api.youtube
+    schema: api/youtube.schema.json
