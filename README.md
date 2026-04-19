@@ -133,30 +133,33 @@ Image gen:          SD 1.5           (~4.0 GB VRAM float16) — unload LLM first
 
 ## 🏗️ Architecture
 
+Logical layout (target). Python packages live under `src/`; config is under `config/` at the repo root.
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   INTERFACES                        │
 │   CLI  │  Web UI  │  GUI  │  Telegram  │  Voice    │
+│              (src/interfaces/)                      │
 └─────────────────────┬───────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────┐
 │                  app/main.py                        │
-│              Entry Point + Router                   │
+│         Entry Point + Interface Router              │
 └─────────────────────┬───────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────┐
-│               core/runtime/                         │
+│            src/core/runtime/                        │
 │  Runtime Manager → Loop (Observe→Decide→Think→Act→  │
 │  Evaluate) → decision/ → State → Tool Executor     │
 └─────────────────────┬───────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────┐
-│                  core/brain/                        │
+│               src/core/brain/                     │
 │   Orchestrator  ↔  Planner / Thinker  ↔  Memory   │
 └──────┬──────────────┬──────────────┬────────────────┘
        │              │              │
 ┌──────▼──────┐ ┌─────▼──────┐ ┌────▼────────────────┐
-│  models/    │ │  skills/   │ │  core/memory/       │
+│ src/models/ │ │ src/skills/ │ │ src/core/memory/    │
 │  llm/       │ │  (tools)   │ │  Short: Redis       │
 │  speech/    │ │  control/  │ │  Long:  ChromaDB    │
 │  vision/    │ │  web/      │ │  Files: SQLite      │
@@ -219,7 +222,7 @@ Observe → Decide → Think → Act → Evaluate → Escalate? → …
 
 ## 🧭 Decision Layer
 
-Located under `core/runtime/decision/`, the Decision Layer is the policy front-end for the runtime. It estimates what kind of turn this is and what resources it deserves — it does not call a model by name from a fixed table.
+Located under `src/core/runtime/decision/`, the Decision Layer is the policy front-end for the runtime. It estimates what kind of turn this is and what resources it deserves — it does not call a model by name from a fixed table.
 
 **Decision output contract:**
 
@@ -328,7 +331,7 @@ The router consumes `DecisionOutput` + capability profiles + runtime signals (VR
 
 ## 🔧 Tool System
 
-Capabilities live in the `skills/` tree as a callable tool system:
+Capabilities live in the `src/skills/` tree as a callable tool system:
 
 - Each capability is a callable tool with a stable name, description, and input/output schema
 - The tool registry lists enabled tools and their schemas
@@ -339,47 +342,112 @@ Capabilities live in the `skills/` tree as a callable tool system:
 
 ## 📁 Project Structure
 
+**Convention:** all importable Python code is under **`src/`** (use `PYTHONPATH=src` or an editable install once packaging is added). **`config/`** holds YAML + JSON Schemas at the repository root (not inside `src/`).
+
+### Current tree (on disk)
+
+Complete current project structure (including sub-folders and files under source/config).  
+For readability, environment/internal folders such as `venv/` and `.git/` are excluded.
+
 ```
-(project root)/
-├── 📄 README.md, TASKS.md, requirements.txt, pyproject.toml
-├── 📁 settings/              ← Python app settings (YAML loader, Pydantic, paths, logging)
-│   ├── app_settings.py       ← AppSettings + sub-blocks (mirrors config/settings.yaml)
-│   ├── loader.py             ← load_settings() + .env
-│   ├── paths.py              ← PROJECT_ROOT, config_dir, logs_dir
-│   ├── logging.py            ← Loguru setup
-│   └── chat_types.py         ← Decision / RouteKind for API/UI
-├── 📁 app/                   ← Entry points (main, cli, server, __main__)
-├── 📁 config/                ← YAML + JSON Schemas (not Python)
-│   ├── settings.yaml         ← Main app config
-│   ├── models.yaml           ← Per-model capability profiles + routing weights
-│   ├── skills.yaml           ← Tool registry + schema paths
-│   ├── jarvis_identity.yaml  ← Jarvis system identity definition
-│   └── schemas/              ← JSON Schema for tools
-├── 📁 core/                  ← Brain + runtime + memory + identity
-│   ├── bootstrap.py          ← get_chat_service → orchestrator
-│   ├── brain/                ← orchestrator, dispatcher
-│   ├── runtime/              ← decision/, evaluate/, loop/, state/, executor/
-│   ├── events/               ← EventBus
-│   ├── agents/               ← planner/, thinker/, extensions/ (placeholder)
-│   ├── memory/               ← short_term, long_term, database, manager, user_profile
-│   ├── context/              ← Context buffer (multimodal input staging)
-│   └── identity/             ← Jarvis profile, user profile, prompt builder, model awareness
-├── 📁 interfaces/            ← cli/, web/, telegram/, gui/, voice/
-├── 📁 models/                ← llm/, speech/, vision/, diffusion/
-├── 📁 skills/                ← Tool implementations (Phase 5+)
-├── 📁 tests/                 ← pytest suites per phase
-├── 📁 scripts/               ← install.sh, install.ps1
-├── 📁 data/, 📁 logs/        ← Runtime data (gitignored except .gitkeep)
+jarvis/
+|-- app/
+|   -- jarvis.py
+|-- config/
+|   |-- schemas/
+|   |   |-- api/
+|   |   |   |-- google_calendar.schema.json
+|   |   |   -- youtube.schema.json
+|   |   |-- coder/
+|   |   |   -- executor.schema.json
+|   |   |-- control/
+|   |   |   |-- files.schema.json
+|   |   |   -- system.schema.json
+|   |   |-- search/
+|   |   |   -- web_search.schema.json
+|   |   -- web/
+|   |       -- browser.schema.json
+|   |-- jarvis_identity.yaml
+|   |-- models.yaml
+|   |-- settings.example.yaml
+|   |-- settings.yaml
+|   -- skills.yaml
+|-- src/
+|   |-- ai/
+|   |-- core/
+|   |   |-- agents/
+|   |   |   |-- planner/
+|   |   |   |-- researcher/
+|   |   |   -- thinker/
+|   |   |-- context/
+|   |   |-- memory/
+|   |   |-- orchestrator/
+|   |   -- runtime/
+|   |       |-- decision/
+|   |       |-- executor/
+|   |       |-- loop/
+|   |       -- state/
+|   |-- interfaces/
+|   |   |-- cli/
+|   |   |-- gui/
+|   |   |-- telegram/
+|   |   -- web/
+|   |       |-- static/
+|   |       -- templates/
+|   |-- models/
+|   |   |-- base/
+|   |   |-- speech/
+|   |   -- vision/
+|   -- skills/
+|       |-- api/
+|       |   |-- calendar/
+|       |   -- mail/
+|       |-- audio/
+|       |-- browser/
+|       |-- coder/
+|       |-- files/
+|       |-- map/
+|       |-- media/
+|       |-- network/
+|       |-- notes/
+|       |-- notify/
+|       |-- office/
+|       |-- pdf/
+|       |-- power/
+|       |-- reader/
+|       |-- screen/
+|       |-- search/
+|       |-- social/
+|       |-- store/
+|       |-- system/
+|       |-- timer/
+|       -- web/
+|-- .env
+|-- .gitignore
+|-- README.md
+|-- requirements.txt
+-- TASKS.md
 ```
 
-### Implementation Status
+### Planned / not yet in repo (see [TASKS.md](./TASKS.md))
 
-| Area | What Shipped |
-|------|-------------|
-| **Phase 1** | `config/*.yaml`, `.env.example`, `requirements.txt`, `app/main.py` entry points, `scripts/install.sh` + `install.ps1`, `settings/` loaders, skeleton directories |
-| **Phase 2** | `models/llm/` engine + router + prompts + profiles; `core/runtime/` decision, evaluate, escalation, limits; `core/brain/` orchestrator + dispatcher; `core/events/` event_bus; `core/bootstrap`; test suite phase 2 |
-| **Phase 3** | `core/memory/` short-term + long-term + database + manager + user profiling; `core/context/` buffer system; `core/identity/` Jarvis profile + user identity + prompt builder + model awareness + system awareness |
-| **Phases 4–16** | Roadmap — see TASKS.md |
+| Path | Purpose |
+|------|---------|
+| `app/main.py` | Primary CLI flag: `--interface cli\|web\|telegram\|gui\|all` |
+| `.env.example` | Template for OAuth/API keys (TASK 1.3) |
+| `settings/` | Python package: Pydantic settings loader, paths, logging (mirrors `config/settings.yaml`) |
+| `scripts/install.ps1`, `scripts/install.sh` | Automated setup (TASK 1.7) |
+| `tests/` | pytest suites |
+| `data/`, `logs/` | Runtime data (typically gitignored) |
+
+### Implementation status
+
+| Area | Status |
+|------|--------|
+| **Config + schemas** | `config/*.yaml`, `config/schemas/**/*.json` present |
+| **`src/` packages** | Directory tree only — Python modules to be implemented per TASKS.md |
+| **`app/`** | `jarvis.py` placeholder only; `main.py` not yet added |
+| **Phases 1–16** | Tracked in [TASKS.md](./TASKS.md) (checkboxes) |
 
 ---
 
@@ -397,11 +465,22 @@ ollama pull qwen2.5-coder:7b
 ollama pull gemma3:4b
 ollama pull llava:7b
 
-# 3. Install Python dependencies
+# 3. Create venv and install Python dependencies
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
+### Configuration
+
+```powershell
+copy config\settings.example.yaml config\settings.yaml
+# Optional: copy .env.example to .env when that file exists (TASK 1.3)
+```
+
 ### Run Jarvis
+
+The entry point **`app/main.py`** is defined in the roadmap ([TASKS.md](./TASKS.md) §1.6) but **not yet present**. After it exists:
 
 ```powershell
 # CLI mode
@@ -409,7 +488,7 @@ python app/main.py --interface cli
 
 # Web UI mode
 python app/main.py --interface web
-# Then open: http://localhost:8080
+# Then open: http://localhost:8080 (port from config)
 
 # Telegram mode
 python app/main.py --interface telegram
@@ -418,16 +497,19 @@ python app/main.py --interface telegram
 python app/main.py --interface all
 ```
 
+Until `main.py` is implemented, the repository is **skeleton + config only**; there is no runnable assistant binary yet.
+
 ---
 
 ## ⚙️ Configuration
 
-Copy and edit the config files:
+Copy and edit the main config file:
 
 ```powershell
 copy config\settings.example.yaml config\settings.yaml
-copy .env.example .env
 ```
+
+When `.env.example` is added (TASK 1.3), copy it to `.env` for API keys and tokens.
 
 Key settings in `config/settings.yaml`:
 
@@ -452,14 +534,14 @@ hardware:
 
 ## 🗺️ Roadmap
 
-See [TASKS.md](./TASKS.md) for the full checklist with checkboxes updated as work completes.
+See [TASKS.md](./TASKS.md) for the full checklist (paths use the `src/…` layout).
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| Phase 1 | Foundation — config, logging, project skeleton | ✅ Complete |
-| Phase 2 | LLM + Runtime + Decision Layer + Dynamic Router | ✅ Complete |
-| Phase 3 | Memory + Adaptive Memory + Context Buffer + Identity | ✅ Complete |
-| Phase 4 | CLI Interface — Rich UX, slash commands, hotkeys | ⏳ Next |
+| Phase 1 | Foundation — config, logging, project skeleton | ⏳ In progress |
+| Phase 2 | LLM + Runtime + Decision Layer + Dynamic Router | ⏳ Pending |
+| Phase 3 | Memory + Adaptive Memory + Context Buffer + Identity | ⏳ Pending |
+| Phase 4 | CLI Interface — Rich UX, slash commands, hotkeys | ⏳ Pending |
 | Phase 5 | Tool System — registry, schemas, calling pipeline | ⏳ Pending |
 | Phase 6 | System Control — apps, files, clipboard, notifications, OCR | ⏳ Pending |
 | Phase 7 | Browser & Web — Playwright + sessions + WhatsApp | ⏳ Pending |

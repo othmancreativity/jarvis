@@ -3,7 +3,7 @@
 > Update checkboxes as you complete each task
 > **Phase order:** Foundation → Runtime + Decision → Memory (incl. Context Buffer + Identity & Profiles) → CLI → Tool System → Basic Agents → Task Decomposition → Feedback & Learning → Web / Voice / Vision → Integrations → Optimization & QA → Personality
 > **Intelligence is cross-cutting:** systems below are wired together — **feedback → memory** (signals update profiles and priors); **memory → decision** (preferences, failures, patterns); **decision → routing** (mode, model, tools); **runtime → evaluation** (turn outcomes feed self-eval, escalation, and feedback); **context buffer → observe → decision** (staged multimodal inputs before heavy work); **identity & profiles → every model call** (Jarvis + user + task context — models are **components**, not standalone products).
-> **Repo layout:** YAML under `config/`; Python settings (loader, Pydantic, paths, logging) under `settings/` — see [README.md](./README.md) (Project Structure).
+> **Repo layout:** YAML + JSON Schemas under `config/`; Python packages under `src/` (`core/`, `models/`, `interfaces/`, `skills/`); entry points under `app/`; optional settings loader package under `settings/` (planned) — see [README.md](./README.md) (Project Structure).
 
 ---
 
@@ -99,8 +99,8 @@
   - [ ] 1.7.5 — openWakeWord model download instructions
 
 - [ ] **1.8** — Clean up project skeleton
-  - [ ] 1.8.1 — Rename `core/agents/New folder/` → `core/agents/extensions/`
-  - [ ] 1.8.2 — Create placeholder `__init__.py` in all core subdirs (including `core/runtime/` skeleton)
+  - [ ] 1.8.1 — Rename `src/core/agents/New folder/` → `src/core/agents/extensions/`
+  - [ ] 1.8.2 — Create placeholder `__init__.py` in all core subdirs (including `src/core/runtime/` skeleton)
   - [ ] 1.8.3 — Verify all `__init__.py` export correct public API symbols
 
 ---
@@ -108,13 +108,13 @@
 ## 🧠 Phase 2 — LLM Engine, Model Router, Decision Layer & Runtime
 > **Goal:** Ollama access, adaptive routing via Decision Layer + confidence + cost estimates + memory-informed priors, VRAM-safe swaps, Evaluate → Escalate|Finish, and the Observe → Decide → Think → Act → Evaluate loop. Extend with Error Intelligence (2.23), Self-Evaluation (2.24), and Persistent Runtime State (2.25).
 
-- [ ] **2.1** — Create `models/llm/engine.py` — base Ollama interface
+- [ ] **2.1** — Create `src/models/llm/engine.py` — base Ollama interface
   - [ ] 2.1.1 — `chat(messages, model)` — streaming + non-streaming
   - [ ] 2.1.2 — `generate(prompt, model)` — single completion
   - [ ] 2.1.3 — Handle connection errors + retry logic
   - [ ] 2.1.4 — Support Arabic system prompts
 
-- [ ] **2.2** — Create `models/llm/router.py` — dynamic model selector
+- [ ] **2.2** — Create `src/models/llm/router.py` — dynamic model selector
   - [ ] 2.2.1 — Ingest DecisionOutput + capability profiles + modalities + cost_estimate
   - [ ] 2.2.2 — Score candidate models by intent fit, complexity, mode, latency, reasoning ceiling
   - [ ] 2.2.3 — Prefer coder profile when code/execution signals dominate; vision when pixels present
@@ -124,23 +124,23 @@
   - [ ] 2.2.7 — VRAM guard — only one heavy Ollama model at a time; serialize swaps
   - [ ] 2.2.8 — Expose override hooks (user / interface) without bypassing safety caps
 
-- [ ] **2.3** — Create `models/llm/prompts.py` — system prompt templates
+- [ ] **2.3** — Create `src/models/llm/prompts.py` — system prompt templates
   - [ ] 2.3.1 — Jarvis Arabic personality prompt
   - [ ] 2.3.2 — Jarvis English personality prompt
   - [ ] 2.3.3 — Code-mode system prompt
   - [ ] 2.3.4 — Planning-mode system prompt
   - [ ] 2.3.5 — Mode packs — composable fragments for fast / normal / deep / planning / research
 
-- [ ] **2.4** — Create `core/runtime/runtime_manager.py` — session lifecycle, turn orchestration
+- [ ] **2.4** — Create `src/core/runtime/runtime_manager.py` — session lifecycle, turn orchestration
   - [ ] 2.4.1 — Start/end "run" per user turn; hook interfaces → brain
   - [ ] 2.4.2 — Enforce max loop iterations and timeouts
   - [ ] 2.4.3 — Coordinate with model router for VRAM
 
-- [ ] **2.5** — Create `core/runtime/state/` — conversation + run state
+- [ ] **2.5** — Create `src/core/runtime/state/` — conversation + run state
   - [ ] 2.5.1 — Track messages, pending tool calls, step index
   - [ ] 2.5.2 — Serializable snapshots for debugging
 
-- [ ] **2.6** — Create `core/runtime/loop/` — Observe → Decide → Think → Act → Evaluate driver
+- [ ] **2.6** — Create `src/core/runtime/loop/` — Observe → Decide → Think → Act → Evaluate driver
   - [ ] 2.6.1 — Observe: ingest user input + tool results + memory snippets
   - [ ] 2.6.2 — Decide: run Decision Layer; inject mode + budgets + prior confidence
   - [ ] 2.6.3 — Think: call LLM via dynamic router + mode-appropriate prompts
@@ -152,26 +152,26 @@
   - [ ] 2.6.9 — Merge multiple buffered inputs into one unified observation
   - [ ] 2.6.10 — Pass merged bundle to Decision Layer as structured input
 
-- [ ] **2.7** — Create `core/runtime/executor/` — tool execution facade
+- [ ] **2.7** — Create `src/core/runtime/executor/` — tool execution facade
   - [ ] 2.7.1 — Interface for "execute tool(name, args)" with validation hooks
   - [ ] 2.7.2 — Policy placeholder (permissions, sandbox flags)
 
-- [ ] **2.8** — Create `core/brain/orchestrator.py` — bridges runtime ↔ LLM ↔ memory
+- [ ] **2.8** — Create `src/core/brain/orchestrator.py` — bridges runtime ↔ LLM ↔ memory
   - [ ] 2.8.1 — Receive input from any interface via runtime manager
   - [ ] 2.8.2 — Detect high-level intent (chat / tool / plan / search)
   - [ ] 2.8.3 — Return unified response format (stream-friendly)
   - [ ] 2.8.4 — Context Buffer: accept enqueue / commit flows from interfaces
 
-- [ ] **2.9** — Create `core/brain/dispatcher.py` — intent → handler
+- [ ] **2.9** — Create `src/core/brain/dispatcher.py` — intent → handler
   - [ ] 2.9.1 — Map intent → tool or agent path
   - [ ] 2.9.2 — Pass context and history
   - [ ] 2.9.3 — Handle handler errors gracefully
 
-- [ ] **2.10** — Create `core/events/event_bus.py` — pub/sub event system
+- [ ] **2.10** — Create `src/core/events/event_bus.py` — pub/sub event system
   - [ ] 2.10.1 — Simple async event emitter
   - [ ] 2.10.2 — Events: on_message, on_response, on_wake_word, on_error, on_tool_start, on_tool_end, on_decision, on_evaluate, on_escalation
 
-- [ ] **2.11** — Create `core/runtime/decision/` — Decision Layer
+- [ ] **2.11** — Create `src/core/runtime/decision/` — Decision Layer
   - [ ] 2.11.1 — Define DecisionOutput schema
   - [ ] 2.11.2 — Intent classification
   - [ ] 2.11.3 — Complexity estimation
@@ -271,14 +271,14 @@
 ## 💾 Phase 3 — Memory System (incl. Adaptive Memory + Context Buffer + Identity)
 > **Goal:** Jarvis remembers conversations and facts across sessions; learned preferences and memory-informed decisions connect to Decision + Router. Identity & Profiles defines who Jarvis is and who the user is for consistent behavior across all models.
 
-- [ ] **3.1** — Create `core/memory/short_term.py` — in-session memory
+- [ ] **3.1** — Create `src/core/memory/short_term.py` — in-session memory
   - [ ] 3.1.1 — Store conversation history as list of messages
   - [ ] 3.1.2 — Token-aware trimming (keep within context window)
   - [ ] 3.1.3 — In-memory backend with optional Redis persistence
   - [ ] 3.1.4 — Redis connection management: auto-reconnect, fallback to memory-only on failure
   - [ ] 3.1.5 — Configurable max history length and token budget
 
-- [ ] **3.2** — Create `core/memory/long_term.py` — persistent semantic memory
+- [ ] **3.2** — Create `src/core/memory/long_term.py` — persistent semantic memory
   - [ ] 3.2.1 — ChromaDB collection for semantic search
   - [ ] 3.2.2 — `remember(text, metadata)` — store a fact
   - [ ] 3.2.3 — `recall(query, n=5)` — semantic similarity search
@@ -286,14 +286,14 @@
   - [ ] 3.2.5 — Configurable embedding model (default: all-MiniLM-L6-v2)
   - [ ] 3.2.6 — Collection lifecycle: create, clear, delete
 
-- [ ] **3.3** — Create `core/memory/database.py` — SQLite structured storage
+- [ ] **3.3** — Create `src/core/memory/database.py` — SQLite structured storage
   - [ ] 3.3.1 — conversations table (id, role, content, timestamp, session_id)
   - [ ] 3.3.2 — facts table (id, content, source, category, created_at)
   - [ ] 3.3.3 — tasks table (id, title, status, priority, created_at, updated_at)
   - [ ] 3.3.4 — Schema auto-creation on init
   - [ ] 3.3.5 — CRUD operations with parameterized queries
 
-- [ ] **3.4** — Create `core/memory/manager.py` — unified memory interface
+- [ ] **3.4** — Create `src/core/memory/manager.py` — unified memory interface
   - [ ] 3.4.1 — `save_interaction(role, content, session_id)`
   - [ ] 3.4.2 — `get_context(n_messages)` — for LLM context window
   - [ ] 3.4.3 — `search(query)` — search all memory types (short + long + database)
@@ -308,7 +308,7 @@
   - [ ] 3.6.2 — Semantic search test
   - [ ] 3.6.3 — Cross-session memory persistence test
 
-- [ ] **3.7** — User profiling (adaptive memory) — `core/memory/user_profile.py`
+- [ ] **3.7** — User profiling (adaptive memory) — `src/core/memory/user_profile.py`
   - [ ] 3.7.1 — Preferred language (primary UI/response language)
   - [ ] 3.7.2 — Preferred response style (concise vs verbose, formal vs casual)
   - [ ] 3.7.3 — Common tasks / intents (recurring patterns for Decision Layer priors)
@@ -322,7 +322,7 @@
 ### Context Buffer System (temporary input staging)
 > **Goal:** Multimodal staging before execution — accept multiple inputs per turn; temporarily hold text, files, images, and audio references; provide lightweight context for Observe and Decision; no heavy models in this layer.
 
-- [ ] **3.9** — Create `core/context/buffer.py` — Context Buffer module
+- [ ] **3.9** — Create `src/core/context/buffer.py` — Context Buffer module
   - [ ] 3.9.1 — Temporary storage for user inputs until commit / execute
   - [ ] 3.9.2 — Allow multiple inputs to accumulate before the runtime run
   - [ ] 3.9.3 — Support text, files (PDF, Office), images, audio (store paths, handles — no inference here)
@@ -350,7 +350,7 @@
 ### Identity & Profiles System (who Jarvis is — who the user is)
 > **Rules:** No model is a standalone product. Every inference is part of one system with a single coherent identity. System prompts are dynamic (built from config + session + task + mode), not one static paragraph. Safety: never expose raw filesystem, secrets, or unrestricted host introspection.
 
-- [ ] **3.14** — User profile (identity-aware) — `core/identity/user_profile.py`
+- [ ] **3.14** — User profile (identity-aware) — `src/core/identity/user_profile.py`
   - [ ] 3.14.1 — Load/save per user id / session
   - [ ] 3.14.2 — Store: display name, language preferences, behavior style, technical level
   - [ ] 3.14.3 — Merge strategy with 3.7 (avoid duplicate sources of truth)
@@ -361,14 +361,14 @@
   - [ ] 3.15.1 — Define canonical identity: name = Jarvis; role = AI assistant system
   - [ ] 3.15.2 — Capabilities summary (tools, memory, planning, multimodal)
   - [ ] 3.15.3 — Default tone & behavior baseline
-  - [ ] 3.15.4 — Store in config with Pydantic model in `core/identity/`
+  - [ ] 3.15.4 — Store in config with Pydantic model in `src/core/identity/`
 
-- [ ] **3.16** — Model awareness layer — `core/identity/model_awareness.py`
+- [ ] **3.16** — Model awareness layer — `src/core/identity/model_awareness.py`
   - [ ] 3.16.1 — Inject on every call: Jarvis identity + user profile + system context
   - [ ] 3.16.2 — Required framing: "You are a component of Jarvis"; consistency across all routes
   - [ ] 3.16.3 — Same framing across fast/deep/coder/vision; only task and mode sections differ
 
-- [ ] **3.17** — System Prompt Builder — `core/identity/prompt_builder.py`
+- [ ] **3.17** — System Prompt Builder — `src/core/identity/prompt_builder.py`
   - [ ] 3.17.1 — Combine: Jarvis identity + user profile + task context + mode fragments
   - [ ] 3.17.2 — Inject into every model call (single pipeline)
   - [ ] 3.17.3 — Deterministic ordering: identity → safety → user prefs → task → mode
@@ -378,7 +378,7 @@
   - [ ] 3.18.2 — Previous actions: compact list of recent tool calls / outcomes
   - [ ] 3.18.3 — Handoff discipline: when router switches models, identity + user + state carry forward
 
-- [ ] **3.19** — File & system awareness (controlled) — `core/identity/system_awareness.py`
+- [ ] **3.19** — File & system awareness (controlled) — `src/core/identity/system_awareness.py`
   - [ ] 3.19.1 — Abstract project view: allow-listed roots, depth limits, summarized tree
   - [ ] 3.19.2 — Available tools: names + one-line purpose from registry
   - [ ] 3.19.3 — Environment capabilities: OS class, GPU tier summary
@@ -396,7 +396,7 @@
 ## 💻 Phase 4 — CLI Interface
 > **Goal:** Full-featured terminal chat with Rich formatting
 
-- [ ] **4.1** — Create `interfaces/cli/interface.py` — main CLI class
+- [ ] **4.1** — Create `src/interfaces/cli/interface.py` — main CLI class
   - [ ] 4.1.1 — Rich panel-based UI with bordered message areas
   - [ ] 4.1.2 — Streaming response display (token by token with live update)
   - [ ] 4.1.3 — Arabic text rendering support (RTL detection and alignment)
@@ -404,7 +404,7 @@
   - [ ] 4.1.5 — Syntax-highlighted code blocks in responses
   - [ ] 4.1.6 — Model and mode indicator in prompt status bar
 
-- [ ] **4.2** — Create `interfaces/cli/commands.py` — slash commands
+- [ ] **4.2** — Create `src/interfaces/cli/commands.py` — slash commands
   - [ ] 4.2.1 — `/clear` — clear conversation history
   - [ ] 4.2.2 — `/model [name]` — switch active model
   - [ ] 4.2.3 — `/mode [fast|normal|deep|planning|research]` — switch thinking mode
@@ -452,7 +452,7 @@
 > **Goal:** Real-world actions as callable tools — registry, structured I/O, tool calling, execution pipeline
 > **Solution applied (Security & Scope):** Safely breaks the LLM out of its local box by granting controlled API access. Solves real-world execution limits by introducing human-in-the-loop pauses for auth/captchas, rather than failing silently.
 
-- [ ] **5.1** — Create `skills/base.py` — BaseTool abstract class
+- [ ] **5.1** — Create `src/skills/base.py` — BaseTool abstract class
   - [ ] 5.1.1 — `name: str` property
   - [ ] 5.1.2 — `description: str` property (for LLM tool list)
   - [ ] 5.1.3 — Input/output schema (JSON Schema or Pydantic model)
@@ -461,8 +461,8 @@
   - [ ] 5.1.6 — `version: str` — semantic version for tool tracking
   - [ ] 5.1.7 — `category: str` — grouping for registry and UI
 
-- [ ] **5.2** — Create `skills/registry.py` — tool registry + discovery
-  - [ ] 5.2.1 — Scan `skills/` for BaseTool subclasses
+- [ ] **5.2** — Create `src/skills/registry.py` — tool registry + discovery
+  - [ ] 5.2.1 — Scan `src/skills/` for BaseTool subclasses
   - [ ] 5.2.2 — Register all available tools with schemas
   - [ ] 5.2.3 — Export tool list + schemas to LLM (Ollama/OpenAI-compatible format)
   - [ ] 5.2.4 — Hot-reload tool modules without restart
@@ -473,7 +473,7 @@
   - [ ] 5.3.3 — Validate args → execute → feed observation back into runtime loop
   - [ ] 5.3.4 — Schema validation middleware: reject malformed tool calls before execution
 
-- [ ] **5.4** — Wire `core/runtime/executor/` to registry
+- [ ] **5.4** — Wire `src/core/runtime/executor/` to registry
   - [ ] 5.4.1 — Unified `execute_tool(name, args)` with error wrapping
   - [ ] 5.4.2 — Log tool latency, outcomes, and args fingerprint (for Phase 15 metrics)
   - [ ] 5.4.3 — Tool metrics collection: success rate, avg latency, error frequency per tool
@@ -498,7 +498,7 @@
 > **Goal:** Full OS and application control on Windows — open/close apps, clipboard, notifications, file ops, code execution, and global hotkeys as registered tools in the skill registry.
 > **Dependency:** Phase 5 (Tool registry must exist before registering these tools)
 
-- [ ] **6.1** — `skills/control/files/` — file operations tool (from old 5.7)
+- [ ] **6.1** — `src/skills/control/files/` — file operations tool (from old 5.7)
   - [ ] 6.1.1 — List directory contents
   - [ ] 6.1.2 — Read file content (text files; binary metadata only)
   - [ ] 6.1.3 — Write/create file with path safety checks
@@ -506,7 +506,7 @@
   - [ ] 6.1.5 — Search files by name/content (glob + grep)
   - [ ] 6.1.6 — Windows path normalization (backslash ↔ forward slash)
 
-- [ ] **6.2** — `skills/control/system/` — system control tool (from old 5.8)
+- [ ] **6.2** — `src/skills/control/system/` — system control tool (from old 5.8)
   - [ ] 6.2.1 — Get system info (CPU %, RAM used/total, disk space, GPU VRAM)
   - [ ] 6.2.2 — List running processes (name, PID, CPU%, RAM%)
   - [ ] 6.2.3 — Kill process by name or PID (`taskkill` on Windows, `kill` on Linux)
@@ -517,7 +517,7 @@
   - [ ] 6.2.8 — List and manage Windows Scheduled Tasks (read + basic create)
   - [ ] 6.2.9 — Network status: adapter list, IP addresses, connectivity check
 
-- [ ] **6.3** — `skills/control/apps/` — Windows application launcher (from old 5.9 + expanded)
+- [ ] **6.3** — `src/skills/control/apps/` — Windows application launcher (from old 5.9 + expanded)
   - [ ] 6.3.1 — Open application by name using `ShellExecute` / `subprocess.Popen`
   - [ ] 6.3.2 — Search for app in `%APPDATA%`, `Program Files`, `Program Files (x86)`, PATH
   - [ ] 6.3.3 — Search Windows Start Menu shortcuts (.lnk files) by name
@@ -527,28 +527,28 @@
   - [ ] 6.3.7 — Minimize/maximize/restore application window
   - [ ] 6.3.8 — Graceful shutdown: try close message first, then force kill
 
-- [ ] **6.4** — `skills/coder/executor.py` — code execution tool (from old 5.10)
+- [ ] **6.4** — `src/skills/coder/executor.py` — code execution tool (from old 5.10)
   - [ ] 6.4.1 — Execute Python code safely in subprocess with timeout
   - [ ] 6.4.2 — Execute shell/PowerShell commands (confirm-first for destructive ops)
   - [ ] 6.4.3 — Capture stdout/stderr; return structured result
   - [ ] 6.4.4 — Timeout protection (configurable, default 30s)
   - [ ] 6.4.5 — Return structured result: {stdout, stderr, returncode, duration}
 
-- [ ] **6.5** — `skills/control/clipboard.py` — Clipboard manager tool (NEW)
+- [ ] **6.5** — `src/skills/control/clipboard.py` — Clipboard manager tool (NEW)
   - [ ] 6.5.1 — Read current clipboard content (text, image detection)
   - [ ] 6.5.2 — Write text to clipboard
   - [ ] 6.5.3 — Monitor clipboard for changes (background thread, event on change)
   - [ ] 6.5.4 — Use `pyperclip` (cross-platform) + `win32clipboard` for images
   - [ ] 6.5.5 — Integration: "translate what I copied", "explain this code" flows
 
-- [ ] **6.6** — `skills/control/notifications.py` — Windows notification tool (NEW)
+- [ ] **6.6** — `src/skills/control/notifications.py` — Windows notification tool (NEW)
   - [ ] 6.6.1 — Send Windows Toast notification (title + body + optional icon)
   - [ ] 6.6.2 — Use `win10toast` or `winotify` library
   - [ ] 6.6.3 — Notification types: info / warning / success / reminder
   - [ ] 6.6.4 — Integration: task completion alerts, Calendar reminders, long-task done
   - [ ] 6.6.5 — Fallback: print to console if Windows toast fails
 
-- [ ] **6.7** — `skills/screen/` — Screen capture and lightweight OCR (NEW)
+- [ ] **6.7** — `src/skills/screen/` — Screen capture and lightweight OCR (NEW)
   - [ ] 6.7.1 — Full screenshot capture (`Pillow` + `mss` for speed)
   - [ ] 6.7.2 — Region screenshot (user-defined bounding box)
   - [ ] 6.7.3 — Lightweight OCR without vision model: `pytesseract` / `easyocr`
@@ -558,7 +558,7 @@
 
 - [ ] **6.8** — Global hotkey tool registration
   - [ ] 6.8.1 — Register hotkeys as a registered tool in the skill registry
-  - [ ] 6.8.2 — `skills/control/hotkeys.py` — manage hotkey bindings at runtime
+  - [ ] 6.8.2 — `src/skills/control/hotkeys.py` — manage hotkey bindings at runtime
   - [ ] 6.8.3 — Configurable bindings in config/settings.yaml → hotkeys section
   - [ ] 6.8.4 — Emit events via EventBus when hotkey fires
 
@@ -575,14 +575,14 @@
 > **Goal:** Full browser control via Playwright — navigate, interact, extract, download, upload — with persistent sessions so Jarvis stays logged in between runs.
 > **Dependency:** Phase 5 (Tool registry), Phase 6 (system control for file paths)
 
-- [ ] **7.1** — `skills/search/web_search.py` — web search tool (from old 5.5)
+- [ ] **7.1** — `src/skills/search/web_search.py` — web search tool (from old 5.5)
   - [ ] 7.1.1 — DuckDuckGo search (no API key needed)
   - [ ] 7.1.2 — Return top N results: title + snippet + URL
   - [ ] 7.1.3 — Fast page content extraction (readability or trafilatura)
   - [ ] 7.1.4 — Local SearxNG integration (optional, self-hosted)
   - [ ] 7.1.5 — Result caching (TTL-based, avoid duplicate searches)
 
-- [ ] **7.2** — `skills/web/browser.py` — browser automation core (from old 5.6, expanded)
+- [ ] **7.2** — `src/skills/web/browser.py` — browser automation core (from old 5.6, expanded)
   - [ ] 7.2.1 — Launch Playwright browser (Chromium headless/headed, configurable)
   - [ ] 7.2.2 — Navigate to URL and wait for load
   - [ ] 7.2.3 — Click element by text, CSS selector, or XPath
@@ -590,7 +590,7 @@
   - [ ] 7.2.5 — Extract page content as clean text/Markdown (readability)
   - [ ] 7.2.6 — Take full-page or viewport screenshot
 
-- [ ] **7.3** — `skills/web/session_manager.py` — persistent browser session (NEW)
+- [ ] **7.3** — `src/skills/web/session_manager.py` — persistent browser session (NEW)
   - [ ] 7.3.1 — Save browser storage state (cookies + localStorage) to JSON file per site
   - [ ] 7.3.2 — Load saved session on browser open (stay logged in between Jarvis restarts)
   - [ ] 7.3.3 — Session keyed by domain: e.g. `sessions/google.com.json`
@@ -598,13 +598,13 @@
   - [ ] 7.3.5 — Session vault in config-defined path (not in git, gitignored)
   - [ ] 7.3.6 — Integration: all browser tools use session manager by default
 
-- [ ] **7.4** — `skills/web/downloader.py` — file download management (NEW)
+- [ ] **7.4** — `src/skills/web/downloader.py` — file download management (NEW)
   - [ ] 7.4.1 — Intercept Playwright download events
   - [ ] 7.4.2 — Save to configured download folder with original filename
   - [ ] 7.4.3 — Return download result: {path, filename, size, duration}
   - [ ] 7.4.4 — Progress feedback for large files
 
-- [ ] **7.5** — `skills/web/uploader.py` — file upload via browser (NEW)
+- [ ] **7.5** — `src/skills/web/uploader.py` — file upload via browser (NEW)
   - [ ] 7.5.1 — Set file input fields with local file path (`page.set_input_files`)
   - [ ] 7.5.2 — Handle multiple file uploads
   - [ ] 7.5.3 — Validate file exists before upload attempt
@@ -643,7 +643,7 @@
 > **Goal:** Connect Jarvis to Google services, YouTube, and other external APIs. All integrations registered as tools in Phase 5 registry.
 > **Dependency:** Phase 5 (Tool registry), Phase 7 (browser session for OAuth flows)
 
-- [ ] **8.1** — `skills/api/google_calendar.py` — Google Calendar (from old 5.11)
+- [ ] **8.1** — `src/skills/api/google_calendar.py` — Google Calendar (from old 5.11)
   - [ ] 8.1.1 — OAuth2 authentication flow (browser-based, save token to file)
   - [ ] 8.1.2 — List upcoming events (configurable N days)
   - [ ] 8.1.3 — Create new event (title, datetime, description, attendees)
@@ -651,26 +651,26 @@
   - [ ] 8.1.5 — Search events by keyword and date range
   - [ ] 8.1.6 — Update existing event fields
 
-- [ ] **8.2** — `skills/api/youtube.py` — YouTube (from old 5.12)
+- [ ] **8.2** — `src/skills/api/youtube.py` — YouTube (from old 5.12)
   - [ ] 8.2.1 — Search videos by query (YouTube Data API v3)
   - [ ] 8.2.2 — Get video info (title, duration, channel, views)
   - [ ] 8.2.3 — Open video in default browser
   - [ ] 8.2.4 — Get channel info and recent uploads
 
-- [ ] **8.3** — `skills/reader/pdf/` — PDF reading tool (from old 5.13)
+- [ ] **8.3** — `src/skills/reader/pdf/` — PDF reading tool (from old 5.13)
   - [ ] 8.3.1 — Extract text from PDF (pypdf / pdfplumber)
   - [ ] 8.3.2 — Extract images from PDF pages
   - [ ] 8.3.3 — Summarize PDF via LLM (chunked for long docs)
   - [ ] 8.3.4 — Extract tables from PDF as structured data
 
-- [ ] **8.4** — `skills/reader/office/` — Office documents (from old 5.14)
+- [ ] **8.4** — `src/skills/reader/office/` — Office documents (from old 5.14)
   - [ ] 8.4.1 — Read Word (.docx) files (python-docx)
   - [ ] 8.4.2 — Read Excel (.xlsx) files (openpyxl / pandas)
   - [ ] 8.4.3 — Read PowerPoint (.pptx) files (python-pptx)
   - [ ] 8.4.4 — Write/create simple Word documents
   - [ ] 8.4.5 — Write/create simple Excel spreadsheets
 
-- [ ] **8.5** — `skills/api/gmail.py` — Gmail integration (NEW)
+- [ ] **8.5** — `src/skills/api/gmail.py` — Gmail integration (NEW)
   - [ ] 8.5.1 — OAuth2 auth (reuse Google token from Calendar if same account)
   - [ ] 8.5.2 — Read latest N emails (sender, subject, preview, date)
   - [ ] 8.5.3 — Search emails by query (Gmail search syntax)
@@ -680,7 +680,7 @@
   - [ ] 8.5.7 — Move email to label/folder
   - [ ] 8.5.8 — Integration: "read my latest emails" / "send email to X about Y"
 
-- [ ] **8.6** — `skills/api/google_drive.py` — Google Drive (NEW)
+- [ ] **8.6** — `src/skills/api/google_drive.py` — Google Drive (NEW)
   - [ ] 8.6.1 — OAuth2 auth (reuse Google token)
   - [ ] 8.6.2 — List files in Drive root and folders
   - [ ] 8.6.3 — Search files by name or content
@@ -688,7 +688,7 @@
   - [ ] 8.6.5 — Upload local file to Drive
   - [ ] 8.6.6 — Share file with email address (view/edit permission)
 
-- [ ] **8.7** — `skills/api/google_contacts.py` — Google Contacts (NEW)
+- [ ] **8.7** — `src/skills/api/google_contacts.py` — Google Contacts (NEW)
   - [ ] 8.7.1 — OAuth2 auth (reuse Google token, People API)
   - [ ] 8.7.2 — List contacts (name, email, phone)
   - [ ] 8.7.3 — Search contacts by name or email
@@ -696,7 +696,7 @@
   - [ ] 8.7.5 — Create new contact
 
 - [ ] **8.8** — Unified Google OAuth manager (NEW)
-  - [ ] 8.8.1 — Single `skills/api/google_auth.py` that handles OAuth2 for all Google APIs
+  - [ ] 8.8.1 — Single `src/skills/api/google_auth.py` that handles OAuth2 for all Google APIs
   - [ ] 8.8.2 — Scopes: Calendar + Gmail + Drive + Contacts + YouTube in one token
   - [ ] 8.8.3 — Token persistence: save/load from `data/google_token.json`
   - [ ] 8.8.4 — Auto-refresh expired tokens silently
@@ -716,14 +716,14 @@
 > **Dependency:** Phases 5–8 (tools + browser + APIs must exist before agents can use them)
 
 ### Basic (core autonomy)
-- [ ] **9.1** — Create `core/agents/planner/planner.py` — step decomposition + sequencing
+- [ ] **9.1** — Create `src/core/agents/planner/planner.py` — step decomposition + sequencing
   - [ ] 9.1.1 — Break complex request into ordered steps
   - [ ] 9.1.2 — Assign each step to a tool or model role
   - [ ] 9.1.3 — Execute steps sequentially via runtime
   - [ ] 9.1.4 — Pass output of step N as input to step N+1
   - [ ] 9.1.5 — Report progress to user
 
-- [ ] **9.2** — Create `core/agents/thinker/thinker.py` — deeper reasoning
+- [ ] **9.2** — Create `src/core/agents/thinker/thinker.py` — deeper reasoning
   - [ ] 9.2.1 — Extended Chain-of-Thought reasoning
   - [ ] 9.2.2 — Self-verification of answers
   - [ ] 9.2.3 — Confidence scoring
@@ -734,13 +734,13 @@
   - [ ] 9.3.3 — Optional: show reasoning steps to user
 
 ### Advanced
-- [ ] **9.4** — Create `core/agents/researcher.py` — deep research agent
+- [ ] **9.4** — Create `src/core/agents/researcher.py` — deep research agent
   - [ ] 9.4.1 — Multi-query web search
   - [ ] 9.4.2 — Scrape and summarize multiple sources
   - [ ] 9.4.3 — Cross-reference and fact-check
   - [ ] 9.4.4 — Generate structured report
 
-- [ ] **9.5** — `skills/screen/screen_agent.py` — visual computer control
+- [ ] **9.5** — `src/skills/screen/screen_agent.py` — visual computer control
   - [ ] 9.5.1 — Take screenshot
   - [ ] 9.5.2 — Describe screen via vision
   - [ ] 9.5.3 — Move mouse and click based on vision
@@ -752,7 +752,7 @@
   - [ ] 9.6.2 — ReAct + tool calling test
   - [ ] 9.6.3 — Screen agent test
 
-- [ ] **9.7** — `core/agents/extensions/` — pluggable agent extensions (was "New folder")
+- [ ] **9.7** — `src/core/agents/extensions/` — pluggable agent extensions (was "New folder")
   - [ ] 9.7.1 — Define AgentExtension base class (hook: before/after plan execution)
   - [ ] 9.7.2 — Example extension: auto-summarize completed plan to memory
   - [ ] 9.7.3 — Example extension: post-plan notification via 6.6
@@ -851,7 +851,7 @@
 ### Web UI — Glassmorphism + Frosted Acrylic AI Chat Interface
 > **Design philosophy:** A premium, state-of-the-art chat interface that synthesizes the best UX patterns from modern AI platforms (ChatGPT, Claude, Gemini, Perplexity, HuggingChat) into a unified, beautiful, and cohesive design. Core aesthetic: **Glassmorphism** panels with **Frosted Acrylic/Lucite** depth layers, heavy blur compositing, and sophisticated micro-animations.
 
-#### 12.1 — Backend: FastAPI Application (`interfaces/web/app.py`)
+#### 12.1 — Backend: FastAPI Application (`src/interfaces/web/app.py`)
 - [ ] 12.1.1 — Static files serving (CSS, JS, fonts, icons)
 - [ ] 12.1.2 — Jinja2 template rendering with SSR fallback
 - [ ] 12.1.3 — CORS configuration for development and production
@@ -859,7 +859,7 @@
 - [ ] 12.1.5 — Rate limiting middleware (per-session, per-IP)
 - [ ] 12.1.6 — Gzip compression for static assets
 
-#### 12.2 — WebSocket Handler (`interfaces/web/websocket.py`)
+#### 12.2 — WebSocket Handler (`src/interfaces/web/websocket.py`)
 - [ ] 12.2.1 — Accept connection with session validation
 - [ ] 12.2.2 — Receive message → pass to runtime / orchestrator with session context
 - [ ] 12.2.3 — Stream response tokens back to client (JSON text frames)
@@ -868,7 +868,7 @@
 - [ ] 12.2.6 — Heartbeat / ping-pong keep-alive to detect stale connections
 - [ ] 12.2.7 — Support concurrent sessions per user (multiple tabs)
 
-#### 12.3 — Chat Page (`interfaces/web/templates/index.html`)
+#### 12.3 — Chat Page (`src/interfaces/web/templates/index.html`)
 - [ ] 12.3.1 — Single-page chat application (no framework, vanilla JS)
 - [ ] 12.3.2 — Responsive layout: fluid mobile-first, desktop-optimized
 - [ ] 12.3.3 — Arabic RTL support: auto-detect text direction, proper alignment
@@ -880,7 +880,7 @@
 - [ ] 12.3.9 — File attachment cards: filename, size, type icon, remove button
 - [ ] 12.3.10 — Message actions: copy full message, regenerate, edit user message, delete
 
-#### 12.4 — Design System: Glassmorphism + Frosted Acrylic Aesthetic (`interfaces/web/static/style.css`)
+#### 12.4 — Design System: Glassmorphism + Frosted Acrylic Aesthetic (`src/interfaces/web/static/style.css`)
 
 ##### 12.4.1 — Color System & Theme Engine
 - [ ] 12.4.1.1 — **Dark theme (default):** deep navy/charcoal base (`#0a0a1a`, `#12122a`), frosted glass panels with `rgba(255,255,255,0.04–0.08)` backgrounds
@@ -922,7 +922,7 @@
 - [ ] 12.4.5.9 — **Toast notifications:** slide-in from top-right with fade, auto-dismiss after 4s
 - [ ] 12.4.5.10 — **Parallax ambient background:** subtle movement on mouse move (CSS transform or JS requestAnimationFrame)
 
-#### 12.5 — Input Bar System (`interfaces/web/static/chat.js`)
+#### 12.5 — Input Bar System (`src/interfaces/web/static/chat.js`)
 
 ##### 12.5.1 — Smart Text Input
 - [ ] 12.5.1.1 — **Multilingual text bar:** contenteditable div or textarea with full Unicode support (Arabic, English, Chinese, etc.)
@@ -1025,7 +1025,7 @@
   - [ ] 12.6.4.5.4 — Reset user profile to defaults
 - [ ] 12.6.4.6 — **About section:** version, build info, system status, link to documentation
 
-#### 12.7 — REST API Routes (`interfaces/web/routes/`)
+#### 12.7 — REST API Routes (`src/interfaces/web/routes/`)
 - [ ] 12.7.1 — `GET /` — serve chat page
 - [ ] 12.7.2 — `GET /api/models` — list available models with status
 - [ ] 12.7.3 — `GET /api/conversations` — list all conversations (paginated)
@@ -1059,28 +1059,28 @@
 - [ ] 12.10.7 — Responsive layout test (mobile / tablet / desktop)
 
 ### Voice pipeline — speak and listen (Arabic + English)
-- [ ] **12.11** — Create `models/speech/stt.py` — Speech-to-Text (Whisper)
+- [ ] **12.11** — Create `src/models/speech/stt.py` — Speech-to-Text (Whisper)
   - [ ] 12.11.1 — Load Whisper medium model
   - [ ] 12.11.2 — `record_audio(duration)` — capture from microphone
   - [ ] 12.11.3 — `transcribe(audio)` — convert speech to text
   - [ ] 12.11.4 — Auto-detect language (Arabic/English)
   - [ ] 12.11.5 — Handle background noise
 
-- [ ] **12.12** — Create `models/speech/tts.py` — Text-to-Speech (Piper)
+- [ ] **12.12** — Create `src/models/speech/tts.py` — Text-to-Speech (Piper)
   - [ ] 12.12.1 — Load Piper Arabic voice model
   - [ ] 12.12.2 — Load Piper English voice model
   - [ ] 12.12.3 — `synthesize(text, lang)` → audio bytes
   - [ ] 12.12.4 — `play(audio)` — play audio output
   - [ ] 12.12.5 — Language auto-detect → select voice
 
-- [ ] **12.13** — Create `interfaces/voice/wake_word.py` — Wake Word listener
+- [ ] **12.13** — Create `src/interfaces/voice/wake_word.py` — Wake Word listener
   - [ ] 12.13.1 — Load openWakeWord model
   - [ ] 12.13.2 — Continuous microphone monitoring
   - [ ] 12.13.3 — Detect "Hey Jarvis" trigger
   - [ ] 12.13.4 — Fire event on wake word detection
   - [ ] 12.13.5 — Visual + audio confirmation feedback
 
-- [ ] **12.14** — Create `interfaces/voice/voice_interface.py` — full pipeline
+- [ ] **12.14** — Create `src/interfaces/voice/voice_interface.py` — full pipeline
   - [ ] 12.14.1 — Wait for wake word → record → transcribe → orchestrator → synthesize → play → listen
 
 - [ ] **12.15** — Silence detection and noise handling
@@ -1093,13 +1093,13 @@
   - [ ] 12.16.3 — TTS output quality test
 
 ### Vision & image generation
-- [ ] **12.17** — Create `models/vision/engine.py` — image understanding
+- [ ] **12.17** — Create `src/models/vision/engine.py` — image understanding
   - [ ] 12.17.1 — Load LLaVA via Ollama
   - [ ] 12.17.2 — `describe(image_path, question)` → text description
   - [ ] 12.17.3 — Encode image to base64 for Ollama
   - [ ] 12.17.4 — OCR capability (read text in images)
 
-- [ ] **12.18** — Create `models/diffusion/generator.py` — image generation
+- [ ] **12.18** — Create `src/models/diffusion/generator.py` — image generation
   - [ ] 12.18.1 — Load Stable Diffusion 1.5 with float16
   - [ ] 12.18.2 — `generate(prompt, width, height, steps)` → PIL Image
   - [ ] 12.18.3 — VRAM management (unload when not in use)
@@ -1141,18 +1141,18 @@
 > **Goal:** Full Jarvis capabilities via Telegram bot.
 > **Dependency:** Phase 12 (voice pipeline for voice message handling)
 
-- [ ] **13.1** — Create `interfaces/telegram/bot.py` — bot setup
+- [ ] **13.1** — Create `src/interfaces/telegram/bot.py` — bot setup
   - [ ] 13.1.1 — Initialize python-telegram-bot Application
   - [ ] 13.1.2 — Register all handlers
   - [ ] 13.1.3 — Start polling
 
-- [ ] **13.2** — Create `interfaces/telegram/handlers.py` — message handlers
+- [ ] **13.2** — Create `src/interfaces/telegram/handlers.py` — message handlers
   - [ ] 13.2.1 — Text message → orchestrator → reply
   - [ ] 13.2.2 — Photo message → vision engine → reply
   - [ ] 13.2.3 — Voice message → STT → orchestrator → reply
   - [ ] 13.2.4 — Document message → reader tool → reply
 
-- [ ] **13.3** — Create `interfaces/telegram/commands.py` — bot commands
+- [ ] **13.3** — Create `src/interfaces/telegram/commands.py` — bot commands
   - [ ] 13.3.1 — `/start` — welcome message
   - [ ] 13.3.2 — `/clear` — clear conversation
   - [ ] 13.3.3 — `/model` — switch model
@@ -1179,14 +1179,14 @@
 > **Goal:** Native Windows desktop window with full Jarvis interface.
 > **Dependency:** Phase 4 (CLI patterns), Phase 12 (voice integration)
 
-- [ ] **14.1** — Create `interfaces/gui/main_window.py` — PyQt6 desktop app
+- [ ] **14.1** — Create `src/interfaces/gui/main_window.py` — PyQt6 desktop app
   - [ ] 14.1.1 — Chat message area (scrollable)
   - [ ] 14.1.2 — Input text box
   - [ ] 14.1.3 — Send button
   - [ ] 14.1.4 — Model selector dropdown
   - [ ] 14.1.5 — Microphone button (voice input)
 
-- [ ] **14.2** — Create `interfaces/gui/settings_dialog.py`
+- [ ] **14.2** — Create `src/interfaces/gui/settings_dialog.py`
   - [ ] 14.2.1 — Model selection
   - [ ] 14.2.2 — Language preference
   - [ ] 14.2.3 — Voice settings
