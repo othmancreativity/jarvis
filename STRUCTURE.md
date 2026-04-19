@@ -1,36 +1,126 @@
-# 📁 Jarvis — Refactored Directory Structure
+# 📁 JARVIS — Structure Reference
 
-## What Changed (and Why)
-
-### REMOVED
-- `src/ai/` → **deleted** — had no clear role. All AI model logic lives in `src/models/`
-- `src/core/brain/` → **deleted** — duplicate of `src/core/orchestrator/`. "Brain" is a vague metaphor, not an engineering concept.
-
-### ADDED
-- `src/core/tools/` → **new** — tool infrastructure (registry + validator + executor) separated from tool implementations (skills/)
-- `src/core/safety/` → **new** — action classification + confirmation gates
-- `src/models/base/` → **new** — abstract base classes (llm_base, vision_base, speech_base)
-
-### RENAMED/CLARIFIED
-- `src/core/orchestrator/` now contains exactly: `dispatcher.py`, `agent_selector.py`, `tool_router.py`
-- `src/core/runtime/` now contains exactly: `loop.py`, `state.py`, `evaluate.py`, `decision.py`
-- `src/core/identity/` separated from `src/core/memory/` — they are different concerns
+> This document defines: **what each folder does**, **who owns what**, and **how data flows** between layers.
 
 ---
 
-## Final Structure
+## Guiding Principles
+
+1. **One role per folder.** If you can't describe a folder's job in one sentence, it's wrong.
+2. **No circular dependencies.** `runtime` → `orchestrator` → `agents` → `tools`. Not the reverse.
+3. **Config drives behavior.** No magic numbers or hardcoded model names in Python.
+4. **Skills register themselves into Tools.** Tools don't import Skills directly.
+
+---
+
+## Data Flow (turn lifecycle)
+
+```
+Interface receives input
+    │
+    ▼
+context/buffer.py     ← stages input (text/file/image)
+    │ snapshot()
+    ▼
+runtime/loop.py       ← observe()
+    │ builds observation string from: input + memory + context + tool traces
+    ▼
+runtime/decision.py   ← decide()
+    │ returns DecisionOutput (no LLM called here)
+    ▼
+models/llm/router.py  ← select(decision)
+    │ returns model name
+    ▼
+identity/prompt_builder.py ← build(mode, profile)
+    │ returns system prompt
+    ▼
+models/llm/engine.py  ← chat(messages, model, system)
+    │ yields tokens OR returns tool_call JSON
+    ├── [text] → runtime/evaluate.py → finish or escalate
+    └── [tool_call]
+              │
+              ▼
+    core/orchestrator/dispatcher.py ← route(decision)
+              │
+              ├── requires_planning=True → core/agents/planner.py
+              ├── intent=research       → core/agents/researcher.py
+              └── requires_tools=True   → core/tools/executor.py
+                                                │
+                                    registry.get(tool_name)
+                                    validator.validate(params)
+                                    safety.classifier.classify()
+                                    confirmation.request() [if critical]
+                                    skill.execute(params)
+                                                │
+                                         ToolResult
+                                                │
+                                    state.add_tool_result(result)
+                                    → next observe() includes result
+                                    → LLM generates final response
+    │
+    ▼
+memory/manager.py     ← save_turn(role, content, session_id)
+    │
+    ▼
+Interface streams response to user
+```
+
+---
+
+## Layer Ownership
+
+| Folder | Owns | Does NOT own |
+|---|---|---|
+| `core/runtime/` | Loop execution, state, iteration limits, evaluation, escalation | Agent selection, tool execution, model selection |
+| `core/orchestrator/` | Routing DecisionOutput to agent or tool executor | Loop control, quality eval, model calls |
+| `core/agents/` | Multi-step thinking, planning, research logic | Tool implementations, loop state |
+| `core/tools/` | Tool discovery, schema validation, execution infrastructure | Skill implementations |
+| `core/memory/` | Storing and retrieving data across turns | Current-turn inputs |
+| `core/context/` | Staging current-turn inputs before execution | Persistence |
+| `core/identity/` | Jarvis profile, user profile, prompt assembly | Memory storage |
+| `core/safety/` | Action classification, confirmation gates | Tool execution |
+| `models/` | AI model wrappers | Control flow, routing |
+| `skills/` | Callable capability implementations | Tool system management |
+| `interfaces/` | User-facing I/O, converting input to runtime calls | Business logic |
+
+---
+
+## Dependency Graph (allowed imports)
+
+```
+interfaces/  →  runtime/
+runtime/     →  decision, memory, context, identity, models, orchestrator
+orchestrator →  agents, tools
+agents       →  models, tools, memory
+tools        →  skills (via registry discovery, not direct import)
+skills       →  (no imports from core/)
+models/      →  (no imports from core/)
+identity/    →  memory (read-only, for profile loading)
+safety/      →  (no core imports)
+```
+
+❌ **Forbidden:**
+- `models/` importing from `runtime/` or `orchestrator/`
+- `skills/` importing from `core/`
+- `memory/` importing from `runtime/`
+
+---
+
+## Full Directory Tree
 
 ```
 jarvis/
 │
 ├── app/
-│   └── main.py                          # --interface cli|web|telegram|gui|all
+│   └── main.py
+│       Role: Entry point only. Parses --interface, initializes logger+settings,
+│             delegates to the right interface class. No business logic here.
 │
 ├── config/
-│   ├── settings.yaml                    # All tunable params (no magic constants in Python)
-│   ├── models.yaml                      # Capability profiles + routing weights
-│   ├── identity.yaml                    # Jarvis system identity
-│   └── schemas/                         # JSON Schemas for tool I/O contracts
+│   ├── settings.yaml       ← All tunable params. No Python constants.
+│   ├── models.yaml         ← Model capability profiles + routing table.
+│   ├── identity.yaml       ← Jarvis system identity (name, role, tone).
+│   └── schemas/            ← JSON Schema per tool input contract.
 │       ├── system/
 │       │   ├── app_launcher.schema.json
 │       │   ├── file_ops.schema.json
@@ -47,191 +137,237 @@ jarvis/
 │
 ├── src/
 │   │
-│   ├── settings.py                      # Pydantic settings loader
-│   ├── logger.py                        # Loguru config (console + file)
+│   ├── settings.py
+│   │   Role: Pydantic settings loader. `from settings import settings` everywhere.
+│   │
+│   ├── logger.py
+│   │   Role: Loguru config. `from logger import logger` everywhere.
 │   │
 │   ├── core/
 │   │   │
-│   │   ├── runtime/                     # THE LOOP — owns turn lifecycle
-│   │   │   ├── __init__.py
-│   │   │   ├── loop.py                  # Observe → Decide → Act → Evaluate → Finish/Escalate
-│   │   │   ├── state.py                 # TurnState (step_index, messages, tool_traces, etc.)
-│   │   │   ├── evaluate.py              # Quality scorer → finish or escalate recommendation
-│   │   │   └── decision.py              # DecisionLayer + DecisionOutput schema
+│   │   ├── runtime/
+│   │   │   ├── loop.py
+│   │   │   │   Role: THE LOOP. observe→decide→think→act→evaluate.
+│   │   │   │         Owns max_iterations, escalation, fallback.
+│   │   │   │
+│   │   │   ├── state.py
+│   │   │   │   Role: TurnState dataclass. Messages, tool_traces, iteration, mode.
+│   │   │   │         Mutable during a turn. One instance per turn.
+│   │   │   │
+│   │   │   ├── decision.py
+│   │   │   │   Role: DecisionLayer + DecisionOutput.
+│   │   │   │         Classifies input with keyword matching. No LLM call.
+│   │   │   │         Returns: intent, complexity, mode, requires_tools, etc.
+│   │   │   │
+│   │   │   └── evaluate.py
+│   │   │       Role: Evaluator. Scores candidate answer. Returns finish|escalate.
+│   │   │             No LLM call — uses heuristics (empty, too short, tool failure).
 │   │   │
-│   │   ├── orchestrator/                # ROUTING — decides who handles the intent
-│   │   │   ├── __init__.py
-│   │   │   ├── dispatcher.py            # intent → agent | tool | direct LLM
-│   │   │   ├── agent_selector.py        # selects which agent based on intent
-│   │   │   └── tool_router.py           # routes to correct tool(s)
+│   │   ├── orchestrator/
+│   │   │   ├── dispatcher.py
+│   │   │   │   Role: Reads DecisionOutput. Returns route string:
+│   │   │   │         "planner" | "researcher" | "tool_executor" | "direct_llm"
+│   │   │   │
+│   │   │   ├── agent_selector.py
+│   │   │   │   Role: Given route="planner"|"researcher", returns correct Agent instance.
+│   │   │   │
+│   │   │   └── tool_router.py
+│   │   │       Role: Given a tool_call from LLM, passes it to ToolExecutor.
+│   │   │             Handles multi-tool calls if needed (future).
 │   │   │
-│   │   ├── agents/                      # THINKING — multi-step reasoning
-│   │   │   ├── __init__.py
-│   │   │   ├── planner.py               # Decomposes multi-step goals into ordered steps
-│   │   │   ├── thinker.py               # Chain-of-thought for complex single questions
-│   │   │   └── researcher.py            # Multi-source research with cross-referencing
+│   │   ├── agents/
+│   │   │   ├── planner.py
+│   │   │   │   Role: Breaks multi-step goals into ordered Steps.
+│   │   │   │         Executes them sequentially. Passes Step N result to Step N+1.
+│   │   │   │
+│   │   │   ├── thinker.py
+│   │   │   │   Role: Chain-of-thought reasoning for complex single questions.
+│   │   │   │         Uses qwen3:8b in deep mode. Returns {answer, reasoning, confidence}.
+│   │   │   │
+│   │   │   └── researcher.py
+│   │   │       Role: Multi-query research. Runs 3-5 web searches.
+│   │   │             Cross-references. Returns {summary, key_points, sources}.
 │   │   │
-│   │   ├── tools/                       # TOOL INFRASTRUCTURE — not implementations
-│   │   │   ├── __init__.py
-│   │   │   ├── registry.py              # Discovery, registration, LLM export
-│   │   │   ├── validator.py             # Schema validation before execution
-│   │   │   └── executor.py              # Runs tools, wraps results, logs, timeout
+│   │   ├── tools/                 ← TOOL SYSTEM (infrastructure, not implementations)
+│   │   │   ├── registry.py
+│   │   │   │   Role: Auto-discovers BaseTool subclasses in skills/.
+│   │   │   │         Registers them by name. Exports Ollama-compatible tool list.
+│   │   │   │
+│   │   │   ├── validator.py
+│   │   │   │   Role: Validates tool call args against JSON Schema before execution.
+│   │   │   │         Returns (is_valid: bool, errors: list[str]).
+│   │   │   │
+│   │   │   └── executor.py
+│   │   │       Role: Runs a tool with timeout. Calls safety classifier first.
+│   │   │             Returns ToolResult. Logs every execution.
 │   │   │
-│   │   ├── memory/                      # PERSISTENCE across turns and sessions
-│   │   │   ├── __init__.py
-│   │   │   ├── short_term.py            # Session history (Redis → in-memory fallback)
-│   │   │   ├── long_term.py             # Semantic memory (ChromaDB)
-│   │   │   ├── database.py              # Structured storage (SQLite)
-│   │   │   └── manager.py               # Unified interface
+│   │   ├── memory/
+│   │   │   ├── short_term.py
+│   │   │   │   Role: Session message history. Redis backend, in-memory fallback.
+│   │   │   │         Max 50 messages per session. Auto-reconnects Redis.
+│   │   │   │
+│   │   │   ├── long_term.py
+│   │   │   │   Role: Semantic fact storage. ChromaDB + sentence-transformers.
+│   │   │   │         remember(text) + recall(query) → top-N similar facts.
+│   │   │   │
+│   │   │   ├── database.py
+│   │   │   │   Role: SQLite structured storage.
+│   │   │   │         Tables: conversations, facts, tasks, feedback.
+│   │   │   │         All queries parameterized.
+│   │   │   │
+│   │   │   └── manager.py
+│   │   │       Role: Unified interface to all memory backends.
+│   │   │             save_turn() / get_context() / search() / remember()
 │   │   │
-│   │   ├── context/                     # CURRENT-TURN inputs only — cleared after each turn
-│   │   │   ├── __init__.py
-│   │   │   └── buffer.py                # Stages text, files, images before execution
+│   │   ├── context/
+│   │   │   └── buffer.py
+│   │   │       Role: Stages current-turn inputs before execution.
+│   │   │             add(item) → snapshot() → clear() after turn.
+│   │   │             In-memory only. TTL eviction for stale inputs.
 │   │   │
-│   │   ├── identity/                    # WHO IS JARVIS + WHO IS THE USER
-│   │   │   ├── __init__.py
-│   │   │   ├── jarvis_profile.py        # Loads config/identity.yaml
-│   │   │   ├── user_profile.py          # User preferences (language, style, level)
-│   │   │   └── prompt_builder.py        # Assembles system prompt for EVERY model call
+│   │   ├── identity/
+│   │   │   ├── jarvis_profile.py
+│   │   │   │   Role: Loads and validates config/identity.yaml.
+│   │   │   │         Provides JARVIS_IDENTITY string for prompt builder.
+│   │   │   │
+│   │   │   ├── user_profile.py
+│   │   │   │   Role: Per-user preferences (language, style, level).
+│   │   │   │         Load from data/profiles/{user_id}.json. Default if missing.
+│   │   │   │
+│   │   │   └── prompt_builder.py
+│   │   │       Role: Assembles system prompt for EVERY model call.
+│   │   │             Order: identity → safety → user prefs → mode → tools → task
+│   │   │             No model call bypasses this.
 │   │   │
-│   │   └── safety/                      # SAFETY — classification + confirmation
-│   │       ├── __init__.py
-│   │       ├── classifier.py            # safe | risky | critical
-│   │       └── confirmation.py          # pause + user approval for critical actions
+│   │   └── safety/
+│   │       ├── classifier.py
+│   │       │   Role: Classifies tool+params as safe|risky|critical.
+│   │       │         Rules loaded from config. Unknown tool → risky.
+│   │       │
+│   │       └── confirmation.py
+│   │           Role: For critical actions, pauses and asks user yes/no.
+│   │                 safe → auto-approve. critical → prompt user.
 │   │
-│   ├── models/                          # AI MODEL WRAPPERS — called by runtime, not in control
-│   │   │
-│   │   ├── base/                        # Abstract interfaces
-│   │   │   ├── __init__.py
-│   │   │   ├── llm_base.py              # chat(), generate(), tool_call()
-│   │   │   ├── vision_base.py           # describe(image, question)
-│   │   │   └── speech_base.py           # transcribe(), synthesize()
+│   ├── models/                    ← AI MODEL WRAPPERS
+│   │   ├── base/
+│   │   │   ├── llm_base.py        Abstract: chat(), generate()
+│   │   │   ├── vision_base.py     Abstract: describe(image, question)
+│   │   │   └── speech_base.py     Abstract: transcribe(), synthesize()
 │   │   │
 │   │   ├── llm/
-│   │   │   ├── __init__.py
-│   │   │   ├── engine.py                # Ollama client (streaming + retry)
-│   │   │   ├── router.py                # Scores models from config/models.yaml profiles
-│   │   │   └── prompts.py               # Mode packs (fast/normal/deep/planning/research)
+│   │   │   ├── engine.py
+│   │   │   │   Role: Ollama HTTP client. Streaming via generator.
+│   │   │   │         Retry with exponential backoff. VRAM guard (unload before load).
+│   │   │   │
+│   │   │   ├── router.py
+│   │   │   │   Role: Selects model name from DecisionOutput + config/models.yaml.
+│   │   │   │         Hard rules: vision→llava, code→coder.
+│   │   │   │         Mode rules: fast→gemma, deep/normal→qwen3.
+│   │   │   │
+│   │   │   └── prompts.py
+│   │   │       Role: MODE_PACKS dict. Helper functions for prompt assembly.
 │   │   │
 │   │   ├── vision/
-│   │   │   ├── __init__.py
-│   │   │   └── llava.py                 # LLaVA via Ollama
+│   │   │   └── llava.py           LLaVA via Ollama. describe(image_path, question).
 │   │   │
 │   │   ├── speech/
-│   │   │   ├── __init__.py
-│   │   │   ├── stt.py                   # Whisper (Arabic + English)
-│   │   │   └── tts.py                   # Piper TTS
+│   │   │   ├── stt.py             Whisper. transcribe(audio) → {text, language, confidence}
+│   │   │   └── tts.py             Piper. synthesize(text, lang) → audio → play()
 │   │   │
 │   │   └── diffusion/
-│   │       ├── __init__.py
-│   │       └── sd.py                    # Stable Diffusion 1.5
+│   │       └── sd.py              SD 1.5. generate(prompt) → PIL.Image. VRAM guard.
 │   │
-│   ├── skills/                          # TOOL IMPLEMENTATIONS — registered in tools/registry.py
-│   │   ├── base.py                      # BaseTool abstract class + ToolResult
+│   ├── skills/                    ← SKILL IMPLEMENTATIONS
+│   │   │                            Registered into tool system via registry.discover()
+│   │   ├── base.py                BaseTool(ABC) + ToolResult dataclass
 │   │   │
 │   │   ├── system/
-│   │   │   ├── __init__.py
-│   │   │   ├── app_launcher.py          # Open/close Windows apps
-│   │   │   ├── file_ops.py              # List/read/write/move/delete files
-│   │   │   ├── clipboard.py             # Read/write clipboard
-│   │   │   ├── notifications.py         # Windows Toast alerts
-│   │   │   └── system_info.py           # CPU/RAM/GPU/disk status
+│   │   │   ├── app_launcher.py    Open/close Windows apps by name
+│   │   │   ├── file_ops.py        List/read/write/move/delete files
+│   │   │   ├── clipboard.py       Read/write/monitor clipboard
+│   │   │   ├── notifications.py   Windows Toast alerts
+│   │   │   └── system_info.py     CPU/RAM/GPU/disk status
 │   │   │
 │   │   ├── browser/
-│   │   │   ├── __init__.py
-│   │   │   ├── browser.py               # Playwright actions (navigate/click/fill/extract)
-│   │   │   ├── session_manager.py       # Persistent browser sessions (no re-login)
-│   │   │   └── downloader.py            # File downloads
+│   │   │   ├── browser.py         Playwright: navigate/click/fill/extract/screenshot
+│   │   │   └── session_manager.py Save/load Playwright storage state per domain
 │   │   │
 │   │   ├── search/
-│   │   │   ├── __init__.py
-│   │   │   └── web_search.py            # DuckDuckGo (no API key)
+│   │   │   └── web_search.py      DuckDuckGo HTML. No API key. TTL cache.
 │   │   │
 │   │   ├── coder/
-│   │   │   ├── __init__.py
-│   │   │   └── code_executor.py         # Python + shell sandbox
+│   │   │   └── code_executor.py   Python + shell sandbox. Timeout. Blocklist.
 │   │   │
 │   │   ├── screen/
-│   │   │   ├── __init__.py
-│   │   │   ├── screenshot.py            # Full/region screenshots
-│   │   │   └── ocr.py                   # Tesseract OCR
+│   │   │   ├── screenshot.py      Full/region screenshots via mss
+│   │   │   └── ocr.py             Tesseract OCR. No LLM needed.
 │   │   │
 │   │   ├── api/
-│   │   │   ├── __init__.py
-│   │   │   ├── google_auth.py           # Single OAuth flow for all Google services
-│   │   │   ├── calendar.py
-│   │   │   ├── gmail.py
-│   │   │   ├── drive.py
-│   │   │   ├── contacts.py
-│   │   │   └── youtube.py
+│   │   │   ├── google_auth.py     Single OAuth2 for all Google APIs
+│   │   │   ├── calendar.py        CRUD events
+│   │   │   ├── gmail.py           Read/send/search emails
+│   │   │   ├── drive.py           List/upload/download files
+│   │   │   └── youtube.py         Search videos
 │   │   │
-│   │   ├── office/
-│   │   │   ├── __init__.py
-│   │   │   └── readers.py               # docx / xlsx / pptx / pdf
-│   │   │
-│   │   └── social/
-│   │       ├── __init__.py
-│   │       └── whatsapp.py              # WhatsApp Web via Playwright
+│   │   └── office/
+│   │       └── readers.py         docx/xlsx/pptx/pdf text extraction
 │   │
-│   └── interfaces/                      # USER-FACING SURFACES
+│   └── interfaces/
 │       ├── cli/
-│       │   ├── __init__.py
-│       │   ├── interface.py             # Rich terminal chat
-│       │   └── commands.py              # /clear /model /mode /memory /tools /status /help
+│       │   ├── interface.py       Rich terminal. Streaming. Arabic RTL. Slash commands.
+│       │   └── commands.py        /clear /model /mode /memory /tools /status /help
 │       │
 │       ├── web/
-│       │   ├── __init__.py
-│       │   ├── app.py                   # FastAPI app
-│       │   ├── websocket.py             # WebSocket handler
-│       │   ├── routes/
-│       │   ├── static/
+│       │   ├── app.py             FastAPI + static files + session middleware
+│       │   ├── websocket.py       WebSocket handler → orchestrator → stream tokens
+│       │   ├── routes/            REST API: conversations, memory, settings, status
+│       │   ├── static/            CSS + JS (single-file)
 │       │   └── templates/
-│       │       └── index.html
+│       │       └── index.html     Single-page chat UI
 │       │
 │       ├── telegram/
-│       │   ├── __init__.py
-│       │   ├── bot.py
-│       │   ├── handlers.py
-│       │   └── commands.py
+│       │   ├── bot.py             python-telegram-bot Application setup
+│       │   ├── handlers.py        text/photo/voice/document handlers
+│       │   └── commands.py        /start /clear /model /image /search
 │       │
 │       ├── gui/
-│       │   ├── __init__.py
-│       │   └── main_window.py           # PyQt6 desktop app
+│       │   ├── main_window.py     PyQt6 chat window. Arabic RTL. System tray.
+│       │   └── settings_dialog.py Model/language/theme/startup settings
 │       │
 │       └── voice/
-│           ├── __init__.py
-│           ├── wake_word.py             # openWakeWord listener
-│           └── voice_interface.py       # Full pipeline: wake → STT → LLM → TTS
+│           ├── wake_word.py       openWakeWord. Background thread. EventBus event.
+│           └── voice_interface.py Pipeline: wake→VAD→STT→runtime→TTS→play→listen
 │
 ├── tests/
-│   ├── test_llm.py
-│   ├── test_memory.py
-│   ├── test_tools.py
-│   ├── test_runtime.py
-│   ├── test_decision.py
-│   ├── test_voice.py
-│   └── test_e2e.py
+│   ├── test_phase1.py             Minimal working system: text → LLM → response
+│   ├── test_decision.py           All intent/mode/complexity classifications
+│   ├── test_router.py             Model selection from DecisionOutput
+│   ├── test_tools.py              Registry discovery, schema validation, execution
+│   ├── test_memory.py             Short+long term, cross-session, Redis fallback
+│   ├── test_safety.py             Classification + confirmation gate
+│   ├── test_agents.py             Planner step decomp, Thinker confidence, Researcher sources
+│   └── test_e2e.py                Vertical slices: "say hello", "open notepad"
 │
 ├── scripts/
-│   ├── install.sh                       # Linux/WSL setup
-│   └── install.ps1                      # Windows setup
+│   ├── install.sh                 Linux/WSL: apt + venv + pip + playwright + Ollama pulls
+│   └── install.ps1                Windows: winget + venv + pip + playwright + Ollama pulls
 │
-├── data/                                # Runtime data (gitignored)
-│   ├── profiles/                        # User profiles (JSON)
-│   ├── sessions/                        # Browser sessions (JSON)
+├── data/                          ← gitignored runtime data
+│   ├── profiles/                  User profiles (JSON per user_id)
+│   ├── sessions/                  Browser sessions (JSON per domain)
 │   ├── downloads/
 │   ├── screenshots/
-│   ├── chroma/                          # ChromaDB vector store
-│   └── jarvis.db                        # SQLite database
+│   ├── chroma/                    ChromaDB vector store
+│   └── jarvis.db                  SQLite
 │
-├── logs/                                # Rotating logs (gitignored)
-│   ├── jarvis.log
-│   ├── decisions.log
-│   ├── tools.log
-│   └── models.log
+├── logs/                          ← gitignored
+│   ├── jarvis.log                 All logs (JSON Lines, daily rotation)
+│   ├── decisions.log              One JSON entry per DecisionLayer.decide() call
+│   ├── tools.log                  One JSON entry per tool execution
+│   └── models.log                 One JSON entry per LLM call
 │
-├── .env                                 # API keys (gitignored)
-├── .env.example                         # Template (committed)
+├── .env                           API keys (gitignored)
+├── .env.example                   Template (committed)
 ├── .gitignore
 ├── requirements.txt
 ├── README.md
@@ -240,18 +376,63 @@ jarvis/
 
 ---
 
-## Layer Responsibility Summary
+## Key Contracts (interfaces between layers)
 
-| Layer | Single Responsibility |
+### Runtime → Decision
+```python
+# runtime/loop.py calls:
+decision: DecisionOutput = self.decision.decide(observation: str)
+```
+
+### Runtime → Router
+```python
+model: str = self.router.select(decision: DecisionOutput)
+```
+
+### Runtime → PromptBuilder
+```python
+system: str = self.prompt_builder.build(mode=decision.mode, profile=state.profile)
+```
+
+### Runtime → LLM
+```python
+# yields str tokens OR returns LLMOutput with has_tool_call=True
+output = self.llm.chat(messages: list[dict], model: str, system: str)
+```
+
+### Runtime → Orchestrator (for tool calls)
+```python
+result: ToolResult = self.orchestrator.run_tool(tool_call: dict)
+```
+
+### Orchestrator → Executor
+```python
+result: ToolResult = self.executor.execute(tool_name: str, params: dict)
+```
+
+### Executor → Registry → Skill
+```python
+tool: BaseTool = self.registry.get(tool_name)
+result: ToolResult = tool._run(params)
+```
+
+### Memory → Runtime (observe)
+```python
+history: list[dict] = self.memory.get_context(session_id, n=10)
+snippets: list[str] = self.memory.search(user_input, n=3)
+```
+
+---
+
+## What Changed from Previous Version
+
+| Change | Reason |
 |---|---|
-| `core/runtime/` | Drives the loop. Owns turn lifecycle. |
-| `core/orchestrator/` | Routes classified intent to the right handler. |
-| `core/agents/` | Multi-step thinking and planning. |
-| `core/tools/` | Infrastructure for discovering, validating, running tools. |
-| `core/memory/` | Persistence across turns and sessions. |
-| `core/context/` | Current-turn input staging. Cleared every turn. |
-| `core/identity/` | Who Jarvis is + who the user is + prompt assembly. |
-| `core/safety/` | Classify actions. Block or confirm dangerous ones. |
-| `models/` | Thin wrappers around AI models. Called by runtime. |
-| `skills/` | Concrete tool implementations. Registered in tools/registry. |
-| `interfaces/` | User-facing surfaces. Convert I/O to runtime calls. |
+| Removed `src/ai/` | No defined role. All AI logic is in `src/models/`. |
+| Removed `src/core/brain/` | Duplicate of `src/core/orchestrator/`. "Brain" is not an engineering concept. |
+| Added `src/core/safety/` | Safety logic was scattered. Now centralized with clear classifier + gate. |
+| Added `src/models/base/` | Abstract contracts make models swappable (replace Whisper without breaking STT callers). |
+| Split `tools/` from `skills/` | Tool system (registry/validator/executor) is infrastructure. Skills are implementations. Separation prevents circular imports. |
+| Separated `context/` from `memory/` | Context = current turn only (cleared). Memory = persistent. Previously mixed. |
+| Separated `identity/` from `memory/` | User profile (identity) ≠ conversation history (memory). |
+| Logs split into 4 files | One file per concern: decisions, tools, models, general. Enables grep/monitoring per layer. |
