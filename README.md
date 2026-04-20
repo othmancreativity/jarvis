@@ -1,481 +1,369 @@
+<div align="center">
+
 # 🤖 JARVIS
+### Local AI Assistant — Arabic + English — Free, Unlimited, Private
 
-**Personal AI Assistant — Local, Free, Unlimited**
+![Version](https://img.shields.io/badge/version-0.4.0--alpha-blue)
+![Python](https://img.shields.io/badge/python-3.10+-green)
+![License](https://img.shields.io/badge/license-MIT-orange)
+![Platform](https://img.shields.io/badge/platform-Windows%2011-lightblue)
+![Arabic](https://img.shields.io/badge/language-Arabic%20%2B%20English-red)
 
-[![Python](https://img.shields.io/badge/python-3.10+-green)](.)
-[![Platform](https://img.shields.io/badge/platform-Windows%2011-lightblue)](.)
-[![Status](https://img.shields.io/badge/status-in--development-yellow)](.)
+**A local AI assistant that understands Arabic and English, controls your computer, calls APIs, and thinks in multiple steps — all on your machine, no cloud.**
 
-> Fully local AI assistant. No cloud. No API costs. Runs on consumer hardware (RTX 3050, 16 GB RAM).  
-> Arabic and English. Controls your computer, browser, files, and Google services.
+</div>
 
 ---
 
-## 1. Minimal Working System
+## What Jarvis Does
 
-**Build this first. Everything else is built on top of it.**
-
-The simplest path through Jarvis:
+You give Jarvis a command — in Arabic or English — and it figures out what to do:
 
 ```
-User:  "مرحبا"
-         │
-  observe()   →  reads message, assembles context
-  decide()    →  intent=chat, mode=normal, model=qwen3:8b
-  think()     →  calls LLM → gets response text
-  evaluate()  →  answer non-empty → finish
-         │
-Output: "مرحبا! كيف يمكنني مساعدتك؟"
+"افتح Chrome وابحث عن أحدث أخبار الذكاء الاصطناعي"
+→ Jarvis opens Chrome, navigates to a search, returns a summary
+
+"Send an email to Ahmed and add a calendar reminder for Friday"
+→ Jarvis calls Gmail + Google Calendar in sequence
 ```
 
-No tools. No memory. No agents. Just: input → LLM → output.
+Everything runs **locally on your machine**. No API subscriptions. No token limits.
 
-This is Phase 1 in TASKS.md. It must work before anything else is built.
+---
 
-### First Boot
+## Hardware This Runs On
 
-On first run Jarvis has no memory and no user profile. This is expected:
+| Component | Spec |
+|-----------|------|
+| CPU | Intel i5-12450HX |
+| RAM | 16 GB |
+| GPU | RTX 3050 — 6 GB VRAM |
+| OS | Windows 11 |
+
+**VRAM rule:** One large model at a time. Jarvis swaps automatically.
+
+```
+qwen3:8b         → 5.0 GB  (main brain, Arabic+EN, reasoning)
+qwen2.5-coder:7b → 4.7 GB  (code tasks)
+gemma3:4b        → 3.0 GB  (fast replies, simple questions)
+llava:7b         → 4.5 GB  (image understanding)
+SD 1.5 float16   → 4.0 GB  (image generation, unload LLM first)
+```
+
+---
+
+## How the System Works
+
+### The Single Flow
+
+Every user input follows exactly one path:
+
+```
+User Input
+    ↓
+Context Assembly       ← combine: message + session history + relevant memory
+    ↓
+Decision              ← classify: what type of task? which model? need tools?
+    ↓
+Think (LLM Call)      ← selected model generates: answer or tool calls
+    ↓
+Act (Tool Execution)  ← run tools with validated args; results feed back
+    ↓
+Evaluate              ← is the answer good enough? retry or finish?
+    ↓
+Output                ← stream to interface + save to memory
+```
+
+That's it. Every feature in Jarvis is an expansion of one of these steps — not a new parallel system.
+
+---
+
+## Layer Definitions (No Overlap)
+
+These are the **only** layers in Jarvis. Each has exactly one job.
+
+### `src/models/` — Model Wrappers
+**What:** Python wrappers around AI models. Nothing more.
+**Responsibility:** Send input, get output, handle connection errors.
+- `llm/` — Ollama text models (qwen3, gemma3, coder)
+- `vision/` — LLaVA image understanding
+- `speech/` — Whisper STT + Piper TTS
+- `diffusion/` — Stable Diffusion image generation
+
+**Does NOT:** make decisions, read memory, or know about tools.
+
+---
+
+### `src/core/context/` — Current Turn Input
+**What:** Everything that happened in the **current turn** before the LLM is called.
+**Responsibility:** Collect and normalize this turn's inputs: the user message, attached files, images, audio transcripts, and results from the last tool call.
+
+**Does NOT:** store anything across turns (that's Memory). Does NOT decide anything (that's Decision).
 
 ```python
-# runtime/loop.py
-state = TurnState(session_id=session_id)
-history  = memory.get_history(session_id) or []       # empty list → fine
-profile  = UserProfile.load(user_id) or UserProfile.default()
-prompt   = prompt_builder.build(mode="normal", profile=profile)
-response = llm.chat([{"role": "user", "content": user_input}], model="qwen3:8b")
-```
-
-Jarvis never refuses to answer because memory is empty.
-
----
-
-## 2. Full System Flow
-
-```
-┌──────────────────────────────────────────┐
-│             USER INPUT                   │
-│  text │ voice │ file │ image             │
-└─────────────────┬────────────────────────┘
-                  │
-┌─────────────────▼────────────────────────┐
-│          CONTEXT BUFFER                  │
-│  Stages inputs for this turn only.       │
-│  Cleared after every turn completes.     │
-└─────────────────┬────────────────────────┘
-                  │ snapshot
-┌─────────────────▼────────────────────────┐
-│           RUNTIME LOOP                   │
-│                                          │
-│  observe()  →  decide()  →  think()      │
-│      ↑              │           │        │
-│   evaluate()        ▼        act()       │
-│  (finish or     DecisionOutput  │        │
-│   escalate)                     │        │
-└────────────────────┬────────────┘        │
-                     │ DecisionOutput       │
-┌────────────────────▼─────────────────────┘
-│          ORCHESTRATOR                    │
-│  Reads DecisionOutput.                   │
-│  Picks: Agent │ Tool Executor │ LLM      │
-└──────────────┬──────────────┬────────────┘
-               │              │
-    ┌──────────▼──┐   ┌───────▼────────────┐
-    │   AGENTS    │   │    TOOL SYSTEM      │
-    │  Planner    │   │  registry           │
-    │  Thinker    │   │  → validator        │
-    │  Researcher │   │  → executor         │
-    └──────────┬──┘   └───────┬────────────┘
-               │              │
-               └──────┬───────┘
-                      │ calls
-       ┌──────────────▼──────────────────────┐
-       │              MODELS                 │
-       │  LLM (Ollama)  │  Vision (LLaVA)   │
-       │  Speech        │  Diffusion (SD)    │
-       └──────────────────────────────────────┘
-
-  All layers read from / write to:
-  ┌──────────────────────────────────────────┐
-  │              MEMORY                      │
-  │  Short-term: session history (Redis)     │
-  │  Long-term:  semantic facts (ChromaDB)   │
-  │  Structured: tasks, feedback (SQLite)    │
-  └──────────────────────────────────────────┘
-```
-
----
-
-## 3. Layer Definitions (strict — no overlap)
-
-| Layer | Single Role | NOT responsible for |
-|---|---|---|
-| **Context** | Stages inputs of the **current turn** (text, files, images). Cleared after every turn. | Persistence, identity |
-| **Memory** | Stores data across turns and sessions. Short-term (recent messages) + long-term (facts). | Current-turn inputs |
-| **Identity** | Defines who Jarvis is and who the user is. Injected into every prompt. | Storing conversation history |
-| **Runtime** | Drives the loop: `observe → decide → think → act → evaluate`. Owns max_iterations and timeouts. | Selecting agents, running tools |
-| **Decision** | Classifies input (intent, complexity, mode). Selects model. No LLM call. | Executing actions, thinking |
-| **Orchestrator** | Reads `DecisionOutput`. Routes to agent or tool executor. | Loop control, quality evaluation |
-| **Agents** | Thinking and multi-step planning. Planner / Thinker / Researcher. | Executing OS commands, they call tools |
-| **Tools** | Tool system infrastructure: registry + validator + executor. The plumbing. | Skill implementations |
-| **Skills** | The actual callable capabilities: `app_launcher.py`, `web_search.py`, etc. | Tool system management |
-| **Models** | Thin wrappers around AI models. Called by runtime or agents. | Control flow |
-
----
-
-## 4. Runtime Loop (function-level)
-
-```python
-# src/core/runtime/loop.py
-
-class RuntimeLoop:
-
-    def run(self, user_input: str, session_id: str) -> Generator[str, None, None]:
-        state = TurnState(session_id=session_id)
-
-        for iteration in range(self.max_iterations):
-
-            # ── OBSERVE ──────────────────────────────────────────────
-            # Collect: user input + memory snippets + context buffer + tool traces
-            observation = self.observe(user_input, state)
-
-            # ── DECIDE ───────────────────────────────────────────────
-            # Classify without calling LLM. Returns DecisionOutput.
-            decision = self.decision.decide(observation)
-
-            # ── THINK ────────────────────────────────────────────────
-            # Select model, build system prompt, call LLM.
-            # LLM returns: plain text OR a tool_call JSON block.
-            model = self.router.select(decision)
-            system_prompt = self.prompt_builder.build(decision.mode, state.profile)
-            llm_output = self.llm.chat(state.messages, model, system_prompt)
-
-            # ── ACT ──────────────────────────────────────────────────
-            if llm_output.has_tool_call:
-                # Run the tool, feed result back as next observation
-                result = self.orchestrator.run_tool(llm_output.tool_call)
-                state.add_tool_result(result)
-                continue  # loop again with tool result in observation
-
-            candidate = llm_output.text
-
-            # ── EVALUATE ─────────────────────────────────────────────
-            eval_result = self.evaluate(candidate, state, decision)
-
-            if eval_result.recommendation == "finish":
-                self.memory.save_turn("assistant", candidate, session_id)
-                yield candidate
-                return
-
-            # Escalate: upgrade mode and retry
-            state.mode = self._next_mode(state.mode)
-            state.iteration += 1
-
-        # Fallback after max iterations
-        yield "لم أتمكن من توليد إجابة مناسبة. يرجى إعادة الصياغة."
-
-    def observe(self, user_input: str, state: TurnState) -> str:
-        history  = self.memory.get_history(state.session_id, n=10)
-        snippets = self.memory.search(user_input, n=3)
-        context  = self.context_buffer.snapshot()
-        return build_observation(user_input, history, snippets, context, state.tool_traces)
-
-    def evaluate(self, answer: str, state: TurnState, decision) -> EvalResult:
-        if not answer.strip():
-            return EvalResult("escalate", 0.0, "empty answer")
-        if any(not t.success for t in state.tool_traces):
-            return EvalResult("escalate", 0.3, "tool failed")
-        return EvalResult("finish", 0.85)
-
-    def _next_mode(self, current: str) -> str:
-        chain = ["fast", "normal", "deep", "planning"]
-        idx = chain.index(current) if current in chain else 1
-        return chain[min(idx + 1, len(chain) - 1)]
-```
-
----
-
-## 5. Decision Layer
-
-Classifies input **without calling an LLM**. Uses keyword matching. Fast.
-
-```python
-# src/core/runtime/decision.py
-
-class DecisionLayer:
-    def decide(self, observation: str) -> DecisionOutput:
-        text = observation.lower()
-
-        # Intent
-        if any(w in text for w in ["افتح","شغّل","open","launch","run","start","close"]):
-            intent, requires_tools = "action", True
-        elif any(w in text for w in ["كود","code","function","implement","debug","class"]):
-            intent, requires_tools = "code", False
-        elif any(w in text for w in ["ابحث","search","research","find info"]):
-            intent, requires_tools = "research", True
-        else:
-            intent, requires_tools = "chat", False
-
-        # Complexity
-        words = len(observation.split())
-        multi_step = any(w in text for w in ["then","ثم","after","بعدها","and also"])
-        complexity = "high" if (words > 50 or multi_step) else "medium" if words > 20 else "low"
-
-        # Mode
-        mode = "planning" if multi_step else \
-               "deep"     if complexity == "high" else \
-               "fast"     if complexity == "low" and intent == "chat" else "normal"
-
-        return DecisionOutput(
-            intent=intent,
-            complexity=complexity,
-            mode=mode,
-            requires_tools=requires_tools,
-            requires_planning=multi_step,
-            prior_confidence=0.8 if intent == "chat" else 0.6,
-        )
-```
-
----
-
-## 6. Model Routing
-
-```python
-# src/models/llm/router.py
-
-# Hard rules — override everything
-HARD_RULES = {
-    "vision": "llava:7b",
-    "code":   "qwen2.5-coder:7b",
+Context = {
+    "user_message": str,
+    "attachments": [File | Image | Audio],
+    "tool_results": [ToolResult],
+    "memory_snippets": [str],   # injected from Memory layer
 }
+```
 
-# Mode-based preferences
-MODE_PREFS = {
-    "fast":     "gemma3:4b",
-    "normal":   "qwen3:8b",
-    "deep":     "qwen3:8b",
-    "planning": "qwen3:8b",
-    "research": "qwen3:8b",
+---
+
+### `src/core/memory/` — Cross-Session Persistence
+**What:** Data that survives across conversations.
+**Responsibility:** Store and retrieve facts, conversation history, user preferences.
+- Short-term: Redis (current session messages, trimmed to token budget)
+- Long-term: ChromaDB (semantic search over past facts and summaries)
+- Structured: SQLite (conversations, tasks, feedback scores)
+
+**Does NOT:** participate in routing or decision-making. Provides snippets to Context when asked.
+
+---
+
+### `src/core/decision/` — Routing Only
+**What:** Classifies the current turn and decides what resources to use.
+**Responsibility:** Given the assembled Context, output a routing decision.
+
+```python
+DecisionOutput = {
+    "intent": "chat | code | tool_use | research | vision | voice",
+    "complexity": "low | medium | high",
+    "mode": "fast | normal | deep | planning",
+    "model": "gemma3:4b | qwen3:8b | qwen2.5-coder:7b | llava:7b",
+    "requires_tools": bool,
+    "requires_planning": bool,
 }
-
-class ModelRouter:
-    def select(self, decision: DecisionOutput) -> str:
-        if decision.intent in HARD_RULES:
-            return HARD_RULES[decision.intent]
-        return MODE_PREFS.get(decision.mode, "qwen3:8b")
 ```
 
-Model names are config keys — they map to actual Ollama tags in `config/models.yaml`.
+**Does NOT:** think, plan, or execute anything. Pure classification and resource selection.
 
 ---
 
-## 7. Tool Execution Flow
+### `src/core/agents/` — Thinking and Planning
+**What:** Multi-step reasoning and task decomposition.
+**Responsibility:** When a task is too complex for a single LLM call, agents break it into steps and sequence them.
+- `planner.py` — break goal into ordered steps
+- `thinker.py` — extended chain-of-thought reasoning
+- `researcher.py` — multi-source web research
+- `computer_use.py` — autonomous screen + app control loop
 
-```
-LLM emits tool_call JSON
-        │
-        ▼
-validator.validate(name, args)   ← checks against config/schemas/{tool}.json
-        │
-        ├── invalid → ToolResult(success=False, error="validation: ...")
-        │             → fed back as observation → LLM retries
-        ▼
-safety_classifier.classify(name, args)
-        │
-        ├── SAFE     → auto-execute
-        ├── RISKY    → execute + log warning
-        └── CRITICAL → pause, emit confirmation request, wait for user
-        ▼
-executor.run(tool, args, timeout=30s)
-        │
-        ▼
-ToolResult{tool, success, result, error, duration_ms}
-        │
-        ▼
-state.add_tool_result(result)
-        │
-        ▼
-Next observe() includes: "Tool X returned: ..."
-LLM generates final natural-language response
-```
-
-### Real example — "open chrome"
-
-**LLM output:**
-```json
-{"tool_call": {"name": "app_launcher", "args": {"app_name": "chrome"}}}
-```
-
-**Schema validation** (`config/schemas/system/app_launcher.schema.json`):
-```json
-{"type": "object", "required": ["app_name"],
- "properties": {"app_name": {"type": "string", "minLength": 1}}}
-```
-→ passes ✓
-
-**Safety:** `app_launcher` → SAFE → auto-execute
-
-**Execution:**
-```python
-result = AppLauncherTool().execute({"app_name": "chrome"})
-# → ToolResult(success=True, result="Chrome launched (PID 4821)", duration_ms=312)
-```
-
-**Next observation contains:**
-```
-Tool app_launcher returned: Chrome launched (PID 4821)
-```
-
-**LLM final response:** `"Chrome is now open."`
+**Does NOT:** route requests (that's Decision) or execute tools directly (that's the Executor).
 
 ---
 
-## 8. Prompt System
+### `src/core/tools/` — Tool Registry and Execution
+**What:** The system that manages all callable tools.
+**Responsibility:**
+- `registry.py` — discover and register all tools from `src/skills/`
+- `validator.py` — validate tool args against JSON Schema before execution
+- `executor.py` — run the tool, catch errors, return structured result
+- `safety.py` — classify operations as safe / risky / critical; block or prompt for confirmation
 
-Every model call goes through `PromptBuilder`. No exceptions.
-
-```python
-# src/core/identity/prompt_builder.py
-
-MODE_PACKS = {
-    "fast":     "أجب مباشرةً وبإيجاز. بدون مقدمات.",
-    "normal":   "أعطِ إجابة واضحة وكاملة.",
-    "deep":     "فكّر خطوة بخطوة. راجع إجابتك.",
-    "planning": "قسّم المهمة إلى خطوات مرقّمة قبل التنفيذ.",
-    "research": "اجمع من زوايا متعددة. أشر إلى المصادر.",
-}
-
-def build(mode: str, profile: UserProfile, tools: list[str] = [], task: str = "") -> str:
-    # Assembly order is fixed:
-    # 1. Jarvis identity   (always)
-    # 2. Safety rules      (always)
-    # 3. User preferences  (language, style, level)
-    # 4. Mode fragment     (fast / normal / deep / planning / research)
-    # 5. Tool list         (only when tools available)
-    # 6. Task context      (only for multi-step tasks)
-    ...
-```
+**Does NOT:** decide which tool to use (that comes from the LLM's output). Does NOT implement tool logic (that's `src/skills/`).
 
 ---
 
-## 9. Error Handling
+### `src/skills/` — Tool Implementations
+**What:** The actual code that does things in the world.
+**Responsibility:** Each skill is one tool. It receives validated args, does one thing, returns a result.
+
+```
+src/skills/
+  files/        — read, write, search, delete files
+  system/       — processes, volume, startup items, apps
+  browser/      — Playwright navigation, click, fill, download
+  search/       — DuckDuckGo web search
+  social/       — WhatsApp Web
+  api/          — Google Calendar, Gmail, Drive, Contacts, YouTube
+  pdf/          — PDF text + table extraction
+  office/       — Word, Excel, PowerPoint read/write
+  screen/       — screenshot, OCR
+  notify/       — Windows Toast notifications
+  coder/        — Python + shell code execution
+```
+
+**Does NOT:** make decisions, manage routing, or store memory.
+
+---
+
+### `src/core/runtime/` — Execution Loop
+**What:** The engine that drives the Context → Decision → Think → Act → Evaluate cycle.
+**Responsibility:** Run one user turn end-to-end. Manage iterations, timeouts, escalation, and model swaps.
+
+**Does NOT:** implement any intelligence — it calls Decision, then models, then tools, in the correct order.
+
+---
+
+### `src/interfaces/` — User Interfaces
+**What:** How the user talks to Jarvis.
+**Responsibility:** Receive input from user, pass to runtime, display output.
+- `cli/` — terminal chat (Rich)
+- `web/` — FastAPI + WebSocket browser chat
+- `voice/` — wake word + STT + TTS pipeline
+- `telegram/` — Telegram bot
+- `gui/` — PyQt6 desktop app
+
+**Does NOT:** contain any logic beyond input/output formatting.
+
+---
+
+## Identity
+
+Jarvis is one system with one identity, regardless of which model is handling the current request.
 
 ```python
-# retry with exponential backoff
-for attempt in range(3):
-    try:
-        return self.llm.chat(messages, model, system_prompt)
-    except OllamaConnectionError:
-        if attempt == 2:
-            return self.llm.chat(messages, "gemma3:4b", ...)  # fallback model
-        time.sleep(2 ** attempt)
-    except VRAMOOMError:
-        self.llm.unload(model)
-        model = "gemma3:4b"
-        continue
-
-# tool failure → observation, not crash
-if not result.success:
-    state.add_observation(f"Tool {result.tool} failed: {result.error}")
-    # loop continues — LLM decides what to do next
+# config/jarvis_identity.yaml defines:
+name: "Jarvis"
+role: "Personal AI assistant"
+# Every LLM call receives this framing + user profile + task context
+# No model is a standalone product — all are components of one system
 ```
+
+User profile (language preference, technical level, recurring tasks) is stored in Memory and injected into every prompt via the Identity layer.
 
 ---
 
-## 10. Vertical Slice Examples
+## Models
 
-### "Say Hello" (Chat — no tools)
-```
-Input:   "Hello"
-Decide:  intent=chat, mode=normal, model=qwen3:8b, requires_tools=False
-Think:   LLM generates greeting
-Act:     no tool call
-Eval:    non-empty → finish
-Output:  "Hello! How can I help you today?"
-Files:   runtime/loop.py, runtime/decision.py, models/llm/engine.py
-```
+| Model | Role | VRAM |
+|-------|------|------|
+| `qwen3:8b` | Main brain: Arabic+EN conversation, reasoning, planning | ~5.0 GB |
+| `gemma3:4b` | Fast responses, simple questions, classification | ~3.0 GB |
+| `qwen2.5-coder:7b` | Code generation, debugging, shell commands | ~4.7 GB |
+| `llava:7b` | Image understanding, OCR, screen description | ~4.5 GB |
 
-### "Open Chrome" (Action — tool required)
-```
-Input:   "open chrome"
-Decide:  intent=action, mode=fast, model=gemma3:4b, requires_tools=True
-Think:   LLM emits tool_call {name: "app_launcher", args: {app_name: "chrome"}}
-Act:     validate ✓ → safety=SAFE → execute → Chrome opens
-Eval:    tool success → finish
-Output:  "Chrome is now open."
-Files:   runtime/loop.py, runtime/decision.py, core/tools/registry.py,
-         core/tools/validator.py, core/tools/executor.py,
-         skills/system/app_launcher.py
-```
-
-### "Search Python news and summarize" (Research — agent)
-```
-Input:   "search python 3.13 features and summarize them"
-Decide:  intent=research, mode=research, requires_planning=True
-Orchestrator: routes to Researcher agent
-Agent:   web_search("python 3.13 features") → results
-         LLM summarizes results
-Eval:    answer complete → finish
-Output:  "Python 3.13 introduced..."
-Files:   + core/agents/researcher.py, skills/search/web_search.py
-```
+The Decision layer selects the model. The router validates VRAM availability and swaps if needed.
 
 ---
 
-## 11. AI Models
+## Quick Start
 
-**Only one model > 3 GB VRAM at a time.**
-
-| Model | Role | VRAM | When Loaded |
-|---|---|---|---|
-| `qwen3:8b` | Default — reasoning, Arabic | ~5.0 GB | mode=normal/deep/planning |
-| `gemma3:4b` | Fast responses | ~3.0 GB | mode=fast, complexity=low |
-| `qwen2.5-coder:7b` | Code | ~4.7 GB | intent=code |
-| `llava:7b` | Vision | ~4.5 GB | intent=vision |
-| Whisper medium | STT | CPU | voice input |
-| Piper TTS | TTS | CPU | voice output |
-| SD 1.5 | Image gen | ~4.0 GB | image generation |
-
----
-
-## 12. Quick Start
-
-```bash
-# Ollama + models
+```powershell
+# 1. Install Ollama + pull models
 winget install Ollama.Ollama
-ollama pull qwen3:8b && ollama pull gemma3:4b
-ollama pull qwen2.5-coder:7b && ollama pull llava:7b
+ollama pull qwen3:8b
+ollama pull qwen2.5-coder:7b
+ollama pull gemma3:4b
+ollama pull llava:7b
 
-# Python setup
-python -m venv venv && .\venv\Scripts\Activate.ps1
+# 2. Clone and install
+git clone <repo>
+cd jarvis
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 playwright install chromium
 
-# Configure
-copy config\settings.yaml.example config\settings.yaml
+# 3. Configure
+copy config\settings.example.yaml config\settings.yaml
 copy .env.example .env
+# Edit .env: add TELEGRAM_BOT_TOKEN, GOOGLE_CLIENT_ID, etc.
 
-# Run (Phase 1 — minimal)
+# 4. Run
 python app/main.py --interface cli
 ```
 
 ---
 
-## 13. Roadmap → see TASKS.md
+## Project Structure
 
-| Phase | Build | Status |
-|---|---|---|
-| 1 | Minimal Working System | ⬜ |
-| 2 | Runtime loop + evaluate | ⬜ |
-| 3 | Decision + model routing | ⬜ |
-| 4 | Tool system | ⬜ |
-| 5 | Context buffer | ⬜ |
-| 6 | Memory | ⬜ |
-| 7 | Agents | ⬜ |
-| 8 | Skills (system + browser + search) | ⬜ |
-| 9 | Safety | ⬜ |
-| 10 | Google APIs | ⬜ |
-| 11–16 | Interfaces + optimization | ⬜ |
+```
+jarvis/
+├── app/
+│   └── main.py              ← entry point: --interface [cli|web|telegram|gui|voice|all]
+├── config/
+│   ├── settings.yaml        ← all runtime config (YAML, no code)
+│   ├── models.yaml          ← model capability profiles + routing weights
+│   ├── skills.yaml          ← tool registry manifest
+│   ├── jarvis_identity.yaml ← who Jarvis is
+│   └── schemas/             ← JSON Schema per tool (validated before execution)
+├── src/
+│   ├── core/
+│   │   ├── context/         ← assemble current-turn input bundle
+│   │   ├── decision/        ← classify intent, select model + tools
+│   │   ├── runtime/         ← drive the Think → Act → Evaluate loop
+│   │   ├── agents/          ← planner, thinker, researcher, computer_use
+│   │   ├── memory/          ← short-term, long-term, user profile
+│   │   ├── tools/           ← registry, validator, executor, safety
+│   │   └── identity/        ← system prompt builder, user profile injector
+│   ├── models/
+│   │   ├── llm/             ← Ollama wrapper (chat, generate, stream)
+│   │   ├── vision/          ← LLaVA wrapper
+│   │   ├── speech/          ← Whisper STT + Piper TTS
+│   │   └── diffusion/       ← Stable Diffusion wrapper
+│   ├── skills/              ← tool implementations (one file per tool)
+│   │   ├── files/, system/, browser/, search/, social/
+│   │   ├── api/, pdf/, office/, screen/, notify/, coder/
+│   └── interfaces/
+│       ├── cli/, web/, voice/, telegram/, gui/
+├── data/                    ← runtime data (gitignored)
+├── logs/                    ← log files (gitignored)
+├── tests/
+├── scripts/
+│   ├── install.sh
+│   └── install.ps1
+├── requirements.txt
+├── .env.example
+└── TASKS.md
+```
 
 ---
 
-*Local. Private. No API costs.*
+## Roadmap
+
+| Phase | What Gets Built | Status |
+|-------|----------------|--------|
+| 0 | Vertical Slice: "Hey Jarvis, open Chrome" works end-to-end | ⏳ |
+| 1 | Foundation: config, logging, skeleton, model wrappers | ⏳ |
+| 2 | Runtime loop: Context → Decision → Think → Output (text only) | ⏳ |
+| 3 | Memory: session history + cross-session semantic recall | ⏳ |
+| 4 | CLI interface: rich terminal chat | ⏳ |
+| 5 | Tool registry + executor + safety gate | ⏳ |
+| 6 | System control skills: files, apps, clipboard, notifications | ⏳ |
+| 7 | Browser skills: navigate, click, session persistence, WhatsApp | ⏳ |
+| 8 | Google APIs: Calendar, Gmail, Drive, Contacts | ⏳ |
+| 9 | Agents: planner, thinker, computer use loop | ⏳ |
+| 10 | Task decomposition: DAG execution for complex goals | ⏳ |
+| 11 | Feedback loop: outcomes update routing weights | ⏳ |
+| 12 | Web UI + Voice + Vision (multimodal interfaces) | ⏳ |
+| 13 | Telegram + GUI desktop | ⏳ |
+| 14 | QA, optimization, security hardening | ⏳ |
+| 15 | Personality layer (tone, style, adaptation) | ⏳ |
+
+See [TASKS.md](./TASKS.md) for the detailed task list with success criteria.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| LLM | Ollama (local) |
+| Web framework | FastAPI + Uvicorn |
+| WebSocket | FastAPI WebSocket |
+| Vector DB | ChromaDB |
+| Cache | Redis |
+| SQL | SQLite |
+| STT | OpenAI Whisper (medium) |
+| TTS | Piper TTS (Arabic + English) |
+| Wake word | openWakeWord |
+| Image gen | Diffusers — Stable Diffusion 1.5 |
+| Browser | Playwright (Chromium) |
+| Terminal UI | Rich |
+| Desktop GUI | PyQt6 |
+| Telegram | python-telegram-bot |
+| Google APIs | google-api-python-client |
+| Config | PyYAML + python-dotenv + Pydantic |
+| Logging | Loguru |
+| Windows APIs | pywin32, pycaw, pystray, winotify |
+| Screen | mss + pytesseract |
+| Clipboard | pyperclip + win32clipboard |
+| Hotkeys | keyboard + pynput |
+
+---
+
+## License
+
+MIT — free to use, modify, and distribute.

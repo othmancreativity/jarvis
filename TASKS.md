@@ -1,1699 +1,2028 @@
 # 🗂️ JARVIS — Task Board
-
-> **Every task has:** INPUT · OUTPUT · FILES · SUCCESS CRITERIA  
-> **Rule:** Don't start Phase N until Phase N-1 is verified complete.
-
----
-
-## Progress
-
-| Phase | Description | Status |
-|---|---|---|
-| 1 | Minimal Working System | ⬜ |
-| 2 | Runtime Loop (full) | ⬜ |
-| 3 | Decision + Model Router | ⬜ |
-| 4 | Tool System | ⬜ |
-| 5 | Context Buffer | ⬜ |
-| 6 | Memory | ⬜ |
-| 7 | Agents | ⬜ |
-| 8 | Skills (System + Browser + Search) | ⬜ |
-| 9 | Safety | ⬜ |
-| 10 | Google APIs | ⬜ |
-| 11 | CLI Interface | ⬜ |
-| 12 | Web UI | ⬜ |
-| 13 | Voice Pipeline | ⬜ |
-| 14 | Telegram + GUI | ⬜ |
-| 15 | Logging + Observability | ⬜ |
-| 16 | Optimization + QA | ⬜ |
+> Every task has: INPUT, OUTPUT, FILES, SUCCESS CRITERIA.
+> Build in phase order. Each phase has a runnable end state.
+> **Start with Phase 0. Do not move to Phase 1 until Phase 0 passes.**
 
 ---
 
-## ⚡ Phase 1 — Minimal Working System
+## 📊 Progress
 
-> **Goal:** `python app/main.py --interface cli` → user types text → gets real LLM response.  
-> No tools. No memory. No agents. This is the foundation everything else plugs into.
+| Phase | Name | Tasks | Done |
+|-------|------|-------|------|
+| 0 | Vertical Slice | 5 | 0 |
+| 1 | Foundation | 7 | 0 |
+| 2 | Runtime Loop | 8 | 0 |
+| 3 | Memory | 6 | 0 |
+| 4 | CLI Interface | 5 | 0 |
+| 5 | Tool System | 5 | 0 |
+| 6 | System Control Skills | 7 | 0 |
+| 7 | Browser & Web Skills | 6 | 0 |
+| 8 | Google APIs | 6 | 0 |
+| 9 | Agents | 5 | 0 |
+| 10 | Task Decomposition | 5 | 0 |
+| 11 | Feedback Loop | 4 | 0 |
+| 12 | Web UI | 7 | 0 |
+| 13 | Voice Pipeline | 5 | 0 |
+| 14 | Vision & Image Gen | 4 | 0 |
+| 15 | Telegram + GUI | 4 | 0 |
+| 16 | QA + Security | 6 | 0 |
+| 17 | Personality | 3 | 0 |
 
 ---
 
-### TASK 1.1 — Project skeleton
+## 🚀 Phase 0 — Vertical Slice
+> **End state:** User types "open chrome" → Chrome opens. Nothing else required.
+> This phase proves the full pipe works before building anything else.
 
-**INPUT:** Empty repository  
-**OUTPUT:** All directories exist with `__init__.py`. Project importable.
+---
 
-**FILES TO CREATE:**
-```
-app/__init__.py
-app/main.py               ← entry point (see 1.6)
-src/__init__.py
-src/core/__init__.py
-src/core/runtime/__init__.py
-src/core/orchestrator/__init__.py
-src/core/agents/__init__.py
-src/core/tools/__init__.py
-src/core/memory/__init__.py
-src/core/context/__init__.py
-src/core/identity/__init__.py
-src/core/safety/__init__.py
-src/models/__init__.py
-src/models/base/__init__.py
-src/models/llm/__init__.py
-src/models/vision/__init__.py
-src/models/speech/__init__.py
-src/models/diffusion/__init__.py
-src/skills/__init__.py
-src/skills/system/__init__.py
-src/skills/browser/__init__.py
-src/skills/search/__init__.py
-src/skills/coder/__init__.py
-src/skills/screen/__init__.py
-src/skills/api/__init__.py
-src/skills/office/__init__.py
-src/interfaces/__init__.py
-src/interfaces/cli/__init__.py
-src/interfaces/web/__init__.py
-src/interfaces/telegram/__init__.py
-src/interfaces/gui/__init__.py
-src/interfaces/voice/__init__.py
-data/.gitkeep
-logs/.gitkeep
+### TASK 0.1 — Minimal Ollama chat call
+
+**INPUT:** String "hello"
+**OUTPUT:** String response from qwen3:8b printed to terminal
+**FILES:** `src/models/llm/engine.py` (create)
+
+```python
+import ollama
+
+def chat(message: str, model: str = "qwen3:8b") -> str:
+    response = ollama.chat(model=model, messages=[{"role": "user", "content": message}])
+    return response["message"]["content"]
+
+if __name__ == "__main__":
+    print(chat("hello"))
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `python -c "import src.core.runtime"` runs without error (with `PYTHONPATH=src`)
-- [ ] All directories exist on disk
+**SUCCESS:** `python src/models/llm/engine.py` prints a coherent response. No errors.
 
 ---
 
-### TASK 1.2 — Config files
+### TASK 0.2 — Minimal intent classifier
 
-**INPUT:** Nothing  
-**OUTPUT:** Three YAML config files that load without error
+**INPUT:** String "open chrome"
+**OUTPUT:** `{"intent": "tool_use", "tool": "open_app", "args": {"name": "chrome"}}`
+**FILES:** `src/core/decision/classifier.py` (create)
 
-**FILES TO CREATE:**
+Use `gemma3:4b` with a system prompt that forces JSON output:
 
-`config/settings.yaml`:
+```python
+SYSTEM = """You are a command classifier.
+Given a user message, return ONLY valid JSON:
+{"intent": "chat|tool_use|code|search", "tool": "tool_name_or_null", "args": {}}
+
+Examples:
+"open chrome" -> {"intent": "tool_use", "tool": "open_app", "args": {"name": "chrome"}}
+"what is AI?" -> {"intent": "chat", "tool": null, "args": {}}
+"افتح Chrome" -> {"intent": "tool_use", "tool": "open_app", "args": {"name": "chrome"}}
+"""
+
+def classify(message: str) -> dict:
+    import json
+    raw = chat(message, model="gemma3:4b", system=SYSTEM)
+    return json.loads(raw)
+```
+
+**SUCCESS:** Both `classify("open chrome")` and `classify("افتح Chrome")` return `{"intent": "tool_use", "tool": "open_app", "args": {"name": "chrome"}}`.
+
+---
+
+### TASK 0.3 — Minimal app launcher
+
+**INPUT:** `{"name": "chrome"}`
+**OUTPUT:** Chrome opens. `{"success": True, "pid": 1234}`
+**FILES:** `src/skills/system/apps.py` (create)
+
+```python
+import subprocess, shutil, os
+from pathlib import Path
+
+def open_app(name: str) -> dict:
+    # 1. Try PATH
+    path = shutil.which(name)
+    if path:
+        proc = subprocess.Popen([path])
+        return {"success": True, "pid": proc.pid}
+
+    # 2. Search Windows program directories
+    search_dirs = [
+        os.environ.get("PROGRAMFILES", "C:/Program Files"),
+        os.environ.get("PROGRAMFILES(X86)", "C:/Program Files (x86)"),
+        os.environ.get("LOCALAPPDATA", ""),
+    ]
+    for d in search_dirs:
+        if not d:
+            continue
+        for root, _, files in os.walk(d):
+            for f in files:
+                if name.lower() in f.lower() and f.endswith(".exe"):
+                    proc = subprocess.Popen([os.path.join(root, f)])
+                    return {"success": True, "pid": proc.pid}
+
+    return {"success": False, "error": f"App '{name}' not found"}
+```
+
+**SUCCESS:** `open_app("chrome")` opens Chrome. `open_app("notepad")` opens Notepad.
+
+---
+
+### TASK 0.4 — Wire: classifier → tool → output
+
+**INPUT:** String from `input()` in terminal
+**OUTPUT:** App opens + confirmation printed
+**FILES:** `app/jarvis_slice.py` (create, temporary)
+
+```python
+import json
+from src.models.llm.engine import chat
+from src.skills.system.apps import open_app
+from src.core.decision.classifier import classify
+
+def run(user_input: str):
+    decision = classify(user_input)
+
+    if decision["intent"] == "tool_use" and decision["tool"] == "open_app":
+        result = open_app(decision["args"]["name"])
+        print(f"✓ {result}")
+    else:
+        print(f"Jarvis: {chat(user_input)}")
+
+if __name__ == "__main__":
+    run(input("You: "))
+```
+
+**SUCCESS:** Type "open notepad" → Notepad opens + confirmation printed.
+
+---
+
+### TASK 0.5 — Arabic input test
+
+**INPUT:** "افتح Chrome" typed at prompt
+**OUTPUT:** Chrome opens (same as 0.4)
+**FILES:** No new files — test existing code
+
+**SUCCESS:** Arabic command produces same result as English. If not, add Arabic examples to classifier system prompt until it does.
+
+---
+
+## 🏗️ Phase 1 — Foundation
+> **End state:** `python app/main.py --interface cli` starts without crashing. Config loads. Logging works. All `__init__.py` files exist.
+
+---
+
+### TASK 1.1 — Config system
+
+**INPUT:** `config/settings.yaml` file
+**OUTPUT:** `AppSettings` Python object importable anywhere
+**FILES:** `config/settings.example.yaml` (create), `config/settings.yaml` (create), `src/core/config.py` (create)
+
+Minimum `settings.example.yaml`:
 ```yaml
 jarvis:
   name: "Jarvis"
   language: ["ar", "en"]
   wake_word: "hey_jarvis"
 
-runtime:
-  max_iterations: 5
-  max_escalation_depth: 2
-  tool_timeout_s: 30
-  step_timeout_s: 60
-
 models:
   default: "qwen3:8b"
-  fast:    "gemma3:4b"
-  code:    "qwen2.5-coder:7b"
-  vision:  "llava:7b"
+  fast: "gemma3:4b"
+  code: "qwen2.5-coder:7b"
+  vision: "llava:7b"
 
 hardware:
   gpu_vram_limit_gb: 5.5
   max_concurrent_models: 1
 
 interfaces:
-  web:
-    host: "127.0.0.1"
-    port: 8080
+  web_port: 8080
+  web_host: "127.0.0.1"
 
 paths:
-  data:        "data/"
-  logs:        "logs/"
-  sessions:    "data/sessions/"
-  downloads:   "data/downloads/"
-  screenshots: "data/screenshots/"
-  chroma_db:   "data/chroma/"
-  sqlite_db:   "data/jarvis.db"
+  data: "data"
+  logs: "logs"
 
 hotkeys:
-  open_cli:    "ctrl+alt+j"
+  open_cli: "ctrl+alt+j"
   start_voice: "ctrl+alt+s"
 ```
 
-`config/models.yaml`:
-```yaml
-routing:
-  hard_rules:
-    vision: "llava:7b"
-    code:   "qwen2.5-coder:7b"
-  mode_preferences:
-    fast:     "gemma3:4b"
-    normal:   "qwen3:8b"
-    deep:     "qwen3:8b"
-    planning: "qwen3:8b"
-    research: "qwen3:8b"
+`src/core/config.py`: Pydantic model that loads from YAML via `get_settings()` singleton.
 
-models:
-  qwen3:8b:
-    ollama_tag: "qwen3:8b"
-    vram_gb: 5.0
-    temperature: 0.7
-    top_p: 0.9
-    max_tokens: 8192
-  gemma3:4b:
-    ollama_tag: "gemma3:4b"
-    vram_gb: 3.0
-    temperature: 0.7
-    top_p: 0.9
-    max_tokens: 4096
-  qwen2.5-coder:7b:
-    ollama_tag: "qwen2.5-coder:7b"
-    vram_gb: 4.7
-    temperature: 0.2
-    top_p: 0.95
-    max_tokens: 8192
-  llava:7b:
-    ollama_tag: "llava:7b"
-    vram_gb: 4.5
-    temperature: 0.7
-    top_p: 0.9
-    max_tokens: 4096
-```
-
-`config/identity.yaml`:
-```yaml
-name: "Jarvis"
-version: "0.4.0"
-role: "Personal AI assistant running fully locally on your machine"
-default_language: "ar"
-tone: "Professional, concise, and helpful"
-always_confirm_destructive: true
-```
-
-**SUCCESS CRITERIA:**
-- [ ] `import yaml; yaml.safe_load(open("config/settings.yaml"))` works without error
-- [ ] All three files valid YAML
-- [ ] No required key is missing
+**SUCCESS:** `from src.core.config import get_settings; assert get_settings().jarvis.name == "Jarvis"` passes.
 
 ---
 
-### TASK 1.3 — Settings loader
+### TASK 1.2 — Logging setup
 
-**INPUT:** `config/settings.yaml` + `.env`  
-**OUTPUT:** Single importable `settings` object
-
-**FILES TO CREATE:** `src/settings.py`
-
-```python
-from pydantic_settings import BaseSettings
-from pydantic import BaseModel
-import yaml
-
-class RuntimeConfig(BaseModel):
-    max_iterations: int = 5
-    max_escalation_depth: int = 2
-    tool_timeout_s: int = 30
-
-class ModelsConfig(BaseModel):
-    default: str = "qwen3:8b"
-    fast: str = "gemma3:4b"
-    code: str = "qwen2.5-coder:7b"
-    vision: str = "llava:7b"
-
-class JarvisSettings(BaseModel):
-    runtime: RuntimeConfig
-    models: ModelsConfig
-    # ... other sections
-
-def load_settings(path: str = "config/settings.yaml") -> JarvisSettings:
-    raw = yaml.safe_load(open(path))
-    return JarvisSettings(**raw)
-
-settings = load_settings()
-```
-
-**SUCCESS CRITERIA:**
-- [ ] `from settings import settings; print(settings.jarvis.name)` prints `"Jarvis"`
-- [ ] Missing YAML key raises `ValidationError` with clear message
-- [ ] `python -c "from settings import settings"` exits with code 0
-
----
-
-### TASK 1.4 — Logger
-
-**INPUT:** `config/settings.yaml` (log path)  
-**OUTPUT:** `logger` object usable everywhere
-
-**FILES TO CREATE:** `src/logger.py`
+**INPUT:** Call to `setup_logging()` at startup
+**OUTPUT:** Logs appear in terminal AND `logs/jarvis.log` with daily rotation
+**FILES:** `src/core/logging_setup.py` (create)
 
 ```python
 from loguru import logger
-import sys
+from pathlib import Path
 
-logger.remove()
-logger.add(sys.stdout, level="INFO", colorize=True,
-           format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | {message}")
-logger.add("logs/jarvis.log", level="DEBUG", rotation="1 day",
-           retention="7 days", serialize=True)  # JSON format
+def setup_logging(level: str = "INFO"):
+    Path("logs").mkdir(exist_ok=True)
+    logger.add("logs/jarvis.log", rotation="10 MB", retention="7 days", level=level,
+               format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `from logger import logger; logger.info("test")` writes to both console and `logs/jarvis.log`
-- [ ] Log file is valid JSON Lines (one JSON object per line)
-- [ ] Each entry has: `timestamp`, `level`, `message`, `module`
+**SUCCESS:** `setup_logging()` then `logger.info("test")` writes to both terminal and `logs/jarvis.log`.
 
 ---
 
-### TASK 1.5 — LLM engine (Ollama client)
+### TASK 1.3 — Package skeleton
 
-**INPUT:** `messages: list[dict]`, `model: str`  
-**OUTPUT:** Streamed text tokens
+**INPUT:** Nothing
+**OUTPUT:** All `src/` subdirectories exist with `__init__.py`
+**FILES:** Create all directories + `__init__.py` files
 
-**FILES TO CREATE:** `src/models/llm/engine.py`
-
-```python
-import httpx
-from typing import Generator
-
-class OllamaEngine:
-    BASE_URL = "http://localhost:11434"
-
-    def chat(self, messages: list[dict], model: str,
-             system: str = "", stream: bool = True) -> Generator[str, None, None]:
-        payload = {"model": model, "messages": messages, "stream": stream}
-        if system:
-            payload["messages"] = [{"role": "system", "content": system}] + messages
-
-        with httpx.stream("POST", f"{self.BASE_URL}/api/chat", json=payload, timeout=120) as r:
-            for line in r.iter_lines():
-                chunk = json.loads(line)
-                if text := chunk.get("message", {}).get("content", ""):
-                    yield text
-                if chunk.get("done"):
-                    break
-
-    def is_available(self) -> bool:
-        try:
-            httpx.get(f"{self.BASE_URL}/api/tags", timeout=3)
-            return True
-        except Exception:
-            return False
-
-    def list_models(self) -> list[str]:
-        r = httpx.get(f"{self.BASE_URL}/api/tags", timeout=5)
-        return [m["name"] for m in r.json().get("models", [])]
+Required directories:
+```
+src/core/context/   src/core/decision/   src/core/runtime/
+src/core/agents/    src/core/memory/     src/core/tools/
+src/core/identity/  src/models/llm/      src/models/vision/
+src/models/speech/  src/models/diffusion/
+src/skills/files/   src/skills/system/   src/skills/browser/
+src/skills/search/  src/skills/social/   src/skills/api/
+src/skills/pdf/     src/skills/office/   src/skills/screen/
+src/skills/notify/  src/skills/coder/
+src/interfaces/cli/ src/interfaces/web/  src/interfaces/voice/
+src/interfaces/telegram/ src/interfaces/gui/
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `engine.is_available()` returns `True` when Ollama is running
-- [ ] `list(engine.chat([{"role":"user","content":"Hi"}], "gemma3:4b"))` returns list of strings
-- [ ] Arabic input `"مرحبا"` produces Arabic output tokens
-- [ ] Connection refused → raises `httpx.ConnectError` (not silent failure)
+**SUCCESS:** `python -c "from src.core.decision import classifier"` raises ImportError only for missing module content, not for missing package.
 
 ---
 
-### TASK 1.6 — Minimal runtime loop (stub)
+### TASK 1.4 — Model capability profiles
 
-**INPUT:** `user_input: str`, `session_id: str`  
-**OUTPUT:** Streamed LLM response
+**INPUT:** `config/models.yaml` with 4 model entries
+**OUTPUT:** `get_model_profile("qwen3:8b")` returns dict with all capability fields
+**FILES:** `config/models.yaml` (create), `src/models/profiles.py` (create)
 
-**FILES TO CREATE:** `src/core/runtime/loop.py`
+```yaml
+# config/models.yaml
+qwen3:8b:
+  temperature: 0.6
+  max_tokens: 8192
+  vram_gb: 5.0
+  arabic_quality: 0.95
+  code_bias: 0.5
+  reasoning: "high"
+  latency: "medium"
 
-This is the Phase 1 stub — no decision layer, no memory, no tools:
+gemma3:4b:
+  temperature: 0.6
+  max_tokens: 2048
+  vram_gb: 3.0
+  arabic_quality: 0.85
+  code_bias: 0.35
+  reasoning: "low"
+  latency: "fast"
 
-```python
-from models.llm.engine import OllamaEngine
+qwen2.5-coder:7b:
+  temperature: 0.3
+  max_tokens: 8192
+  vram_gb: 4.7
+  arabic_quality: 0.75
+  code_bias: 0.95
+  reasoning: "medium"
+  latency: "fast"
 
-class RuntimeLoop:
-    def __init__(self):
-        self.llm = OllamaEngine()
-
-    def run(self, user_input: str, session_id: str = "default") -> Generator[str, None, None]:
-        if not self.llm.is_available():
-            yield "خطأ: Ollama غير متاح. تأكد من تشغيله."
-            return
-
-        messages = [{"role": "user", "content": user_input}]
-        system = "أنت Jarvis، مساعد ذكاء اصطناعي محلي. أجب بإيجاز ووضوح."
-
-        yield from self.llm.chat(messages, model="qwen3:8b", system=system)
+llava:7b:
+  temperature: 0.4
+  max_tokens: 2048
+  vram_gb: 4.5
+  vision: true
+  latency: "medium"
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `list(loop.run("Hello"))` returns non-empty list of strings
-- [ ] `list(loop.run("مرحبا"))` returns Arabic text
-- [ ] `loop.run("")` yields a polite fallback message (not crash)
-- [ ] Ollama offline → yields error message (not traceback)
+**SUCCESS:** `get_model_profile("qwen3:8b")["vram_gb"] == 5.0` passes.
 
 ---
 
-### TASK 1.7 — CLI interface (minimal)
+### TASK 1.5 — LLM engine with VRAM guard
 
-**INPUT:** User text from terminal  
-**OUTPUT:** Streaming response in terminal
+**INPUT:** model name + messages
+**OUTPUT:** Response text; VRAM guard prevents loading two heavy models
+**FILES:** `src/models/llm/engine.py` (expand from Phase 0)
 
-**FILES TO CREATE:** `src/interfaces/cli/interface.py`
+Add:
+- `get_active_model() → str | None`
+- `unload_current_model()` — call Ollama API to stop model
+- `swap_to(model: str)` — unload current if different, load new
 
-```python
-from rich.console import Console
-from rich.live import Live
-from rich.text import Text
-from core.runtime.loop import RuntimeLoop
+**SUCCESS:** `swap_to("gemma3:4b")` then `swap_to("qwen3:8b")` does not crash. Active model tracker is accurate after each swap.
 
-class CLIInterface:
-    def __init__(self):
-        self.console = Console()
-        self.loop = RuntimeLoop()
+---
 
-    def start(self):
-        self.console.print("[bold green]Jarvis ready. Press Ctrl+C to exit.[/]")
-        while True:
-            try:
-                user_input = input("\nYou: ").strip()
-                if not user_input:
-                    continue
-                self.console.print("[bold blue]Jarvis:[/] ", end="")
-                for token in self.loop.run(user_input):
-                    print(token, end="", flush=True)
-                print()  # newline after response
-            except KeyboardInterrupt:
-                self.console.print("\n[yellow]Goodbye.[/]")
-                break
+### TASK 1.6 — Identity: system prompt builder
+
+**INPUT:** `config/jarvis_identity.yaml` + user profile dict
+**OUTPUT:** System prompt string ready to prepend to any LLM call
+**FILES:** `config/jarvis_identity.yaml` (create), `src/core/identity/builder.py` (create)
+
+```yaml
+# config/jarvis_identity.yaml
+name: "Jarvis"
+role: "Personal AI assistant"
+safety_rules:
+  - "Never expose credentials, API keys, or file system secrets"
+  - "Admit uncertainty rather than fabricate information"
+  - "Confirm before destructive actions"
 ```
 
-**FILES TO MODIFY:** `app/main.py`
+```python
+def build_system_prompt(task_context: str = "", mode: str = "normal") -> str:
+    identity = load_jarvis_identity()
+    user = load_user_profile()
+    return f"""You are {identity.name}, {identity.role}.
+Rules: {'; '.join(identity.safety_rules)}
+User: {user.name} | Language: {user.language} | Style: {user.style}
+Task: {task_context}
+Mode: {mode}
+You are a component of the Jarvis system. Respond as Jarvis, not as the underlying model."""
+```
+
+**SUCCESS:** `build_system_prompt("open chrome", "fast")` returns a non-empty string. Changing `mode` changes the output string.
+
+---
+
+### TASK 1.7 — main.py entry point
+
+**INPUT:** `--interface cli` argument
+**OUTPUT:** "Jarvis ready." printed; waits for input; clean exit on Ctrl+C
+**FILES:** `app/main.py` (create)
 
 ```python
 import argparse
-from logger import logger
-from settings import settings
+from src.core.config import get_settings
+from src.core.logging_setup import setup_logging
 
 def main():
-    parser = argparse.ArgumentParser(description="Jarvis AI Assistant")
-    parser.add_argument("--interface", choices=["cli","web","telegram","gui","voice","all"],
+    parser = argparse.ArgumentParser(prog="jarvis")
+    parser.add_argument("--interface", choices=["cli","web","voice","telegram","gui","all"],
                         default="cli")
     args = parser.parse_args()
-
-    logger.info(f"Starting Jarvis — interface: {args.interface}")
+    setup_logging()
+    cfg = get_settings()
 
     if args.interface == "cli":
-        from interfaces.cli.interface import CLIInterface
-        CLIInterface().start()
-    else:
-        logger.warning(f"Interface '{args.interface}' not yet implemented.")
+        from src.interfaces.cli.interface import run_cli
+        run_cli(cfg)
+    elif args.interface == "web":
+        from src.interfaces.web.app import run_web
+        run_web(cfg)
+    # ... other interfaces
 
 if __name__ == "__main__":
     main()
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `python app/main.py --interface cli` shows prompt
-- [ ] Typing "Hello" → real streamed LLM response appears token by token
-- [ ] Typing in Arabic → Arabic response
-- [ ] `Ctrl+C` exits cleanly — no traceback
-- [ ] `python app/main.py --help` shows usage
+**SUCCESS:** `python app/main.py --interface cli` prints "Jarvis ready." and accepts input. Ctrl+C exits cleanly with no traceback.
 
 ---
 
-### TASK 1.8 — .env.example + requirements.txt
-
-**FILES TO CREATE:** `.env.example`
-```env
-TELEGRAM_BOT_TOKEN=
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-YOUTUBE_API_KEY=
-REDIS_URL=redis://localhost:6379
-JARVIS_ENV=development
-```
-
-**FILES TO MODIFY:** `requirements.txt`
-
-```
-# Core
-httpx>=0.27
-pydantic>=2.0
-pydantic-settings>=2.0
-pyyaml>=6.0
-python-dotenv>=1.0
-loguru>=0.7
-
-# LLM + ML
-ollama>=0.2
-sentence-transformers>=2.7
-chromadb>=0.5
-torch>=2.2
-openai-whisper>=20231117
-diffusers>=0.27
-accelerate>=0.30
-Pillow>=10.0
-
-# Memory
-redis>=5.0
-aiosqlite>=0.20
-
-# Browser + automation
-playwright>=1.44
-psutil>=5.9
-pyperclip>=1.9
-
-# Interfaces
-fastapi>=0.111
-uvicorn[standard]>=0.30
-jinja2>=3.1
-websockets>=12.0
-rich>=13.7
-python-telegram-bot>=21.0
-PyQt6>=6.7
-
-# Audio
-pyaudio>=0.2
-sounddevice>=0.4
-webrtcvad>=2.0
-openwakeword>=0.6
-
-# Google APIs
-google-auth>=2.29
-google-auth-oauthlib>=1.2
-google-api-python-client>=2.131
-
-# Windows-specific
-pywin32>=306; sys_platform == "win32"
-pycaw>=20240210; sys_platform == "win32"
-winotify>=1.1; sys_platform == "win32"
-keyboard>=0.13; sys_platform == "win32"
-pynput>=1.7
-mss>=9.0
-pytesseract>=0.3
-pystray>=0.19
-
-# Office documents
-pypdf>=4.0
-pdfplumber>=0.11
-python-docx>=1.1
-openpyxl>=3.1
-python-pptx>=0.6
-
-# Dev
-pytest>=8.0
-pytest-asyncio>=0.23
-```
-
-**SUCCESS CRITERIA:**
-- [ ] `pip install -r requirements.txt` completes in clean venv
-- [ ] No version conflicts
+## 🔄 Phase 2 — Runtime Loop
+> **End state:** Text input → Decision → correct LLM → text output. No tools yet. Just the core loop.
 
 ---
 
-### ✅ Phase 1 Acceptance Test
+### TASK 2.1 — Context assembler
 
-Run this sequence. All steps must pass:
-
-```bash
-python app/main.py --interface cli
-# Type: Hello
-# Expect: English greeting response (streamed)
-
-# Type: مرحبا
-# Expect: Arabic response (streamed)
-
-# Type: (empty — just press Enter)
-# Expect: No crash
-
-# Press Ctrl+C
-# Expect: "Goodbye." — clean exit, no traceback
-```
-
----
-
-## 🔄 Phase 2 — Runtime Loop (Full)
-
-> **Goal:** Full Observe → Decide → Think → Act → Evaluate loop with escalation.  
-> **Depends on:** Phase 1 complete.
-
----
-
-### TASK 2.1 — TurnState
-
-**INPUT:** `session_id: str`  
-**OUTPUT:** Mutable state object tracking the current turn
-
-**FILES TO CREATE:** `src/core/runtime/state.py`
+**INPUT:** `user_message: str`, `session_id: str`
+**OUTPUT:** `ContextBundle` Pydantic model
+**FILES:** `src/core/context/assembler.py` (create)
 
 ```python
-from dataclasses import dataclass, field
-from typing import Any
-
-@dataclass
-class ToolTrace:
-    tool: str
-    success: bool
-    result: Any
-    error: str | None
-    duration_ms: int
-
-@dataclass
-class TurnState:
+class ContextBundle(BaseModel):
+    user_message: str
     session_id: str
-    iteration: int = 0
-    mode: str = "normal"
-    messages: list[dict] = field(default_factory=list)
-    tool_traces: list[ToolTrace] = field(default_factory=list)
-    observations: list[str] = field(default_factory=list)
-
-    def add_tool_result(self, result: ToolTrace):
-        self.tool_traces.append(result)
-        self.observations.append(f"Tool {result.tool}: {'OK' if result.success else result.error}")
-
-    def to_dict(self) -> dict:
-        return {
-            "session_id": self.session_id,
-            "iteration": self.iteration,
-            "mode": self.mode,
-            "tool_traces": len(self.tool_traces),
-        }
+    attachments: list = []      # images, files — populated in Phase 14
+    tool_results: list = []     # from previous tool calls
+    memory_snippets: list = []  # injected in Phase 3
+    turn_number: int = 1
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `TurnState("abc")` creates with defaults
-- [ ] `add_tool_result()` appends to both `tool_traces` and `observations`
-- [ ] `to_dict()` returns JSON-serializable dict
+**SUCCESS:** `assemble_context("hello", "s1")` returns `ContextBundle` with correct fields.
 
 ---
 
-### TASK 2.2 — EvalResult + Evaluator
+### TASK 2.2 — Decision layer
 
-**INPUT:** Candidate answer (str) + `TurnState`  
-**OUTPUT:** `EvalResult(recommendation="finish"|"escalate", score=float, reason=str)`
-
-**FILES TO CREATE:** `src/core/runtime/evaluate.py`
+**INPUT:** `ContextBundle`
+**OUTPUT:** `DecisionOutput` Pydantic model
+**FILES:** `src/core/decision/decision.py` (create)
 
 ```python
-@dataclass
-class EvalResult:
-    recommendation: str  # "finish" | "escalate"
-    score: float         # 0.0 to 1.0
-    reason: str = ""
-
-class Evaluator:
-    def evaluate(self, answer: str, state: TurnState) -> EvalResult:
-        if not answer.strip():
-            return EvalResult("escalate", 0.0, "empty answer")
-
-        if any(not t.success for t in state.tool_traces):
-            return EvalResult("escalate", 0.3, "tool failed")
-
-        if len(answer.split()) < 3:
-            return EvalResult("escalate", 0.4, "answer too short")
-
-        return EvalResult("finish", 0.85)
-```
-
-**SUCCESS CRITERIA:**
-- [ ] Empty string → `recommendation == "escalate"`, `score == 0.0`
-- [ ] Failed tool in state → `recommendation == "escalate"`
-- [ ] Normal answer → `recommendation == "finish"`, `score >= 0.7`
-
----
-
-### TASK 2.3 — Upgrade RuntimeLoop to full loop
-
-**INPUT:** `TurnState`, `Evaluator` (from 2.2)  
-**OUTPUT:** Full observe→decide→think→act→evaluate loop
-
-**FILES TO MODIFY:** `src/core/runtime/loop.py`
-
-Upgrade from Phase 1 stub to the full implementation shown in README Section 4.
-
-Key changes:
-- Add `TurnState` per turn
-- Add `Evaluator` call after think
-- Add escalation (mode upgrade + retry)
-- Add max_iterations guard with fallback message
-- Add `observe()` method that collects state.observations
-- Add `_next_mode()` for escalation chain
-
-**SUCCESS CRITERIA:**
-- [ ] Empty answer from LLM → loop escalates to next mode
-- [ ] After 5 iterations → yields fallback message
-- [ ] Successful answer → yields response and returns (no extra iterations)
-- [ ] `state.iteration` increments each loop cycle
-
----
-
-## 🧭 Phase 3 — Decision Layer + Model Router
-
-> **Goal:** Every input is classified before acting on it. Model selection is config-driven.  
-> **Depends on:** Phase 2 complete.
-
----
-
-### TASK 3.1 — DecisionOutput schema
-
-**INPUT:** Nothing  
-**OUTPUT:** Pydantic dataclass for decision output
-
-**FILES TO CREATE:** `src/core/runtime/decision.py` (part 1)
-
-```python
-from dataclasses import dataclass
-from typing import Literal
-
-@dataclass
-class DecisionOutput:
-    intent: Literal["chat", "code", "action", "research", "vision"]
-    complexity: Literal["low", "medium", "high"]
-    mode: Literal["fast", "normal", "deep", "planning", "research"]
+class DecisionOutput(BaseModel):
+    intent: str          # "chat" | "tool_use" | "code" | "search" | "vision"
+    complexity: str      # "low" | "medium" | "high"
+    mode: str            # "fast" | "normal" | "deep" | "planning"
+    model: str           # exact ollama model tag
     requires_tools: bool
     requires_planning: bool
-    prior_confidence: float  # 0.0–1.0
-    model_preference: str = "auto"
+    tool_name: str | None = None
+    tool_args: dict = {}
+
+def decide(context: ContextBundle) -> DecisionOutput:
+    # Use gemma3:4b for classification (fast, cheap)
+    # For simple short messages: skip LLM call, default to chat/fast/gemma3
+    # For complex or tool-needing: call classifier
+    ...
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `DecisionOutput("chat","low","normal",False,False,0.8)` creates without error
-- [ ] All fields accessible as attributes
+**SUCCESS:**
+- `decide(ctx("what time is it?"))` → `intent="chat"`, `model="gemma3:4b"`
+- `decide(ctx("write a Python web scraper"))` → `intent="code"`, `model="qwen2.5-coder:7b"`
+- `decide(ctx("افتح Chrome"))` → `intent="tool_use"`, `tool_name="open_app"`
 
 ---
 
-### TASK 3.2 — DecisionLayer classifier
+### TASK 2.3 — Runtime executor
 
-**INPUT:** `observation: str`  
-**OUTPUT:** `DecisionOutput`
-
-**FILES TO MODIFY:** `src/core/runtime/decision.py` (part 2, same file)
-
-Implement keyword-based classifier exactly as shown in README Section 5.
-
-Rules:
-- Arabic + English keywords for each intent
-- Complexity from word count + multi-step markers
-- Mode derived from complexity + intent
-- No LLM call inside this function
-
-**SUCCESS CRITERIA:**
-- [ ] `decide("open chrome")` → `intent="action"`, `requires_tools=True`
-- [ ] `decide("what is Python?")` → `intent="chat"`, `requires_tools=False`
-- [ ] `decide("write a function to sort a list")` → `intent="code"`
-- [ ] `decide("search for news then summarize and save")` → `requires_planning=True`, `mode="planning"`
-- [ ] All outputs are valid `DecisionOutput` instances
-
----
-
-### TASK 3.3 — ModelRouter
-
-**INPUT:** `DecisionOutput`  
-**OUTPUT:** Model name string (e.g., `"qwen3:8b"`)
-
-**FILES TO CREATE:** `src/models/llm/router.py`
-
-Implement exactly as shown in README Section 6. Load rules from `config/models.yaml`, not hardcoded.
+**INPUT:** `ContextBundle` + `DecisionOutput`
+**OUTPUT:** `Generator[str]` — streams response tokens
+**FILES:** `src/core/runtime/executor.py` (create)
 
 ```python
-class ModelRouter:
-    def __init__(self, config_path: str = "config/models.yaml"):
-        raw = yaml.safe_load(open(config_path))
-        self.hard_rules = raw["routing"]["hard_rules"]
-        self.mode_prefs = raw["routing"]["mode_preferences"]
-        self.model_tags = {k: v["ollama_tag"] for k, v in raw["models"].items()}
+def execute(context: ContextBundle, decision: DecisionOutput) -> Generator[str, None, None]:
+    system = build_system_prompt(context.user_message, decision.mode)
 
-    def select(self, decision: DecisionOutput) -> str:
-        if decision.intent in self.hard_rules:
-            key = self.hard_rules[decision.intent]
-            return self.model_tags.get(key, key)
-        key = self.mode_prefs.get(decision.mode, "qwen3:8b")
-        return self.model_tags.get(key, key)
+    if decision.requires_tools:
+        # Tool execution added in Phase 5
+        yield "[tool execution not yet implemented]"
+        return
+
+    for token in stream_chat(decision.model, system, context.user_message):
+        yield token
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `router.select(DecisionOutput(intent="vision",...))` returns `"llava:7b"`
-- [ ] `router.select(DecisionOutput(intent="code",...))` returns `"qwen2.5-coder:7b"`
-- [ ] `router.select(DecisionOutput(mode="fast",intent="chat",...))` returns `"gemma3:4b"`
-- [ ] Model names come from config file, not Python constants
+**SUCCESS:** `list(execute(ctx, dec))` returns a list of string tokens that concatenate to a coherent answer.
 
 ---
 
-### TASK 3.4 — Wire Decision + Router into RuntimeLoop
+### TASK 2.4 — Evaluator
 
-**INPUT:** `DecisionLayer`, `ModelRouter`  
-**OUTPUT:** Loop uses decision output to select model before LLM call
+**INPUT:** `response: str`, `context: ContextBundle`
+**OUTPUT:** `EvalResult(quality: float, should_retry: bool, reason: str)`
+**FILES:** `src/core/runtime/evaluator.py` (create)
 
-**FILES TO MODIFY:** `src/core/runtime/loop.py`
+Heuristic-based (no extra LLM call at this stage):
+- Empty response → `quality=0.0, retry=True`
+- Response < 10 chars on `complexity="high"` → `quality=0.3, retry=True`
+- Otherwise → `quality=0.8, retry=False`
 
-In `run()`, between observe and think:
+**SUCCESS:** `evaluate("", ctx)` → `should_retry=True`. `evaluate("Paris is the capital of France.", ctx)` → `should_retry=False`.
+
+---
+
+### TASK 2.5 — Safety gate
+
+**INPUT:** `tool_name: str`, `args: dict`
+**OUTPUT:** `SafetyResult(level: str, allowed: bool | None, reason: str)`
+**FILES:** `src/core/tools/safety.py` (create)
+
 ```python
-decision = self.decision.decide(observation)
-model = self.router.select(decision)
-state.mode = decision.mode
+SAFE = "safe"
+RISKY = "risky"      # requires user confirmation
+CRITICAL = "critical" # blocked
+
+RISKY_TOOLS = {"open_app", "run_shell", "send_email", "execute_code"}
+CRITICAL_TOOLS = {"delete_file", "kill_process", "format_disk"}
+BLOCKED_PATTERNS = ["rm -rf", "format c:", "del /s /q", ":(){:|:&};:"]
+
+def classify_safety(tool_name: str, args: dict) -> SafetyResult:
+    if tool_name in CRITICAL_TOOLS:
+        return SafetyResult(level=CRITICAL, allowed=False, reason="Requires explicit authorization")
+    args_str = str(args).lower()
+    for p in BLOCKED_PATTERNS:
+        if p in args_str:
+            return SafetyResult(level=CRITICAL, allowed=False, reason=f"Blocked pattern: {p}")
+    if tool_name in RISKY_TOOLS:
+        return SafetyResult(level=RISKY, allowed=None, reason="Confirm before executing")
+    return SafetyResult(level=SAFE, allowed=True, reason="")
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] "Open Chrome" → `gemma3:4b` selected (fast mode, action)
-- [ ] "Explain quantum computing in detail" → `qwen3:8b` selected (deep/normal)
-- [ ] `state.mode` correctly set from decision before LLM call
+**SUCCESS:** `classify_safety("delete_file", {})` → `allowed=False`. `classify_safety("web_search", {})` → `allowed=True`.
 
 ---
 
-## 🔧 Phase 4 — Tool System
+### TASK 2.6 — Full turn loop
 
-> **Goal:** The LLM can call tools. Tools are discovered automatically. Results feed back into the loop.  
-> **Depends on:** Phase 3 complete.
+**INPUT:** `user_input: str` from terminal
+**OUTPUT:** Streamed answer printed; retry fires if quality low
+**FILES:** `src/core/runtime/loop.py` (create)
+
+```python
+def run_turn(user_input: str, session_id: str) -> str:
+    context = assemble_context(user_input, session_id)
+    decision = decide(context)
+
+    response_tokens = []
+    for token in execute(context, decision):
+        print(token, end="", flush=True)
+        response_tokens.append(token)
+    print()
+    response = "".join(response_tokens)
+
+    eval_result = evaluate(response, context)
+    if eval_result.should_retry and decision.complexity != "low":
+        # One retry with deeper model
+        decision.model = "qwen3:8b"
+        decision.mode = "deep"
+        response_tokens = []
+        for token in execute(context, decision):
+            print(token, end="", flush=True)
+            response_tokens.append(token)
+        print()
+        response = "".join(response_tokens)
+
+    return response
+```
+
+**SUCCESS:**
+- `run_turn("ما هو الذكاء الاصطناعي؟", "s1")` prints coherent Arabic answer.
+- `run_turn("write a Python function to reverse a string", "s1")` uses `qwen2.5-coder:7b` (check logs).
+- Empty response triggers retry (verify by logging model used on retry).
 
 ---
 
-### TASK 4.1 — BaseTool + ToolResult
+### TASK 2.7 — EventBus
 
-**INPUT:** Nothing  
-**OUTPUT:** Abstract base class for all skills
+**INPUT:** Event name + data dict
+**OUTPUT:** All subscribers for that event receive the data
+**FILES:** `src/core/events.py` (create)
 
-**FILES TO CREATE:** `src/skills/base.py`
+```python
+from collections import defaultdict
+from typing import Callable
+
+class EventBus:
+    def __init__(self):
+        self._handlers: dict[str, list[Callable]] = defaultdict(list)
+
+    def subscribe(self, event: str, handler: Callable):
+        self._handlers[event].append(handler)
+
+    def emit(self, event: str, data: dict = {}):
+        for h in self._handlers[event]:
+            h(data)
+
+bus = EventBus()  # singleton, import from here
+```
+
+Emit these events in `run_turn()`: `turn.start`, `decision.made`, `turn.end`, `eval.retry`.
+
+**SUCCESS:** Subscribe to `turn.end`, call `run_turn()`, verify handler fires with `{"response": "..."}`.
+
+---
+
+### TASK 2.8 — Structured logging for runtime
+
+**INPUT:** Runtime events
+**OUTPUT:** Structured log entries in `logs/jarvis.log`
+**FILES:** `src/core/runtime/loop.py` (modify)
+
+Add to `run_turn()`:
+```python
+logger.info("turn.start session={} input_len={}", session_id, len(user_input))
+logger.info("decision intent={} model={} mode={}", decision.intent, decision.model, decision.mode)
+logger.info("turn.end response_len={} quality={}", len(response), eval_result.quality)
+```
+
+**SUCCESS:** After 3 turns, `logs/jarvis.log` has 9 entries (3 per turn) with correct field values.
+
+---
+
+## 💾 Phase 3 — Memory
+> **End state:** Facts from session 1 recalled in session 2. User profile persists across restarts.
+
+---
+
+### TASK 3.1 — Short-term memory
+
+**INPUT:** `role: str`, `content: str`, `session_id: str`
+**OUTPUT:** Message saved; `get_history(session_id)` returns ordered list
+**FILES:** `src/core/memory/short_term.py` (create)
+
+In-memory dict + optional Redis backend. Max 50 messages per session. Token-aware trimming: drop oldest when limit exceeded.
+
+**SUCCESS:** Save 3 messages, call `get_history()`, receive all 3 in order. Restart with Redis enabled → history still present.
+
+---
+
+### TASK 3.2 — Long-term semantic memory
+
+**INPUT:** `text: str`, `metadata: dict`
+**OUTPUT:** Stored in ChromaDB; `recall("AI news")` returns relevant snippets
+**FILES:** `src/core/memory/long_term.py` (create)
+
+```python
+import chromadb
+from uuid import uuid4
+
+client = chromadb.PersistentClient(path="data/chroma")
+col = client.get_or_create_collection("jarvis_memory")
+
+def remember(text: str, metadata: dict = {}):
+    col.add(documents=[text], metadatas=[metadata], ids=[uuid4().hex])
+
+def recall(query: str, n: int = 5) -> list[str]:
+    results = col.query(query_texts=[query], n_results=n)
+    return results["documents"][0] if results["documents"] else []
+```
+
+**SUCCESS:** `remember("User prefers concise Arabic answers")`. Restart Python. `recall("user preferences")` returns that text in top-5.
+
+---
+
+### TASK 3.3 — SQLite store
+
+**INPUT:** SQL operations via wrapper
+**OUTPUT:** Data persists; queryable across restarts
+**FILES:** `src/core/memory/database.py` (create)
+
+Tables:
+- `conversations(id, session_id, role, content, timestamp)`
+- `facts(id, text, source, created_at)`
+- `feedback(id, session_id, model, score, timestamp)`
+- `tasks(id, run_id, title, status, result, created_at)`
+
+**SUCCESS:** Insert 1 row in each table. Restart. Query all 4 tables — rows present.
+
+---
+
+### TASK 3.4 — User profile
+
+**INPUT:** Key-value preferences
+**OUTPUT:** Saved to `data/user_profile.json`; loadable at startup
+**FILES:** `src/core/memory/user_profile.py` (create)
+
+```python
+DEFAULT_PROFILE = {
+    "name": "User",
+    "language": "ar",
+    "style": "balanced",          # concise | balanced | detailed
+    "tone": "casual",             # formal | casual | warm
+    "technical_level": "intermediate",
+}
+
+def load_profile() -> dict:
+    path = Path("data/user_profile.json")
+    if path.exists():
+        return json.loads(path.read_text())
+    return DEFAULT_PROFILE
+
+def save_profile(updates: dict):
+    profile = load_profile()
+    profile.update(updates)
+    Path("data/user_profile.json").write_text(json.dumps(profile, indent=2))
+```
+
+**SUCCESS:** `save_profile({"language": "en"})`. Restart. `load_profile()["language"] == "en"`.
+
+---
+
+### TASK 3.5 — Inject memory into Context
+
+**INPUT:** `user_message + session_id`
+**OUTPUT:** `ContextBundle` with `memory_snippets` populated
+**FILES:** `src/core/context/assembler.py` (modify)
+
+Modify `assemble_context()`:
+1. `get_history(session_id)` → last 10 messages → add to bundle
+2. `recall(user_message, n=3)` → top semantic matches → add to bundle
+3. `load_profile()` → attach to bundle
+
+**SUCCESS:** Tell Jarvis "my name is Ahmed" in turn 1. Turn 2: "what's my name?" → returns "Ahmed" without explicit context passing.
+
+---
+
+### TASK 3.6 — Auto-save after every turn
+
+**INPUT:** Completed turn
+**OUTPUT:** User message + response saved to short-term + SQLite
+**FILES:** `src/core/runtime/loop.py` (modify)
+
+End of `run_turn()`:
+```python
+save_interaction(session_id, "user", user_input)
+save_interaction(session_id, "assistant", response)
+```
+
+**SUCCESS:** Run 5 turns. SQLite `conversations` table has 10 rows.
+
+---
+
+## 💻 Phase 4 — CLI Interface
+> **End state:** `python app/main.py --interface cli` shows Rich chat UI. Arabic RTL. Slash commands work.
+
+---
+
+### TASK 4.1 — Rich chat loop
+
+**INPUT:** User types in terminal
+**OUTPUT:** Formatted streaming chat display
+**FILES:** `src/interfaces/cli/interface.py` (create)
+
+Use `rich.console` and `rich.live` for streaming display. Detect Arabic text (>30% Arabic chars) and align right.
+
+**SUCCESS:** Chat works. Arabic input renders RTL. English input renders LTR. Ctrl+C exits cleanly.
+
+---
+
+### TASK 4.2 — Slash commands
+
+**INPUT:** Commands starting with `/`
+**OUTPUT:** Command executes; result displayed
+**FILES:** `src/interfaces/cli/commands.py` (create)
+
+| Command | Action | Confirmation? |
+|---------|--------|--------------|
+| `/clear` | Clear session history | Yes |
+| `/model qwen3:8b` | Switch model for session | No |
+| `/mode deep` | Switch thinking mode | No |
+| `/memory` | Print last 5 memories | No |
+| `/tools` | List all tools with status | No |
+| `/status` | Model, mode, session stats | No |
+| `/help` | All commands with descriptions | No |
+
+**SUCCESS:** All 7 commands execute without error.
+
+---
+
+### TASK 4.3 — Global hotkeys
+
+**INPUT:** Ctrl+Alt+J pressed anywhere on system
+**OUTPUT:** CLI window brought to focus
+**FILES:** `src/interfaces/cli/hotkeys.py` (create)
+
+```python
+import keyboard
+
+def register_hotkeys():
+    keyboard.add_hotkey("ctrl+alt+j", bring_cli_to_focus)
+    keyboard.add_hotkey("ctrl+alt+s", trigger_voice_input)
+```
+
+Run in background thread at startup.
+
+**SUCCESS:** CLI running. Press Ctrl+Alt+J from another window. CLI comes to focus.
+
+---
+
+### TASK 4.4 — Input history
+
+**INPUT:** Arrow up/down keys
+**OUTPUT:** Previous inputs recalled
+**FILES:** `src/interfaces/cli/interface.py` (modify)
+
+Store inputs in `data/cli_history.txt`. Use `prompt_toolkit` or readline history.
+
+**SUCCESS:** Type 3 messages. Press up 3 times. All 3 recalled in reverse order. History survives restart.
+
+---
+
+### TASK 4.5 — Status bar
+
+**INPUT:** Current state after each turn
+**OUTPUT:** One-line bar: `[model: qwen3:8b] [mode: normal] [turn: 5]`
+**FILES:** `src/interfaces/cli/interface.py` (modify)
+
+**SUCCESS:** Status bar updates after every turn with correct model, mode, and turn count.
+
+---
+
+## 🛠️ Phase 5 — Tool System
+> **End state:** Any skill in `src/skills/` is auto-discovered, validated, and callable by the LLM.
+
+---
+
+### TASK 5.1 — BaseTool contract
+
+**INPUT:** Python class extending BaseTool
+**OUTPUT:** Tool discoverable and executable by registry
+**FILES:** `src/core/tools/base.py` (create)
 
 ```python
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any
-import time
+from pydantic import BaseModel
 
-@dataclass
-class ToolResult:
-    tool: str
+class ToolResult(BaseModel):
     success: bool
-    result: Any
-    error: str | None = None
-    duration_ms: int = 0
-
-    def to_dict(self) -> dict:
-        return {"tool": self.tool, "success": self.success,
-                "result": str(self.result), "error": self.error,
-                "duration_ms": self.duration_ms}
+    data: dict = {}
+    error: str = ""
+    duration_ms: float = 0
 
 class BaseTool(ABC):
-    name: str = ""
-    description: str = ""
-    category: str = ""
+    name: str
+    description: str
+    category: str
     requires_confirmation: bool = False
 
-    @property
     @abstractmethod
-    def input_schema(self) -> dict: ...
-
-    @abstractmethod
-    def execute(self, params: dict) -> ToolResult: ...
+    def execute(self, **kwargs) -> ToolResult: ...
 
     def is_available(self) -> bool:
         return True
 
-    def _run(self, params: dict) -> ToolResult:
-        start = time.monotonic()
-        try:
-            result = self.execute(params)
-            result.duration_ms = int((time.monotonic() - start) * 1000)
-            return result
-        except Exception as e:
-            return ToolResult(self.name, False, None, str(e),
-                              int((time.monotonic() - start) * 1000))
+    @classmethod
+    def to_ollama_tool(cls) -> dict:
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.name,
+                "description": cls.description,
+                "parameters": cls.get_schema()
+            }
+        }
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] Subclassing without `execute()` raises `TypeError`
-- [ ] `ToolResult(...)` serializes to dict
-- [ ] `_run()` catches exceptions and returns `ToolResult(success=False)`
+**SUCCESS:** Create dummy `class TestTool(BaseTool)` with `execute()`. `isinstance(TestTool(), BaseTool)` is True.
 
 ---
 
-### TASK 4.2 — Tool Registry
+### TASK 5.2 — Tool registry with auto-discovery
 
-**INPUT:** `src/skills/` directory  
-**OUTPUT:** Dict of all registered tools, exportable for LLM
-
-**FILES TO CREATE:** `src/core/tools/registry.py`
+**INPUT:** `src/skills/` directory
+**OUTPUT:** All available tools registered; exportable as Ollama tool list
+**FILES:** `src/core/tools/registry.py` (create)
 
 ```python
-import importlib, inspect, pkgutil
-from skills.base import BaseTool
+import importlib, pkgutil, inspect
+from src.core.tools.base import BaseTool
 
 class ToolRegistry:
     def __init__(self):
         self._tools: dict[str, BaseTool] = {}
 
-    def discover(self, package: str = "skills"):
-        for finder, name, _ in pkgutil.walk_packages(
-            importlib.import_module(package).__path__, prefix=package + "."
-        ):
-            try:
-                mod = importlib.import_module(name)
-                for _, cls in inspect.getmembers(mod, inspect.isclass):
-                    if issubclass(cls, BaseTool) and cls is not BaseTool:
-                        tool = cls()
-                        if tool.name:
-                            self.register(tool)
-            except Exception:
-                pass  # skip broken modules
-
-    def register(self, tool: BaseTool):
-        if tool.name in self._tools:
-            raise ValueError(f"Duplicate tool name: {tool.name}")
-        self._tools[tool.name] = tool
+    def discover(self):
+        import src.skills as skills_pkg
+        for _, modname, _ in pkgutil.walk_packages(skills_pkg.__path__, prefix="src.skills."):
+            module = importlib.import_module(modname)
+            for _, cls in inspect.getmembers(module, inspect.isclass):
+                if issubclass(cls, BaseTool) and cls is not BaseTool:
+                    tool = cls()
+                    if tool.is_available():
+                        self._tools[tool.name] = tool
 
     def get(self, name: str) -> BaseTool | None:
         return self._tools.get(name)
 
-    def list_enabled(self) -> list[BaseTool]:
-        return [t for t in self._tools.values() if t.is_available()]
+    def all_names(self) -> list[str]:
+        return list(self._tools.keys())
 
-    def export_for_llm(self) -> list[dict]:
-        return [
-            {"type": "function", "function": {
-                "name": t.name,
-                "description": t.description,
-                "parameters": t.input_schema,
-            }}
-            for t in self.list_enabled()
-        ]
+    def to_ollama_format(self) -> list[dict]:
+        return [t.to_ollama_tool() for t in self._tools.values()]
+
+registry = ToolRegistry()
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `registry.discover()` finds `AppLauncherTool` after it's created in Phase 8
-- [ ] `registry.export_for_llm()` returns valid Ollama tool format
-- [ ] Duplicate name raises `ValueError`
-- [ ] Unavailable tool excluded from `export_for_llm()`
+**SUCCESS:** `registry.discover()` finds `open_app` tool from Phase 0. `registry.get("open_app")` is not None.
 
 ---
 
-### TASK 4.3 — Tool Validator
+### TASK 5.3 — Validator + executor bridge
 
-**INPUT:** Tool name (str) + params (dict)  
-**OUTPUT:** `(is_valid: bool, errors: list[str])`
-
-**FILES TO CREATE:** `src/core/tools/validator.py`
-
-```python
-import jsonschema
-
-class ToolValidator:
-    def __init__(self, registry: ToolRegistry):
-        self.registry = registry
-
-    def validate(self, tool_name: str, params: dict) -> tuple[bool, list[str]]:
-        tool = self.registry.get(tool_name)
-        if not tool:
-            return False, [f"Tool '{tool_name}' not found"]
-        try:
-            jsonschema.validate(params, tool.input_schema)
-            return True, []
-        except jsonschema.ValidationError as e:
-            return False, [e.message]
-```
-
-**SUCCESS CRITERIA:**
-- [ ] Valid params → `(True, [])`
-- [ ] Missing required field → `(False, ["'app_name' is a required property"])`
-- [ ] Unknown tool → `(False, ["Tool 'xyz' not found"])`
-
----
-
-### TASK 4.4 — Tool Executor
-
-**INPUT:** Tool name + params  
+**INPUT:** `tool_name: str`, `args: dict` (raw from LLM)
 **OUTPUT:** `ToolResult`
-
-**FILES TO CREATE:** `src/core/tools/executor.py`
+**FILES:** `src/core/tools/executor.py` (create)
 
 ```python
-import concurrent.futures
-from core.tools.registry import ToolRegistry
-from core.tools.validator import ToolValidator
-from logger import logger
+def execute_tool(tool_name: str, args: dict) -> ToolResult:
+    tool = registry.get(tool_name)
+    if not tool:
+        return ToolResult(success=False, error=f"Tool '{tool_name}' not found")
 
-class ToolExecutor:
-    def __init__(self, registry: ToolRegistry, timeout: int = 30):
-        self.registry = registry
-        self.validator = ToolValidator(registry)
-        self.timeout = timeout
+    safety = classify_safety(tool_name, args)
+    if not safety.allowed:
+        return ToolResult(success=False, error=f"Blocked: {safety.reason}")
+    if safety.level == RISKY:
+        answer = input(f"⚠️ Confirm: execute {tool_name} with {args}? [y/N] ")
+        if answer.lower() != "y":
+            return ToolResult(success=False, error="User declined")
 
-    def execute(self, tool_name: str, params: dict) -> ToolResult:
-        # 1. Validate
-        valid, errors = self.validator.validate(tool_name, params)
-        if not valid:
-            return ToolResult(tool_name, False, None, f"validation: {errors[0]}")
-
-        # 2. Get tool
-        tool = self.registry.get(tool_name)
-
-        # 3. Execute with timeout
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(tool._run, params)
-            try:
-                result = future.result(timeout=self.timeout)
-            except concurrent.futures.TimeoutError:
-                return ToolResult(tool_name, False, None, f"timeout after {self.timeout}s")
-
-        # 4. Log
-        logger.debug(f"Tool {tool_name}: success={result.success} duration={result.duration_ms}ms")
+    start = time.time()
+    try:
+        result = tool.execute(**args)
+        result.duration_ms = (time.time() - start) * 1000
+        logger.info("tool.done name={} success={} ms={:.0f}", tool_name, result.success, result.duration_ms)
         return result
+    except Exception as e:
+        logger.error("tool.error name={} error={}", tool_name, e)
+        return ToolResult(success=False, error=str(e))
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] Valid call → `ToolResult(success=True)`
-- [ ] Invalid params → `ToolResult(success=False, error="validation: ...")`
-- [ ] Tool takes > 30s → `ToolResult(success=False, error="timeout after 30s")`
-- [ ] Every execution logged to console/file
+**SUCCESS:** `execute_tool("open_app", {"name": "notepad"})` opens Notepad and returns `success=True`. `execute_tool("fake", {})` returns `success=False`.
 
 ---
 
-### TASK 4.5 — Wire tool execution into RuntimeLoop Act step
+### TASK 5.4 — Wire tools into runtime loop
 
-**INPUT:** LLM output that may contain a `tool_call` block  
-**OUTPUT:** Tool result injected as next observation
-
-**FILES TO MODIFY:** `src/core/runtime/loop.py`
-
-Add after `think()`:
-```python
-if llm_output.has_tool_call:
-    result = self.executor.execute(
-        llm_output.tool_call["name"],
-        llm_output.tool_call["args"]
-    )
-    state.add_tool_result(result)
-    continue  # back to observe() with tool result in state
-```
-
-Also add `parse_tool_call()` helper to extract JSON tool call from LLM text.
-
-**SUCCESS CRITERIA:**
-- [ ] LLM emitting `{"tool_call": {"name": "app_launcher", "args": {...}}}` triggers executor
-- [ ] Tool result appears in next `observe()` output
-- [ ] Failed tool → `state.tool_traces` has `success=False` → evaluator escalates
-
----
-
-## 📥 Phase 5 — Context Buffer
-
-> **Goal:** Stage multiple inputs (text + files + images) before the loop runs.  
-> **Depends on:** Phase 4 complete.
-
----
-
-### TASK 5.1 — Context Buffer
-
-**INPUT:** Text string, file path, image path, or audio path  
-**OUTPUT:** Staged snapshot readable by runtime
-
-**FILES TO CREATE:** `src/core/context/buffer.py`
+**INPUT:** `DecisionOutput` with `requires_tools=True`
+**OUTPUT:** Tool runs; result fed back to LLM for final answer
+**FILES:** `src/core/runtime/executor.py` (modify)
 
 ```python
-import uuid, time, threading
-from dataclasses import dataclass, field
-from typing import Literal
-
-@dataclass
-class InputItem:
-    id: str
-    type: Literal["text", "file", "image", "audio"]
-    content: str          # text OR file path
-    mime_type: str = ""
-    source: str = "cli"
-    timestamp: float = field(default_factory=time.time)
-
-class ContextBuffer:
-    def __init__(self, ttl_seconds: int = 300):
-        self._items: dict[str, InputItem] = {}
-        self._ttl = ttl_seconds
-        self._lock = threading.Lock()
-
-    def add(self, item: InputItem) -> str:
-        item.id = str(uuid.uuid4())
-        with self._lock:
-            self._evict_stale()
-            self._items[item.id] = item
-        return item.id
-
-    def snapshot(self) -> list[InputItem]:
-        with self._lock:
-            self._evict_stale()
-            return list(self._items.values())
-
-    def clear(self):
-        with self._lock:
-            self._items.clear()
-
-    def _evict_stale(self):
-        now = time.time()
-        stale = [k for k, v in self._items.items() if now - v.timestamp > self._ttl]
-        for k in stale:
-            del self._items[k]
+if decision.requires_tools:
+    tool_result = execute_tool(decision.tool_name, decision.tool_args)
+    follow_up = f"Tool '{decision.tool_name}' result: {tool_result.data}\nNow answer the user's original question."
+    for token in stream_chat(decision.model, system, follow_up):
+        yield token
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `buffer.add(item)` returns UUID string
-- [ ] `buffer.snapshot()` returns all staged items
-- [ ] `buffer.clear()` empties buffer
-- [ ] Items older than TTL are auto-evicted
-- [ ] Thread-safe (two simultaneous adds don't corrupt state)
+**SUCCESS:** "open notepad" → tool executes → LLM says "I've opened Notepad" → Notepad is open.
 
 ---
 
-## 💾 Phase 6 — Memory
+### TASK 5.5 — JSON Schema files for all tools
 
-> **Goal:** Jarvis remembers conversations. A fact from session 1 is recalled in session 2.  
-> **Depends on:** Phase 5 complete.
+**INPUT:** Tool parameter definitions
+**OUTPUT:** One JSON Schema file per tool in `config/schemas/`
+**FILES:** `config/schemas/{category}/{tool_name}.schema.json` (one per tool)
 
----
-
-### TASK 6.1 — Short-term memory (Redis + fallback)
-
-**INPUT:** `role: str`, `content: str`, `session_id: str`  
-**OUTPUT:** Stored + retrievable conversation history
-
-**FILES TO CREATE:** `src/core/memory/short_term.py`
-
-```python
-class ShortTermMemory:
-    def __init__(self, redis_url: str = "redis://localhost:6379"):
-        try:
-            import redis
-            self._redis = redis.from_url(redis_url, decode_responses=True)
-            self._redis.ping()
-            self._backend = "redis"
-        except Exception:
-            self._redis = None
-            self._backend = "memory"
-            self._store: dict[str, list] = {}
-
-    def save(self, role: str, content: str, session_id: str):
-        msg = json.dumps({"role": role, "content": content, "ts": time.time()})
-        if self._backend == "redis":
-            self._redis.rpush(f"history:{session_id}", msg)
-            self._redis.ltrim(f"history:{session_id}", -50, -1)  # keep last 50
-        else:
-            self._store.setdefault(session_id, []).append(json.loads(msg))
-
-    def get_history(self, session_id: str, n: int = 20) -> list[dict]:
-        if self._backend == "redis":
-            raw = self._redis.lrange(f"history:{session_id}", -n, -1)
-            return [json.loads(r) for r in raw]
-        return self._store.get(session_id, [])[-n:]
-```
-
-**SUCCESS CRITERIA:**
-- [ ] `save("user", "Hello", "s1")` stores message
-- [ ] `get_history("s1")` returns messages in order
-- [ ] Redis offline → automatic fallback to in-memory (no crash, no error shown to user)
-- [ ] Max 50 messages kept per session
-
----
-
-### TASK 6.2 — Long-term memory (ChromaDB)
-
-**INPUT:** Fact string + optional metadata  
-**OUTPUT:** Semantically searchable memory
-
-**FILES TO CREATE:** `src/core/memory/long_term.py`
-
-```python
-import chromadb
-from sentence_transformers import SentenceTransformer
-
-class LongTermMemory:
-    def __init__(self, db_path: str = "data/chroma/"):
-        self._client = chromadb.PersistentClient(path=db_path)
-        self._collection = self._client.get_or_create_collection("jarvis_memory")
-        self._embed = SentenceTransformer("all-MiniLM-L6-v2")
-
-    def remember(self, text: str, metadata: dict = {}):
-        embedding = self._embed.encode(text).tolist()
-        self._collection.add(
-            documents=[text],
-            embeddings=[embedding],
-            metadatas=[metadata],
-            ids=[str(uuid.uuid4())]
-        )
-
-    def recall(self, query: str, n: int = 5) -> list[str]:
-        embedding = self._embed.encode(query).tolist()
-        results = self._collection.query(query_embeddings=[embedding], n_results=n)
-        return results["documents"][0] if results["documents"] else []
-```
-
-**SUCCESS CRITERIA:**
-- [ ] `remember("User's name is Ahmed")` stores fact
-- [ ] `recall("what is the user's name?")` returns that fact as top result
-- [ ] Facts persist across Python process restarts (ChromaDB persistent)
-
----
-
-### TASK 6.3 — SQLite database
-
-**INPUT:** Operations on conversations/facts/tasks/feedback tables  
-**OUTPUT:** Persistent structured storage
-
-**FILES TO CREATE:** `src/core/memory/database.py`
-
-Schema:
-```sql
-CREATE TABLE IF NOT EXISTS conversations (
-    id TEXT PRIMARY KEY, session_id TEXT, role TEXT,
-    content TEXT, timestamp REAL, model TEXT
-);
-CREATE TABLE IF NOT EXISTS facts (
-    id TEXT PRIMARY KEY, content TEXT, source TEXT,
-    category TEXT, created_at REAL
-);
-CREATE TABLE IF NOT EXISTS tasks (
-    id TEXT PRIMARY KEY, title TEXT, status TEXT,
-    created_at REAL, updated_at REAL, run_id TEXT
-);
-CREATE TABLE IF NOT EXISTS feedback (
-    id TEXT PRIMARY KEY, turn_id TEXT, model TEXT,
-    mode TEXT, score REAL, timestamp REAL
-);
-```
-
-**SUCCESS CRITERIA:**
-- [ ] Schema auto-created on import (no manual migration needed)
-- [ ] CRUD for all 4 tables works
-- [ ] All queries parameterized (no f-string SQL)
-- [ ] Data survives process restart
-
----
-
-### TASK 6.4 — Memory Manager (unified interface)
-
-**INPUT:** Query or save request  
-**OUTPUT:** Results from the right backend
-
-**FILES TO CREATE:** `src/core/memory/manager.py`
-
-```python
-class MemoryManager:
-    def __init__(self):
-        self.short = ShortTermMemory()
-        self.long = LongTermMemory()
-        self.db = Database()
-
-    def save_turn(self, role: str, content: str, session_id: str):
-        self.short.save(role, content, session_id)
-        self.db.insert_conversation(role, content, session_id)
-
-    def get_context(self, session_id: str, n: int = 10) -> list[dict]:
-        return self.short.get_history(session_id, n)
-
-    def search(self, query: str, n: int = 5) -> list[str]:
-        return self.long.recall(query, n)
-
-    def remember(self, text: str, metadata: dict = {}):
-        self.long.remember(text, metadata)
-```
-
-**SUCCESS CRITERIA:**
-- [ ] `save_turn()` writes to both short-term and SQLite
-- [ ] `get_context()` returns formatted message list
-- [ ] `search()` returns relevant strings
-
----
-
-### TASK 6.5 — User Profile
-
-**INPUT:** `user_id: str`  
-**OUTPUT:** Loaded or default user profile
-
-**FILES TO CREATE:** `src/core/identity/user_profile.py`
-
-```python
-@dataclass
-class UserProfile:
-    user_id: str
-    display_name: str = ""
-    language: str = "auto"           # ar | en | auto
-    response_style: str = "balanced" # concise | balanced | detailed
-    technical_level: str = "auto"
-
-    @classmethod
-    def load(cls, user_id: str) -> "UserProfile":
-        path = Path(f"data/profiles/{user_id}.json")
-        if path.exists():
-            return cls(**json.loads(path.read_text()))
-        return cls(user_id=user_id)
-
-    @classmethod
-    def default(cls) -> "UserProfile":
-        return cls(user_id="default")
-
-    def save(self):
-        path = Path(f"data/profiles/{self.user_id}.json")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(asdict(self)))
-```
-
-**SUCCESS CRITERIA:**
-- [ ] `UserProfile.load("nonexistent")` returns default profile (no crash)
-- [ ] Saved profile loaded correctly on next call
-- [ ] `UserProfile.default()` never raises
-
----
-
-### TASK 6.6 — Prompt Builder
-
-**INPUT:** `mode: str`, `profile: UserProfile`, optional `tools: list`, `task_context: str`  
-**OUTPUT:** Complete system prompt string
-
-**FILES TO CREATE:** `src/core/identity/prompt_builder.py`
-
-```python
-MODE_PACKS = {
-    "fast":     "أجب مباشرةً وبإيجاز. بدون مقدمات.",
-    "normal":   "أعطِ إجابة واضحة وكاملة.",
-    "deep":     "فكّر خطوة بخطوة. تحقق من صحة إجابتك.",
-    "planning": "قسّم المهمة إلى خطوات مرقّمة قبل البدء.",
-    "research": "اجمع المعلومات من زوايا متعددة. أشر إلى المصادر.",
+Example `config/schemas/system/open_app.schema.json`:
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "open_app",
+  "type": "object",
+  "properties": {
+    "name": {"type": "string", "description": "App name or executable"}
+  },
+  "required": ["name"]
 }
-
-JARVIS_IDENTITY = open("config/identity.yaml").read()  # cached on module load
-SAFETY_BLOCK = "لا تنفذ أوامر تضر بالنظام أو تكشف بيانات حساسة. اطلب تأكيداً قبل العمليات الخطرة."
-
-class PromptBuilder:
-    def build(self, mode: str, profile: UserProfile,
-              tools: list[str] = [], task_context: str = "") -> str:
-        parts = [
-            f"أنت {JARVIS_IDENTITY}",   # identity
-            SAFETY_BLOCK,               # safety
-        ]
-
-        if profile.language == "ar":
-            parts.append("أجب دائماً باللغة العربية.")
-        if profile.response_style == "concise":
-            parts.append("اجعل إجاباتك موجزة.")
-
-        parts.append(MODE_PACKS.get(mode, MODE_PACKS["normal"]))
-
-        if tools:
-            parts.append(f"الأدوات المتاحة: {', '.join(tools)}")
-        if task_context:
-            parts.append(f"السياق: {task_context}")
-
-        return "\n\n".join(parts)
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] Output always starts with Jarvis identity
-- [ ] Arabic profile → Arabic instruction in prompt
-- [ ] `mode="fast"` → short mode fragment in prompt
-- [ ] Tools list non-empty → tools section included
-- [ ] Deterministic: same inputs → same output every call
+Create schema files for all tools listed in Phases 6–8 before implementing those tools.
+
+**SUCCESS:** Every tool in Phase 6–8 has a corresponding schema file. Executor validates args against schema before calling `execute()`.
 
 ---
 
-## 🤖 Phase 7 — Agents
-
-> **Goal:** Multi-step reasoning and planning without user guidance.  
-> **Depends on:** Phase 4 (tools) + Phase 6 (memory) complete.
+## 🖥️ Phase 6 — System Control Skills
+> **End state:** Jarvis opens/closes apps, manages files, reads clipboard, sends notifications, takes screenshots, and runs code.
 
 ---
 
-### TASK 7.1 — Planner agent
+### TASK 6.1 — App launcher (full Windows implementation)
 
-**INPUT:** `goal: str` (complex multi-step task)  
-**OUTPUT:** Ordered list of `Step` objects
+**INPUT:** `{"name": "chrome"}`
+**OUTPUT:** App opens. `ToolResult(success=True, data={"pid": 1234})`
+**FILES:** `src/skills/system/apps.py` (expand from Phase 0)
 
-**FILES TO CREATE:** `src/core/agents/planner.py`
+Full search order:
+1. `shutil.which(name)` — PATH
+2. `%PROGRAMFILES%`, `%PROGRAMFILES(X86)%`, `%LOCALAPPDATA%` — walk for `name*.exe`
+3. Start Menu `.lnk` shortcuts via `win32com.client`
+
+Also implement:
+- `close_app(name)` → `taskkill /IM {name}.exe /F` — needs confirmation
+- `list_running()` → psutil list (name, PID, CPU%, RAM%)
+- `bring_to_front(name)` → `SetForegroundWindow` via win32api
+
+Register as `BaseTool` subclass so registry discovers it.
+
+**SUCCESS:** "افتح Notepad" → Notepad opens. "أغلق Notepad" → Notepad closes.
+
+---
+
+### TASK 6.2 — File operations
+
+**INPUT:** `{"operation": "read", "path": "C:/Users/test.txt"}`
+**OUTPUT:** `ToolResult(data={"content": "..."})`
+**FILES:** `src/skills/files/file_ops.py` (create)
+
+Operations: `read`, `write`, `list`, `search`, `move`, `copy`, `delete`.
+- `delete` → `send2trash` (recycle bin, NOT permanent) + `requires_confirmation=True`
+- Path safety: reject paths outside user home and configured allowed roots
+- Windows path normalization throughout
+
+**SUCCESS:** Read/write/list/search all work. Delete sends to recycle bin (verifiable in Windows Recycle Bin UI).
+
+---
+
+### TASK 6.3 — System info + process control
+
+**INPUT:** `{"metric": "all"}` or `{"action": "kill", "name": "notepad.exe"}`
+**OUTPUT:** `ToolResult` with stats or kill confirmation
+**FILES:** `src/skills/system/sysinfo.py` (create)
+
+Use `psutil` for CPU/RAM/disk. Use `pynvml` for GPU VRAM. `kill_process` has `requires_confirmation=True`.
+
+**SUCCESS:** `get_system_info()` returns valid numeric values. `kill_process` prompts, then kills target process.
+
+---
+
+### TASK 6.4 — Clipboard
+
+**INPUT:** `{}` (read) or `{"text": "hello"}` (write)
+**OUTPUT:** `ToolResult(data={"content": "clipboard text"})` or write confirmation
+**FILES:** `src/skills/system/clipboard.py` (create)
+
+Use `pyperclip` for text. Use `win32clipboard` for image detection. Image → save to `data/temp/clipboard_image.png` → return path.
+
+**SUCCESS:** Copy text in any app → `read_clipboard()` returns that text. Write "test" via tool → paste in Notepad → "test" appears.
+
+---
+
+### TASK 6.5 — Windows notifications
+
+**INPUT:** `{"title": "Done", "message": "Task complete", "type": "success"}`
+**OUTPUT:** Windows Toast appears. `ToolResult(success=True)`
+**FILES:** `src/skills/notify/toasts.py` (create)
+
+Use `winotify`. Fallback to console print if unavailable.
+
+**SUCCESS:** Notification appears in Windows notification center within 2 seconds of tool call.
+
+---
+
+### TASK 6.6 — Screen capture + OCR
+
+**INPUT:** `{}` (full screen) or `{"region": {"x":0,"y":0,"w":800,"h":600}}`
+**OUTPUT:** `ToolResult(data={"path": "data/screenshots/...", "text": "extracted text"})`
+**FILES:** `src/skills/screen/capture.py` (create)
+
+Use `mss` for capture. Use `pytesseract` for OCR (no LLM needed). Save PNG to `data/screenshots/`.
+
+**SUCCESS:** Screenshot of window with visible text → OCR returns that text with >80% accuracy on clear fonts.
+
+---
+
+### TASK 6.7 — Code executor
+
+**INPUT:** `{"language": "python", "code": "print(2+2)"}`
+**OUTPUT:** `ToolResult(data={"stdout": "4\n", "stderr": "", "returncode": 0})`
+**FILES:** `src/skills/coder/executor.py` (create)
+
+Run in subprocess with 30s timeout. Block dangerous patterns (`os.remove`, `shutil.rmtree`, `sys.exit`). `requires_confirmation=True`.
+
+**SUCCESS:** `execute_code("python", "print(2+2)")` → stdout="4\n". Dangerous pattern → blocked error returned (no execution).
+
+---
+
+## 🌐 Phase 7 — Browser & Web Skills
+> **End state:** Jarvis navigates sites, stays logged in between restarts, downloads files, sends WhatsApp messages.
+
+---
+
+### TASK 7.1 — Web search
+
+**INPUT:** `{"query": "latest AI news", "max_results": 5}`
+**OUTPUT:** `ToolResult(data={"results": [{"title":..., "url":..., "snippet":...}]})`
+**FILES:** `src/skills/search/web_search.py` (create)
+
+DuckDuckGo HTML search (no API key). Parse with BeautifulSoup. TTL cache: 5 minutes for identical queries.
+
+**SUCCESS:** Search "Python tutorial" → 5 results with valid URLs and non-empty snippets.
+
+---
+
+### TASK 7.2 — Browser core
+
+**INPUT:** `{"action": "navigate", "url": "https://google.com"}`
+**OUTPUT:** `ToolResult(data={"title": "Google", "url": "..."})`
+**FILES:** `src/skills/browser/browser.py` (create)
+
+Single Playwright Chromium instance (singleton). Actions: `navigate`, `click`, `fill`, `get_text`, `screenshot`, `scroll`.
+
+**SUCCESS:** Navigate to google.com → title "Google". Fill search bar → submit → page changes.
+
+---
+
+### TASK 7.3 — Session persistence
+
+**INPUT:** `domain: str`
+**OUTPUT:** Session saved to `data/sessions/{domain}.json`; reloaded on next open
+**FILES:** `src/skills/browser/session.py` (create)
 
 ```python
-@dataclass
-class Step:
+async def save_session(page, domain: str):
+    state = await page.context.storage_state()
+    Path(f"data/sessions/{domain}.json").write_text(json.dumps(state))
+
+async def load_session(browser, domain: str):
+    path = Path(f"data/sessions/{domain}.json")
+    if path.exists():
+        return await browser.new_context(storage_state=str(path))
+    return await browser.new_context()
+```
+
+**SUCCESS:** Log into site → save session → kill Jarvis → restart → navigate to same site → already logged in.
+
+---
+
+### TASK 7.4 — File download + upload
+
+**INPUT:** Download: `{"url": "..."}` | Upload: `{"selector": "#file-input", "path": "local.pdf"}`
+**OUTPUT:** `ToolResult` with download path or upload confirmation
+**FILES:** `src/skills/browser/transfer.py` (create)
+
+Download: intercept `page.on("download")`, save to `data/downloads/`.
+Upload: `page.set_input_files(selector, path)`.
+
+**SUCCESS:** Download a public PDF → file in `data/downloads/`. Upload local file → confirmed via DOM element.
+
+---
+
+### TASK 7.5 — WhatsApp Web
+
+**INPUT:** `{"action": "send", "contact": "Ahmed", "message": "Hello from Jarvis"}`
+**OUTPUT:** `ToolResult(success=True)` + message visible in WhatsApp Web
+**FILES:** `src/skills/social/whatsapp.py` (create)
+
+Flow:
+1. Open WhatsApp Web using saved session
+2. If not logged in: screenshot QR → display in terminal → wait 30s → save session
+3. Find contact via search box → type message → send
+
+**SUCCESS:** Natural language "Send Ahmed: Meeting at 3pm" → message appears in WhatsApp chat.
+
+---
+
+### TASK 7.6 — Auth wall handler
+
+**INPUT:** Currently open browser page
+**OUTPUT:** Pause automation; notify user; resume on signal
+**FILES:** `src/skills/browser/auth_handler.py` (create)
+
+```python
+AUTH_KEYWORDS = ["login", "sign in", "تسجيل الدخول", "captcha", "verify"]
+
+def check_for_auth_wall(page) -> bool:
+    title = page.title().lower()
+    return any(kw in title or kw in page.url.lower() for kw in AUTH_KEYWORDS)
+
+def handle_auth_wall(page):
+    send_notification("Jarvis", "Login required — complete login and press Enter", "warning")
+    input("Press Enter after completing login...")
+    save_session(page, extract_domain(page.url))
+```
+
+**SUCCESS:** Navigate to login-required page → notification appears → user logs in → Enter → automation resumes.
+
+---
+
+## 🔌 Phase 8 — Google APIs
+> **End state:** One OAuth consent → Calendar, Gmail, Drive, Contacts all work via natural language.
+
+---
+
+### TASK 8.1 — Unified Google OAuth
+
+**INPUT:** `credentials.json` from Google Cloud Console
+**OUTPUT:** `data/google_token.json` saved; all Google APIs accessible
+**FILES:** `src/skills/api/google_auth.py` (create)
+
+Combined scopes: Calendar + Gmail + Drive + Contacts + YouTube in one consent flow. Auto-refresh expired tokens. Token stored in `data/google_token.json` (gitignored).
+
+**SUCCESS:** First run → browser opens for consent → token saved. Second run → no browser → uses saved token.
+
+---
+
+### TASK 8.2 — Google Calendar
+
+**INPUT:** `{"action": "create", "title": "Meeting", "datetime": "2025-01-15T10:00:00"}`
+**OUTPUT:** `ToolResult(data={"event_id": "...", "link": "..."})`
+**FILES:** `src/skills/api/calendar.py` (create)
+
+Operations: `list` (next N days), `create`, `update`, `delete`, `search`.
+
+**SUCCESS:** Create test event → list → found. Delete → list again → gone.
+
+---
+
+### TASK 8.3 — Gmail
+
+**INPUT:** `{"action": "send", "to": "test@example.com", "subject": "Test", "body": "Hello"}`
+**OUTPUT:** `ToolResult(success=True, data={"message_id": "..."})`
+**FILES:** `src/skills/api/gmail.py` (create)
+
+Operations: `list` (last N), `search`, `send`, `reply`, `mark_read`, `move_to_label`.
+`send` and `reply` have `requires_confirmation=True`.
+
+**SUCCESS:** Send email to self → appears in inbox. Search for it → found. Mark as read → unread badge decreases.
+
+---
+
+### TASK 8.4 — Google Drive
+
+**INPUT:** `{"action": "upload", "local_path": "data/report.pdf"}`
+**OUTPUT:** `ToolResult(data={"file_id": "...", "web_link": "..."})`
+**FILES:** `src/skills/api/drive.py` (create)
+
+Operations: `list`, `search`, `upload`, `download`, `share`, `create_folder`.
+
+**SUCCESS:** Upload local file → appears in Drive. Download it back → content matches original.
+
+---
+
+### TASK 8.5 — Google Contacts
+
+**INPUT:** `{"action": "search", "query": "Ahmed"}`
+**OUTPUT:** `ToolResult(data={"contacts": [{"name": "...", "email": "..."}]})`
+**FILES:** `src/skills/api/contacts.py` (create)
+
+Operations: `list`, `search`, `get`, `create`, `update`.
+
+Integration: "Send email to Ahmed" → resolve via Contacts → pass email to Gmail tool.
+
+**SUCCESS:** Search known contact name → email returned. "Send Ahmed an email" → email sent to correct address.
+
+---
+
+### TASK 8.6 — YouTube + Office/PDF readers
+
+**INPUT:** `{"action": "search", "query": "machine learning tutorial"}`
+**OUTPUT:** `ToolResult(data={"videos": [{"title":..., "url":..., "duration":...}]})`
+**FILES:** `src/skills/api/youtube.py`, `src/skills/pdf/reader.py`, `src/skills/office/reader.py` (create)
+
+YouTube: search + get_info + open_in_browser.
+PDF: text extraction (`pdfplumber`), table extraction, LLM summarization for long docs.
+Office: read `.docx`, `.xlsx`, `.pptx`; write simple `.docx` and `.xlsx`.
+
+**SUCCESS:** YouTube search returns valid URLs. PDF text extraction works on a 10-page PDF. Office reader extracts text from a .docx file.
+
+---
+
+## 🤖 Phase 9 — Agents
+> **End state:** "Research AI news, summarize it, save to file" executes without step-by-step guidance.
+
+---
+
+### TASK 9.1 — Planner agent
+
+**INPUT:** `goal: str`, `available_tools: list`
+**OUTPUT:** `list[Step]` — ordered plan with tool assignments
+**FILES:** `src/core/agents/planner.py` (create)
+
+```python
+class Step(BaseModel):
+    step_id: str
+    description: str
+    tool: str | None      # None = LLM-only step
+    args: dict = {}
+    depends_on: list[str] = []
+
+def plan(goal: str, tools: list[str]) -> list[Step]:
+    # Use qwen3:8b in planning mode
+    # System prompt lists available tools + asks for JSON step list
+    ...
+```
+
+**SUCCESS:** `plan("research AI news and save to file", ["web_search", "write_file"])` returns 2+ steps in dependency order.
+
+---
+
+### TASK 9.2 — Step executor
+
+**INPUT:** `list[Step]` from planner
+**OUTPUT:** All steps executed; outputs passed between dependent steps
+**FILES:** `src/core/agents/step_executor.py` (create)
+
+```python
+def execute_plan(steps: list[Step]) -> dict:
+    results = {}
+    for step in topological_sort(steps):
+        resolved_args = inject_prior_results(step.args, results)
+        if step.tool:
+            result = execute_tool(step.tool, resolved_args)
+        else:
+            result = llm_only_step(step.description, resolved_args)
+        results[step.step_id] = result
+    return results
+```
+
+**SUCCESS:** 3-step plan (search → summarize → save) executes all steps. File created with search content.
+
+---
+
+### TASK 9.3 — Thinker (chain-of-thought + self-critique)
+
+**INPUT:** `question: str`
+**OUTPUT:** Higher-quality answer than direct LLM call
+**FILES:** `src/core/agents/thinker.py` (create)
+
+1. Generate initial answer (qwen3:8b, deep mode)
+2. Ask: "Rate this answer 1-10. What's missing?" → if < 7: regenerate with gaps
+3. Return final answer
+
+**SUCCESS:** Complex question like "What are trade-offs between RAG and fine-tuning?" → thinker answer is more complete than direct LLM call (measurable by length and coverage).
+
+---
+
+### TASK 9.4 — Researcher agent
+
+**INPUT:** `topic: str`
+**OUTPUT:** Markdown research report with multiple sources
+**FILES:** `src/core/agents/researcher.py` (create)
+
+```python
+def research(topic: str) -> str:
+    queries = generate_queries(topic)         # 3 search queries via LLM
+    results = [web_search(q) for q in queries]
+    pages = [fetch_page_content(r[0]["url"]) for r in results]
+    return summarize_multi_source(pages, topic)
+```
+
+**SUCCESS:** `research("local AI 2025")` returns markdown with content from 3+ different sources.
+
+---
+
+### TASK 9.5 — Computer use agent
+
+**INPUT:** `goal: str`
+**OUTPUT:** Goal accomplished or failure message
+**FILES:** `src/core/agents/computer_use.py` (create)
+
+Loop (max 10 iterations):
+1. Take screenshot
+2. Describe via LLaVA (if available) or OCR
+3. Ask LLM: "Given this screen, what's the next action for [goal]?"
+4. Execute action via pyautogui
+5. Check if goal achieved
+
+All actions require confirmation. Max iterations enforced.
+
+**SUCCESS:** Goal "open Notepad and type hello" → Notepad opens → "hello" typed → success.
+
+---
+
+## 🧩 Phase 10 — Task Decomposition
+> **End state:** Complex multi-step goals with parallel subtasks execute correctly. Only failed steps retry.
+
+---
+
+### TASK 10.1 — DAG schema + decomposer
+
+**INPUT:** `goal: str`
+**OUTPUT:** `TaskGraph` with subtasks and dependencies
+**FILES:** `src/core/agents/decomposer.py` (create)
+
+```python
+class Subtask(BaseModel):
     id: str
     title: str
-    tool: str | None          # tool name or None for LLM-only step
-    inputs: dict
-    depends_on: list[str]     # step IDs
-    result: Any = None
-    done: bool = False
+    tool: str | None
+    args: dict = {}
+    depends_on: list[str] = []
+    status: str = "pending"
+    result: dict | None = None
 
-class Planner:
-    def decompose(self, goal: str, context: str = "") -> list[Step]:
-        # Ask LLM (planning mode) to break goal into steps
-        # Parse numbered list response into Step objects
-        ...
-
-    def execute(self, steps: list[Step], executor: ToolExecutor,
-                llm: OllamaEngine) -> Generator[str, None, None]:
-        # Execute steps in dependency order
-        # Yield progress updates
-        ...
+class TaskGraph(BaseModel):
+    goal: str
+    run_id: str
+    subtasks: list[Subtask]
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] "Search X and save to file" → 2 steps: [search, save]
-- [ ] Step 2 runs only after Step 1 completes
-- [ ] Step 1 result passed as input to Step 2
+**SUCCESS:** `decompose("Email all contacts in my spreadsheet")` returns graph: read_spreadsheet → (parallel: send_email × N) → notify_done.
 
 ---
 
-### TASK 7.2 — Thinker agent
+### TASK 10.2 — Parallel graph executor
 
-**INPUT:** Complex question + context  
-**OUTPUT:** `{answer: str, reasoning: list[str], confidence: float}`
+**INPUT:** `TaskGraph`
+**OUTPUT:** All subtasks executed; parallel frontier runs concurrently
+**FILES:** `src/core/agents/graph_executor.py` (create)
 
-**FILES TO CREATE:** `src/core/agents/thinker.py`
+Use `asyncio.gather()` for parallel frontier. Topological sort for ordering.
+
+**SUCCESS:** 3 independent tasks run in parallel (verify via timestamps in logs showing concurrent execution).
+
+---
+
+### TASK 10.3 — Selective retry
+
+**INPUT:** `TaskGraph` with one failed subtask
+**OUTPUT:** Only failed subtask re-executes; successful ones untouched
+**FILES:** `src/core/agents/graph_executor.py` (modify)
+
+**SUCCESS:** Force-fail one task. Call retry. Logs show only that task re-ran.
+
+---
+
+### TASK 10.4 — Resume from checkpoint
+
+**INPUT:** `run_id: str` of interrupted execution
+**OUTPUT:** Execution resumes from last successful step
+**FILES:** `src/core/memory/database.py` (add `task_graphs` table)
+
+Save graph state to SQLite after each subtask. On resume: load graph, skip `status="done"` tasks.
+
+**SUCCESS:** Start 5-step task. Kill process after step 3. Restart with `run_id`. Steps 1-3 skipped. Steps 4-5 execute.
+
+---
+
+### TASK 10.5 — End-to-end scenario test
+
+**INPUT:** "Book a meeting with Ahmed at 3pm tomorrow and email him the agenda"
+**OUTPUT:** Calendar event created + email sent to Ahmed's address (from Contacts)
+**FILES:** No new files — integration test
+
+**SUCCESS:** Command executes using Planner → Contacts → Calendar + Gmail tools in correct order.
+
+---
+
+## 🔁 Phase 11 — Feedback Loop
+> **End state:** After 10 sessions, routing weights shift based on what worked.
+
+---
+
+### TASK 11.1 — Feedback signal collection
+
+**INPUT:** Turn outcome (response, eval result, user follow-up behavior)
+**OUTPUT:** Score (0-1) saved to `feedback` table
+**FILES:** `src/core/memory/feedback.py` (create)
+
+Signals:
+- `eval.quality > 0.8` → score += 0.1 (positive)
+- User sends follow-up immediately → score += 0.1
+- User rephrases same question → score -= 0.3 (negative)
+- `/thumbsup` command → score = 1.0
+- `/thumbsdown` command → score = 0.0
+
+**SUCCESS:** 5 turns → 5 rows in feedback table with scores.
+
+---
+
+### TASK 11.2 — Routing weight updater
+
+**INPUT:** Feedback table entries (computed every 20 turns)
+**OUTPUT:** Updated weights in `data/routing_weights.json`
+**FILES:** `src/core/decision/weight_updater.py` (create)
+
+Exponential moving average: `new = old × 0.9 + avg_score × 0.1`. Max delta: ±0.15 per update.
+
+**SUCCESS:** Simulate 20 turns of poor `gemma3:4b` performance on code tasks → weight for `(code, gemma3:4b)` decreases numerically.
+
+---
+
+### TASK 11.3 — Privacy controls
+
+**INPUT:** `/feedback off` or `/clear feedback` CLI command
+**OUTPUT:** Collection stops / all data deleted
+**FILES:** `src/interfaces/cli/commands.py` (modify)
+
+**SUCCESS:** `/feedback off` → no new feedback rows. `/clear feedback` → table is empty.
+
+---
+
+### TASK 11.4 — Memory writes from good outcomes
+
+**INPUT:** Turn with quality > 0.8
+**OUTPUT:** "What worked" summary saved to long-term memory
+**FILES:** `src/core/runtime/loop.py` (modify)
+
+When quality high: `long_term.remember(f"For '{intent}', '{model}' in '{mode}' mode works well", metadata={"type": "routing_hint"})`.
+
+**SUCCESS:** After 3 high-quality code turns, `recall("code tasks")` returns routing hint.
+
+---
+
+## 🌐 Phase 12 — Web UI
+> **End state:** Premium glassmorphism browser chat. Streaming. File upload. Arabic RTL. Sidebar with history.
+
+---
+
+### TASK 12.1 — FastAPI app + WebSocket
+
+**INPUT:** Browser connects to http://localhost:8080
+**OUTPUT:** Chat page served; WebSocket connects; messages stream
+**FILES:** `src/interfaces/web/app.py` (create), `src/interfaces/web/ws.py` (create), `app/server.py` (create)
 
 ```python
-class Thinker:
-    def reason(self, question: str, context: str, llm: OllamaEngine) -> dict:
-        # Use qwen3:8b in deep mode
-        # Chain-of-thought: break into sub-questions first
-        # Self-verify: ask "is this answer complete?"
-        ...
+@app.websocket("/ws/{session_id}")
+async def ws_endpoint(ws: WebSocket, session_id: str):
+    await ws.accept()
+    while True:
+        data = await ws.receive_json()
+        async for token in run_turn_streaming(data["message"], session_id):
+            await ws.send_json({"type": "token", "data": token})
+        await ws.send_json({"type": "done"})
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] Multi-part question → answer includes reasoning steps
-- [ ] `confidence` field between 0.0 and 1.0
-- [ ] Uses `qwen3:8b` only (no hardcoded model name in code)
+**SUCCESS:** Open localhost:8080 → page loads → type message → streamed response appears.
 
 ---
 
-### TASK 7.3 — Researcher agent
+### TASK 12.2 — HTML/CSS/JS chat interface
 
-**INPUT:** Research topic  
-**OUTPUT:** `{summary: str, key_points: list[str], sources: list[str]}`
+**INPUT:** Browser request
+**OUTPUT:** Glassmorphism chat UI
+**FILES:** `src/interfaces/web/templates/index.html`, `src/interfaces/web/static/style.css`, `src/interfaces/web/static/chat.js` (create)
 
-**FILES TO CREATE:** `src/core/agents/researcher.py`
+Design:
+- Background: `#0a0a1a`
+- Panels: `backdrop-filter: blur(16px); background: rgba(255,255,255,0.05)`
+- Accent: `#3b82f6` → `#06b6d4` gradient
+- Font: Inter + IBM Plex Arabic
+- Auto RTL: Arabic messages → `direction: rtl; text-align: right`
+- Streaming cursor animation
+- Code blocks: Highlight.js syntax highlighting
+- Markdown rendering
 
-Requirements:
-- Run 3–5 distinct web search queries
-- Summarize top results per query
-- Requires `web_search` skill (Phase 8)
-
-**SUCCESS CRITERIA:**
-- [ ] Returns at least 3 key points
-- [ ] `sources` contains real URLs
-- [ ] Works even if one query returns no results
+**SUCCESS:** Arabic messages render RTL. Streaming shows cursor. Code blocks have syntax colors.
 
 ---
 
-### TASK 7.4 — Wire Orchestrator
+### TASK 12.3 — Input bar: attachments + mode selector + send/mic
 
-**INPUT:** `DecisionOutput`  
-**OUTPUT:** Correct handler called (Planner | Researcher | ToolExecutor | direct LLM)
+**INPUT:** User interaction with input controls
+**OUTPUT:** Message sent with mode and attachments
+**FILES:** `src/interfaces/web/static/chat.js` (expand)
 
-**FILES TO CREATE:**
-- `src/core/orchestrator/dispatcher.py`
-- `src/core/orchestrator/agent_selector.py`
+- "+" button → upload file / image / paste clipboard
+- Mode row: ⚡ fast / 🧠 normal / ⚛ deep / 📋 planning / 🔭 research
+- Empty → mic icon; typing → send arrow (smooth morph)
+- Drag-and-drop on chat area
+- Ctrl+V image paste
+
+**SUCCESS:** All input mechanisms work. Selected mode is sent with message and changes routing.
+
+---
+
+### TASK 12.4 — Sidebar: conversations + search + settings
+
+**INPUT:** User interaction with sidebar
+**OUTPUT:** History shown, search works, settings persist
+**FILES:** `src/interfaces/web/static/chat.js` (expand)
+
+- Conversation list grouped by date
+- New Chat, rename, delete (confirm), pin, archive
+- Ctrl+K → search by title (instant) or content (server-side)
+- Settings: theme, font size, mode, language, enter key behavior
+
+**SUCCESS:** 5 conversations created. Search finds them. Settings persist after page reload.
+
+---
+
+### TASK 12.5 — REST API endpoints
+
+**INPUT:** HTTP requests from browser JS
+**OUTPUT:** JSON responses
+**FILES:** `src/interfaces/web/routes.py` (create)
+
+| Endpoint | Method | Action |
+|----------|--------|--------|
+| `/api/conversations` | GET | Paginated list |
+| `/api/conversations/:id` | GET/PUT/DELETE | CRUD |
+| `/api/memory` | DELETE | Clear session |
+| `/api/upload` | POST | File → buffer id |
+| `/api/settings` | GET/PUT | User prefs |
+| `/api/status` | GET | VRAM, model, health |
+
+**SUCCESS:** All endpoints return correct HTTP status. CRUD complete round-trip.
+
+---
+
+### TASK 12.6 — Dashboard panel
+
+**INPUT:** `/api/status` polled every 3 seconds
+**OUTPUT:** Live VRAM bar, active tool, system stats
+**FILES:** `src/interfaces/web/templates/index.html` (add section)
+
+Cards: GPU VRAM %, Active Model, Active Tool, CPU%, RAM.
+
+**SUCCESS:** Dashboard updates live. While a tool runs, "Active Tool" shows its name.
+
+---
+
+### TASK 12.7 — Feedback + toast notifications
+
+**INPUT:** Thumbs up/down per message; system events
+**OUTPUT:** Feedback recorded in DB; toast notification shown
+**FILES:** `src/interfaces/web/static/chat.js` (expand)
+
+Toast types: success (green), error (red), info (blue), warning (orange). Auto-dismiss 4s.
+
+**SUCCESS:** Click thumbs up → feedback row in DB → green toast appears.
+
+---
+
+## 🎙️ Phase 13 — Voice Pipeline
+> **End state:** "Hey Jarvis" → speak command → hear spoken answer.
+
+---
+
+### TASK 13.1 — Whisper STT
+
+**INPUT:** Audio from microphone (numpy array)
+**OUTPUT:** `{"text": "open chrome", "language": "ar"}`
+**FILES:** `src/models/speech/stt.py` (create)
+
+Load `whisper.load_model("medium")`. Record with `sounddevice`. Transcribe with auto-language detection.
+
+**SUCCESS:** 5 seconds of Arabic → correct Arabic transcription. 5 seconds of English → correct English.
+
+---
+
+### TASK 13.2 — Piper TTS
+
+**INPUT:** `text: str`, `language: str`
+**OUTPUT:** Audio played through speakers
+**FILES:** `src/models/speech/tts.py` (create)
+
+Load `ar_JO-kareem-medium.onnx` for Arabic. English voice for English. Auto-select based on language.
+
+**SUCCESS:** `speak("مرحباً", "ar")` produces natural Arabic audio. `speak("Hello", "en")` produces English audio.
+
+---
+
+### TASK 13.3 — Wake word detection
+
+**INPUT:** Continuous mic stream
+**OUTPUT:** Event when "Hey Jarvis" detected
+**FILES:** `src/interfaces/voice/wake_word.py` (create)
+
+openWakeWord model at score > 0.5 threshold. Runs on 1280-frame chunks.
+
+**SUCCESS:** Say "Hey Jarvis" → fires within 1 second. Random speech → no false triggers.
+
+---
+
+### TASK 13.4 — Voice Activity Detection
+
+**INPUT:** Mic stream post-wake-word
+**OUTPUT:** Audio segment that ends when user stops speaking
+**FILES:** `src/interfaces/voice/vad.py` (create)
+
+Use `webrtcvad` at aggressiveness=2. Stop after 1 second of continuous silence.
+
+**SUCCESS:** Speak 3 seconds, pause 1 second → recording stops precisely.
+
+---
+
+### TASK 13.5 — Full voice pipeline
+
+**INPUT:** "Hey Jarvis" spoken
+**OUTPUT:** Spoken response from Jarvis
+**FILES:** `src/interfaces/voice/pipeline.py` (create)
 
 ```python
-class Dispatcher:
-    def route(self, decision: DecisionOutput, state: TurnState) -> str:
-        if decision.requires_planning:
-            return "planner"
-        if decision.intent == "research":
-            return "researcher"
-        if decision.requires_tools:
-            return "tool_executor"
-        return "direct_llm"
+def run_voice_pipeline():
+    while True:
+        wait_for_wake_word()
+        play_chime()
+        audio = record_with_vad()
+        text = transcribe(audio)
+        response = run_turn(text, session_id="voice")
+        speak(response, detect_language(text))
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `requires_planning=True` → Planner
-- [ ] `intent="research"` and `requires_planning=False` → Researcher
-- [ ] `requires_tools=True, requires_planning=False` → ToolExecutor
-- [ ] `intent="chat"` → direct LLM
+**SUCCESS:** "Hey Jarvis, what's the capital of Egypt?" → spoken answer "القاهرة" (or "Cairo") within 15 seconds.
 
 ---
 
-## 🛠️ Phase 8 — Skills
-
-> **Goal:** Concrete tool implementations: open apps, search web, read clipboard, run code.  
-> **Depends on:** Phase 4 (tool system) complete.
+## 👁️ Phase 14 — Vision & Image Generation
+> **End state:** Upload image → Arabic description. Ask for image → generated and shown.
 
 ---
 
-### TASK 8.1 — AppLauncherTool
+### TASK 14.1 — LLaVA image understanding
 
-**INPUT:** `{"app_name": str}`  
-**OUTPUT:** `ToolResult(success=True, result="Chrome launched (PID XXXX)")`
-
-**FILES TO CREATE:** `src/skills/system/app_launcher.py`
-**FILES TO CREATE:** `config/schemas/system/app_launcher.schema.json`
-
-Schema:
-```json
-{"type": "object", "required": ["app_name"],
- "properties": {"app_name": {"type": "string", "minLength": 1}}}
-```
-
-Search order: PATH → Start Menu shortcuts → Program Files → AppData
-
-**SUCCESS CRITERIA:**
-- [ ] `execute({"app_name": "notepad"})` → Notepad opens
-- [ ] `execute({"app_name": "chrome"})` → Chrome opens (if installed)
-- [ ] Unknown app → `ToolResult(success=False, error="App 'xyz' not found")`
-- [ ] Tool registered in registry after `registry.discover()`
-
----
-
-### TASK 8.2 — FileOpsTool
-
-**INPUT:** `{"operation": "list|read|write|delete", "path": str, "content?": str}`  
-**OUTPUT:** `ToolResult` with file content or confirmation
-
-**FILES TO CREATE:** `src/skills/system/file_ops.py`
-
-Requirements:
-- `delete` → moves to Recycle Bin (not permanent)
-- `write` → creates parent directories if needed
-- Path must be under allowed roots (configurable)
-- `requires_confirmation = True` for delete
-
-**SUCCESS CRITERIA:**
-- [ ] `read("README.md")` → returns file content
-- [ ] `write("data/test.txt", "hello")` → file created
-- [ ] `delete(...)` → `requires_confirmation=True` in class definition
-- [ ] Path outside allowed dirs → `ToolResult(success=False, error="access denied")`
-
----
-
-### TASK 8.3 — WebSearchTool
-
-**INPUT:** `{"query": str, "max_results": int (default 5)}`  
-**OUTPUT:** `ToolResult(result=[{title, snippet, url}])`
-
-**FILES TO CREATE:** `src/skills/search/web_search.py`
-
-Requirements:
-- DuckDuckGo HTML (no API key)
-- TTL cache: same query within 5 min → cached result
-- Optional full page extraction via `trafilatura`
-
-**SUCCESS CRITERIA:**
-- [ ] `execute({"query": "Python 3.13"})` returns ≥ 3 results
-- [ ] Each result has `title`, `snippet`, `url`
-- [ ] Works with no API key configured
-- [ ] Second identical query within 5 min → returns cached (no network call)
-
----
-
-### TASK 8.4 — ClipboardTool
-
-**INPUT:** `{"operation": "read|write", "content?": str}`  
-**OUTPUT:** Clipboard content or write confirmation
-
-**FILES TO CREATE:** `src/skills/system/clipboard.py`
-
-**SUCCESS CRITERIA:**
-- [ ] `read` → returns current clipboard text
-- [ ] `write` → sets clipboard text
-- [ ] Image on clipboard → `"[IMAGE saved to data/clipboard.png]"`
-
----
-
-### TASK 8.5 — CodeExecutorTool
-
-**INPUT:** `{"language": "python|shell", "code": str}`  
-**OUTPUT:** `{stdout, stderr, returncode, duration_ms}`
-
-**FILES TO CREATE:** `src/skills/coder/code_executor.py`
-
-Requirements:
-- Subprocess isolation
-- 30s timeout (configurable)
-- Shell blocklist: `rm -rf /`, `format`, `del /s`, `shutdown`
-- `requires_confirmation = True` for shell
-
-**SUCCESS CRITERIA:**
-- [ ] `python print("hi")` → `stdout="hi\n"`, `returncode=0`
-- [ ] Timeout → `ToolResult(success=False, error="timeout after 30s")`
-- [ ] Blocked pattern → `ToolResult(success=False, error="blocked: dangerous pattern detected")`
-
----
-
-### TASK 8.6 — BrowserTool + SessionManager
-
-**INPUT:** `{"action": "navigate|click|fill|extract|screenshot", ...params}`  
-**OUTPUT:** `ToolResult` with page content or confirmation
-
-**FILES TO CREATE:**
-- `src/skills/browser/browser.py`
-- `src/skills/browser/session_manager.py`
-
-Session manager saves Playwright storage state per domain. Reloaded on next run.
-
-**SUCCESS CRITERIA:**
-- [ ] `navigate("https://example.com")` → returns page title
-- [ ] Login to test site → save session → restart Python → session reloaded (no re-login)
-- [ ] `extract()` returns page Markdown content
-
----
-
-## 🛡️ Phase 9 — Safety
-
-> **Goal:** Dangerous operations require explicit user confirmation.  
-> **Depends on:** Phase 8 complete.
-
----
-
-### TASK 9.1 — Safety classifier
-
-**INPUT:** Tool name + params  
-**OUTPUT:** `"safe" | "risky" | "critical"`
-
-**FILES TO CREATE:** `src/core/safety/classifier.py`
+**INPUT:** `image_path: str`, `question: str`
+**OUTPUT:** Text description in user's language
+**FILES:** `src/models/vision/llava.py` (create)
 
 ```python
-SAFETY_RULES = {
-    "safe":     ["app_launcher", "web_search", "system_info", "screenshot", "clipboard.read"],
-    "risky":    ["file_ops.write", "file_ops.move", "clipboard.write", "code_executor.python"],
-    "critical": ["file_ops.delete", "gmail.send", "code_executor.shell", "calendar.delete"],
+def describe_image(image_path: str, question: str = "Describe this image in detail") -> str:
+    with open(image_path, "rb") as f:
+        image_b64 = base64.b64encode(f.read()).decode()
+    response = ollama.chat(model="llava:7b",
+                           messages=[{"role": "user", "content": question, "images": [image_b64]}])
+    return response["message"]["content"]
+```
+
+VRAM guard: unload text model before loading LLaVA.
+
+**SUCCESS:** Upload code screenshot → LLaVA describes the code. Upload Arabic text image → text read correctly.
+
+---
+
+### TASK 14.2 — Stable Diffusion image generation
+
+**INPUT:** `prompt: str` (any language)
+**OUTPUT:** Image saved to `data/generated/`; path returned
+**FILES:** `src/models/diffusion/sd.py` (create)
+
+Translate Arabic prompt to English first (via LLM). Use SD 1.5 with float16. Unload after generation to free VRAM.
+
+**SUCCESS:** "Generate an image of a mountain at sunset" → image saved → displayable.
+
+---
+
+### TASK 14.3 — Vision integration into runtime
+
+**INPUT:** `ContextBundle` with image attachment
+**OUTPUT:** LLaVA description injected into context; LLM answers about image
+**FILES:** `src/core/context/assembler.py` (modify)
+
+When images in bundle: call `describe_image()` per image → add to `memory_snippets`.
+
+**SUCCESS:** Upload chart image in Web UI → ask "what does this show?" → correct answer based on image content.
+
+---
+
+### TASK 14.4 — Screen description tool
+
+**INPUT:** `{"action": "describe_screen"}`
+**OUTPUT:** Natural language description of current screen
+**FILES:** `src/skills/screen/describe.py` (create)
+
+```python
+def describe_screen() -> ToolResult:
+    path = take_screenshot()
+    description = describe_image(path, "What is on this screen?")
+    return ToolResult(success=True, data={"description": description, "screenshot": path})
+```
+
+**SUCCESS:** "What's on my screen?" → accurate description of visible content.
+
+---
+
+## 📱 Phase 15 — Telegram + GUI
+> **End state:** Full Jarvis via Telegram. PyQt6 desktop app with tray icon.
+
+---
+
+### TASK 15.1 — Telegram bot
+
+**INPUT:** Text, photo, voice note, or document sent to bot
+**OUTPUT:** Jarvis responds correctly to each type
+**FILES:** `src/interfaces/telegram/bot.py` (create)
+
+- Text → `run_turn()` → reply
+- Photo → `describe_image()` → reply
+- Voice → `transcribe()` → `run_turn()` → reply
+- Document → `read_pdf()` or `read_office()` → summary reply
+- Commands: `/clear`, `/model`, `/mode`, `/image [prompt]`, `/search [query]`
+
+**SUCCESS:** Send Arabic voice note → transcription + answer returned as text.
+
+---
+
+### TASK 15.2 — PyQt6 desktop app
+
+**INPUT:** User interaction with desktop window
+**OUTPUT:** Chat works; Arabic RTL correct; voice button works
+**FILES:** `src/interfaces/gui/main_window.py` (create)
+
+Scrollable chat area + expanding input box + send/mic buttons + model dropdown + mode toolbar.
+
+**SUCCESS:** Launch GUI → type Arabic → RTL correct. Voice button activates STT.
+
+---
+
+### TASK 15.3 — System tray daemon
+
+**INPUT:** App minimized or `--background` flag
+**OUTPUT:** Tray icon visible; wake word active in background
+**FILES:** `src/interfaces/gui/tray.py` (create)
+
+`pystray` menu: Open GUI / Open Web UI / Settings / Quit. Wake word thread runs in background.
+
+**SUCCESS:** App in tray. Say "Hey Jarvis" → GUI window appears.
+
+---
+
+### TASK 15.4 — Auto-start on Windows login
+
+**INPUT:** User toggles "Start with Windows" in settings
+**OUTPUT:** Registry key added/removed
+**FILES:** `src/interfaces/gui/autostart.py` (create)
+
+Write/delete `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Jarvis` registry key.
+
+**SUCCESS:** Enable → reboot Windows → Jarvis tray icon appears automatically.
+
+---
+
+## 🔒 Phase 16 — QA + Security
+> **End state:** All tests pass. VRAM stays under limit. No credentials in logs.
+
+---
+
+### TASK 16.1 — Test suite
+
+**INPUT:** `pytest tests/` command
+**OUTPUT:** All tests pass; coverage ≥ 70%
+**FILES:** `tests/test_models.py`, `test_decision.py`, `test_memory.py`, `test_tools.py`, `test_runtime.py`, `test_skills.py`, `test_browser.py`, `test_apis.py`, `test_agents.py` (create)
+
+Each test file covers the corresponding phase. Tests are real (not mocked where possible).
+
+**SUCCESS:** `pytest tests/ --cov=src` reports 0 failures, ≥70% coverage.
+
+---
+
+### TASK 16.2 — Security hardening
+
+**INPUT:** Code review of all skills
+**OUTPUT:** Security checklist complete
+**FILES:** Multiple files (audit and fix)
+
+Checklist:
+- [ ] `delete_file` uses `send2trash` (never `os.remove` directly on user files)
+- [ ] `run_shell` checks blocklist before execution
+- [ ] `send_email` always requires confirmation
+- [ ] `google_token.json` never appears in any log line
+- [ ] Browser sessions encrypted at rest (Fernet key from `.env`)
+- [ ] All tool args validated against JSON Schema before execution
+- [ ] Path traversal: file paths checked against allowed roots
+- [ ] Error messages sanitized before returning to LLM (no stack traces)
+
+**SUCCESS:** Manual audit of all 8 items passes.
+
+---
+
+### TASK 16.3 — Performance benchmarks
+
+**INPUT:** `python scripts/benchmark.py`
+**OUTPUT:** All metrics within targets
+**FILES:** `scripts/benchmark.py` (create)
+
+| Metric | Target |
+|--------|--------|
+| Cold start to first response | < 10 seconds |
+| Simple chat (gemma3:4b) | < 5 seconds |
+| File read tool | < 1 second |
+| VRAM peak during chat | < 5.5 GB |
+| Voice round-trip | < 15 seconds |
+| Web UI first message | < 3 seconds |
+
+**SUCCESS:** All 6 metrics pass.
+
+---
+
+### TASK 16.4 — Windows 11 clean install test
+
+**INPUT:** Clean Windows 11 machine (or VM)
+**OUTPUT:** Full install + all features work
+**FILES:** `scripts/install.ps1` (finalize)
+
+Test sequence:
+1. `install.ps1` on clean machine
+2. `python app/main.py --interface cli`
+3. Text chat, file ops, app launch, notification, clipboard
+4. Web UI, Telegram, voice
+
+**SUCCESS:** All steps complete on a machine that never had Jarvis before.
+
+---
+
+### TASK 16.5 — Credential audit
+
+**INPUT:** All log files
+**OUTPUT:** Zero credentials visible in logs
+**FILES:** `scripts/credential_audit.py` (create)
+
+Scan `logs/` for patterns: API keys, OAuth tokens, email addresses in unexpected positions.
+
+**SUCCESS:** Script finds zero matches.
+
+---
+
+### TASK 16.6 — CI setup
+
+**INPUT:** Git push
+**OUTPUT:** Lint + type check + tests run automatically
+**FILES:** `.github/workflows/ci.yml` (create)
+
+```yaml
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install -r requirements.txt
+      - run: ruff check src/
+      - run: pytest tests/ --cov=src -x
+```
+
+**SUCCESS:** Push triggers CI. All checks pass.
+
+---
+
+## 🎭 Phase 17 — Personality
+> **End state:** Tone and style adapt to user preferences. Arabic feels Arabic, not translated.
+
+---
+
+### TASK 17.1 — Personality fragments in system prompt
+
+**INPUT:** User profile (style, tone)
+**OUTPUT:** Personality fragment injected before every LLM call
+**FILES:** `src/core/identity/personality.py` (create)
+
+```python
+FRAGMENTS = {
+    "concise": "Keep answers brief. Use bullet points. No preamble.",
+    "detailed": "Provide thorough explanations with examples.",
+    "formal": "Use formal language. Avoid contractions.",
+    "casual": "Be conversational and friendly.",
+    "arabic_native": "Use natural Arabic expressions. Avoid literal translations from English.",
 }
 
-class SafetyClassifier:
-    def classify(self, tool_name: str, params: dict) -> str:
-        for level, tools in reversed(list(SAFETY_RULES.items())):
-            if any(tool_name.startswith(t) for t in tools):
-                return level
-        return "risky"  # unknown tools default to risky
+def get_personality_fragment(profile: dict) -> str:
+    parts = []
+    parts.append(FRAGMENTS.get(profile.get("style", "balanced"), ""))
+    parts.append(FRAGMENTS.get(profile.get("tone", "casual"), ""))
+    if profile.get("language") == "ar":
+        parts.append(FRAGMENTS["arabic_native"])
+    return " ".join(p for p in parts if p)
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `classify("app_launcher", ...)` → `"safe"`
-- [ ] `classify("file_ops.delete", ...)` → `"critical"`
-- [ ] `classify("gmail.send", ...)` → `"critical"`
-- [ ] Unknown tool → `"risky"` (not silent approval)
+**SUCCESS:** `style=concise` → responses measurably shorter. `language=ar` → responses use native Arabic expressions.
 
 ---
 
-### TASK 9.2 — Confirmation gate
+### TASK 17.2 — Adaptive drift from feedback
 
-**INPUT:** Safety class + tool name  
-**OUTPUT:** User approves or denies
+**INPUT:** Feedback table entries
+**OUTPUT:** User profile style/tone updated based on patterns
+**FILES:** `src/core/identity/personality.py` (expand)
 
-**FILES TO CREATE:** `src/core/safety/confirmation.py`
+Every 10 turns: check which styles got positive feedback. Nudge profile by one step (concise → balanced → detailed). Max 1 step per update.
+
+**SUCCESS:** 20 turns of positive feedback on short answers → profile drifts to `style=concise`.
+
+---
+
+### TASK 17.3 — Arabic/English native feel test
+
+**INPUT:** Same question in Arabic + in English
+**OUTPUT:** Each response feels native in its language
+**FILES:** `config/jarvis_identity.yaml` (add language behavior section)
+
+Add to identity:
+```yaml
+language_behavior:
+  arabic:
+    greeting: "أهلاً وسهلاً"
+    affirmation: "بالتأكيد"
+    note: "Use natural Arabic expressions, warm tone"
+  english:
+    greeting: "Hello"
+    affirmation: "Sure"
+    note: "Direct and concise tone"
+```
+
+**SUCCESS:** Arabic input → response includes natural Arabic phrases (not "بالتأكيد" translated from "Sure"). English input → direct sentences without filler.
+
+---
+
+## 📌 Quick Reference
+
+### Layer Responsibilities (no overlap)
+
+| Layer | Files | Does | Does NOT |
+|-------|-------|------|----------|
+| `src/models/` | engine.py, llava.py, stt.py | Wrap AI models, return text/audio/images | Decide, read memory, know tools |
+| `src/core/context/` | assembler.py | Collect this turn's inputs | Store across turns |
+| `src/core/decision/` | decision.py, classifier.py | Classify intent, select model | Think, plan, execute |
+| `src/core/runtime/` | loop.py, executor.py, evaluator.py | Drive the Think→Act→Evaluate cycle | Implement intelligence |
+| `src/core/agents/` | planner.py, thinker.py, researcher.py | Multi-step reasoning, planning | Route requests, execute tools directly |
+| `src/core/tools/` | registry.py, executor.py, safety.py | Discover, validate, run tools | Implement tool logic |
+| `src/core/memory/` | short_term.py, long_term.py, database.py | Store and retrieve data | Participate in routing |
+| `src/core/identity/` | builder.py, personality.py | Build system prompts | Make decisions |
+| `src/skills/` | (one file per tool) | Do one specific thing in the world | Anything else |
+| `src/interfaces/` | cli/, web/, voice/, telegram/, gui/ | Receive input, display output | Contain logic |
+
+### Model Selection Rules
+
+```
+complexity=low OR mode=fast          → gemma3:4b
+intent=code OR code_bias signal      → qwen2.5-coder:7b
+image in context                     → llava:7b
+everything else                      → qwen3:8b
+```
+
+### Arabic Detection
 
 ```python
-class ConfirmationGate:
-    def request(self, tool_name: str, params: dict, safety: str) -> bool:
-        if safety == "safe":
-            return True
-        if safety == "risky":
-            return True  # auto-approve risky but log
-
-        # CRITICAL: must ask user
-        summary = f"{tool_name}({json.dumps(params, ensure_ascii=False)[:80]})"
-        answer = input(f"\n⚠️  Critical action: {summary}\nProceed? [y/N] ").strip().lower()
-        return answer == "y"
+def is_arabic(text: str) -> bool:
+    arabic = sum(1 for c in text if '\u0600' <= c <= '\u06FF')
+    return arabic / max(len(text), 1) > 0.3
 ```
 
-**SUCCESS CRITERIA:**
-- [ ] `SAFE` → returns `True` immediately
-- [ ] `CRITICAL` → prints confirmation prompt → `"y"` returns `True`, anything else `False`
-- [ ] Denied action → `ToolResult(success=False, error="user denied")` from executor
+### VRAM Rule
 
----
-
-## 🌐 Phase 10 — Google APIs
-
-> **Depends on:** Phase 8 (browser for OAuth redirect) + Phase 4 (tool system).
-
----
-
-### TASK 10.1 — Google OAuth manager
-
-**FILES TO CREATE:** `src/skills/api/google_auth.py`
-
-Single OAuth2 flow granting Calendar + Gmail + Drive + Contacts + YouTube. Token saved to `data/google_token.json`. Auto-refresh on expiry.
-
-**SUCCESS CRITERIA:**
-- [ ] OAuth flow completes, token saved
-- [ ] Second run: token loaded, no re-auth
-- [ ] Expired token: auto-refreshed silently
-
----
-
-### TASK 10.2 — Calendar, Gmail, Drive tools
-
-**FILES TO CREATE:**
-- `src/skills/api/calendar.py`
-- `src/skills/api/gmail.py`
-- `src/skills/api/drive.py`
-
-**SUCCESS CRITERIA:**
-- [ ] Calendar: create → list → delete test event
-- [ ] Gmail: send to self → search → read
-- [ ] Drive: upload → list → download → verify content
-- [ ] All three use same OAuth token
-
----
-
-## 💻 Phase 11 — CLI Interface (Full)
-
-> **Depends on:** Phases 1–9 complete.
-
----
-
-### TASK 11.1 — Full CLI with Rich + slash commands
-
-**FILES TO MODIFY:** `src/interfaces/cli/interface.py`
-**FILES TO CREATE:** `src/interfaces/cli/commands.py`
-
-Commands: `/clear`, `/model`, `/mode`, `/memory`, `/tools`, `/status`, `/help`
-
-**SUCCESS CRITERIA:**
-- [ ] Arabic text displays right-aligned
-- [ ] Response streams token-by-token
-- [ ] All slash commands respond correctly
-- [ ] Status bar shows model + mode
-
----
-
-## Phases 12–16 (after Phase 11)
-
-| Phase | Builds | Key SUCCESS |
-|---|---|---|
-| 12 | Web UI (FastAPI + WebSocket + HTML) | Browser chat with streaming Arabic RTL |
-| 13 | Voice pipeline (Whisper + Piper + wake word) | Full cycle < 15s |
-| 14 | Telegram bot + PyQt6 GUI | Voice note → transcription → reply |
-| 15 | Logging + Observability | JSON logs for decisions, tools, models |
-| 16 | Optimization + QA | VRAM < 5.5 GB, cold start < 10s, all e2e tests pass |
-
----
-
-## 🧪 Vertical Slice Acceptance Tests
-
-These two tests must pass after Phase 8. They exercise the full stack.
-
-### Test A: "Say Hello" (no tools)
-```python
-loop = RuntimeLoop()  # with Decision + Router wired
-response = "".join(loop.run("Hello", session_id="test"))
-assert len(response) > 0
-assert "error" not in response.lower()
+```
+Before loading any model:
+  1. Check current model via get_active_model()
+  2. If different model needed: call unload_current_model()
+  3. Verify freed: wait for Ollama to confirm
+  4. Load new model
+  Never load two heavy models simultaneously.
 ```
 
-### Test B: "Open Notepad" (tool execution)
-```python
-# 1. Jarvis receives "open notepad"
-# 2. Decision: intent=action, requires_tools=True
-# 3. LLM emits tool_call: app_launcher(app_name="notepad")
-# 4. Executor runs app_launcher
-# 5. Notepad process appears in process list
-# 6. Response: "Notepad is now open."
+---
 
-import psutil
-response = "".join(loop.run("open notepad", session_id="test"))
-notepad_running = any("notepad" in p.name().lower() for p in psutil.process_iter())
-assert notepad_running
-```
-
-Both tests must pass before moving to Phase 9.
+*Version 0.4.0-alpha — Tasks with INPUT/OUTPUT/FILES/SUCCESS_CRITERIA*
+*Phase 0 first. Each phase has a working end state before you move on.*
