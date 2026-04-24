@@ -2,19 +2,17 @@
 
 > **Format:** Every task contains: DESCRIPTION · INPUT · OUTPUT · FILES · REQUIREMENTS · SUCCESS CRITERIA
 >
-> **No code in this file.** All implementation belongs in source files.
->
-> **No examples in this file.** Success criteria state observable outcomes only.
+> **No code in this file.** Implementation details are in source files.
 
 ---
 
-## ⛔ MANDATORY GATE — Phase 0
+## ⛔ MANDATORY GATE — PHASE 0 FIRST
 
-**Phase 0 is a hard prerequisite. No other phase may begin until Phase 0 is fully complete.**
+**Phase 0 is a hard prerequisite. No phase — not Phase 1, not any other — may be started until Phase 0 is fully complete.**
 
-Verification: both manual tests in Tasks 0.4 and 0.5 must pass without error before proceeding to Phase 1.
+**Verification:** Run the two manual tests in Tasks 0.4 and 0.5. Both must pass without error and without exception reaching the terminal. Only after both pass may you proceed to Phase 1.
 
-Enforcement: mark Phase 0 done in the progress tracker only after both tests pass on the actual machine.
+**What Phase 0 proves:** (1) text input reaches the LLM and a response is returned; (2) a tool command is classified, routed, and executed end-to-end. These are the two minimum capabilities required for any subsequent phase to be meaningful.
 
 ---
 
@@ -22,9 +20,9 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 | Phase | Name | Tasks | Done |
 |-------|------|-------|------|
-| 0 | First Working System **(MANDATORY FIRST)** | 5 | 0 |
+| 0 | First Working System (MANDATORY FIRST) | 5 | 0 |
 | 1 | Foundation | 9 | 0 |
-| 2 | Execution Contract | 6 | 0 |
+| 2 | Execution Contract Implementation | 6 | 0 |
 | 3 | Runtime Loop | 6 | 0 |
 | 4 | Decision System | 5 | 0 |
 | 5 | Prompt Builder | 4 | 0 |
@@ -36,7 +34,7 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 | 11 | Context + Memory | 6 | 0 |
 | 12 | Agents | 5 | 0 |
 | 13 | CLI Interface | 5 | 0 |
-| 14 | Web UI | 8 | 0 |
+| 14 | Web UI | 12 | 0 |
 | 15 | Voice Pipeline | 5 | 0 |
 | 16 | Vision + Image Generation | 4 | 0 |
 | 17 | Telegram + GUI | 4 | 0 |
@@ -46,58 +44,54 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 ## 🚀 Phase 0 — First Working System
 
-> **End state:** Two things work end-to-end — a message produces an LLM response, and "open chrome" executes the tool.
-> **⛔ You may not start any other phase until this phase is complete.**
+> **⛔ MANDATORY. Must be completed before any other phase. No exceptions.**
+>
+> **End state:** Two things work end-to-end — text to LLM, and "open chrome" executes.
 
 ---
 
-### TASK 0.1 — LLM connection
+### TASK 0.1 — Connect to Ollama and get a response
 
-**DESCRIPTION:** Prove Ollama is reachable and a model produces text.
+**DESCRIPTION:** Prove that Ollama is reachable and a model returns text.
 
 **INPUT:** The string "hello" passed programmatically.
 
-**OUTPUT:** A non-empty string printed to the terminal.
+**OUTPUT:** A non-empty string response printed to the terminal.
 
 **FILES:**
 - CREATE: `src/models/llm/engine.py`
 
 **REQUIREMENTS:**
-- 0.1.1 — Define a `chat` function accepting a message string and an optional model string.
-- 0.1.2 — The function must call the Ollama Python client with the provided model.
-- 0.1.3 — The function must return the response content as a string.
-- 0.1.4 — The function must not raise on connection failure — return an error string instead.
-- 0.1.5 — The file must be runnable directly and print the result of `chat("hello")` when executed.
+- The file must define a `chat` function that accepts a message string and an optional model string.
+- The function must call the Ollama Python client.
+- The function must return the response content as a string.
+- The file must be executable directly with Python and print the result of `chat("hello")`.
 
 **SUCCESS CRITERIA:**
-- Running the file directly prints a non-empty, coherent response.
-- No exception reaches the terminal.
-- Response arrives within 60 seconds.
+- Running the file directly prints a non-empty response.
+- No exception is raised.
+- The response arrives within 60 seconds.
 
 ---
 
-### TASK 0.2 — Intent classifier
+### TASK 0.2 — Classify a command and return structured output
 
 **DESCRIPTION:** Given a user message, return a structured classification describing what action to take.
 
 **INPUT:** The string "open chrome".
 
-**OUTPUT:** A Python dict containing at minimum: `intent`, `requires_tools`, `tool_name`, `tool_args`.
+**OUTPUT:** A Python dict containing at minimum: `intent`, `tool_name`, `tool_args`.
 
 **FILES:**
 - CREATE: `src/core/decision/classifier.py`
 
 **REQUIREMENTS:**
-- 0.2.1 — Define a `classify` function accepting a message string and returning a dict.
-- 0.2.2 — Use `gemma3:4b` with a system prompt that instructs the model to return only JSON.
-- 0.2.3 — The system prompt must define the expected JSON schema explicitly.
-- 0.2.4 — The system prompt must include examples in both Arabic and English.
-- 0.2.5 — Strip markdown code block markers from the model response before parsing.
-- 0.2.6 — Extract JSON by finding the first `{` and last `}` in the response string.
-- 0.2.7 — Retry up to 2 times on JSON parse failure, appending a correction instruction.
-- 0.2.8 — Return a safe fallback dict with `intent="chat"` if all retries fail.
-- 0.2.9 — Log each retry and each fallback event.
-- 0.2.10 — The function must not raise on any input.
+- The file must define a `classify` function that accepts a message string and returns a dict.
+- The function must use `gemma3:4b` with a system prompt that forces JSON-only output.
+- The function must handle malformed JSON from the model by retrying up to 2 times.
+- If all retries fail, the function must return a safe fallback dict with `intent="chat"`.
+- The system prompt must include Arabic and English examples.
+- The function must strip any markdown code block formatting before parsing JSON.
 
 **SUCCESS CRITERIA:**
 - `classify("open chrome")` returns a dict with `intent="tool_use"` and `tool_name="open_app"`.
@@ -107,11 +101,11 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 ---
 
-### TASK 0.3 — Application launcher
+### TASK 0.3 — Execute an application by name
 
 **DESCRIPTION:** Open a named application on the current operating system.
 
-**INPUT:** A dict `{"name": "notepad"}` (or the platform-appropriate test app).
+**INPUT:** A dict `{"name": "notepad"}` (or the platform-appropriate app name).
 
 **OUTPUT:** The application opens visibly. A dict is returned with `success=True` and the process PID.
 
@@ -119,49 +113,48 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/skills/system/apps.py`
 
 **REQUIREMENTS:**
-- 0.3.1 — Define an `open_app(name)` function returning a dict with `success` and either `pid` or `error`.
-- 0.3.2 — Search in this order: PATH via `shutil.which`, then platform-specific directories.
-- 0.3.3 — On Windows: search `PROGRAMFILES`, `PROGRAMFILES(X86)`, `LOCALAPPDATA`.
-- 0.3.4 — On Linux: attempt `subprocess.Popen` directly with the name.
-- 0.3.5 — On macOS: use the `open -a` command.
-- 0.3.6 — Return `{"success": False, "error": "..."}` if not found, without raising.
-- 0.3.7 — Define a `close_app(name)` function using `taskkill` on Windows, `pkill` on Linux/macOS.
+- The file must define an `open_app(name)` function.
+- The function must search in this order: PATH via `shutil.which`, then platform-specific program directories.
+- On Windows: search `PROGRAMFILES`, `PROGRAMFILES(X86)`, `LOCALAPPDATA`.
+- On Linux: attempt `subprocess.Popen([name])` directly.
+- On macOS: use `open -a {name}`.
+- If the app is not found after all searches, return a dict with `success=False` and an `error` key.
+- The function must not raise an exception on failure.
 
 **SUCCESS CRITERIA:**
-- `open_app("notepad")` on Windows opens Notepad and returns `{"success": True, "pid": <number>}`.
-- `open_app("xyznonexistent")` returns `{"success": False, "error": "..."}` without raising.
+- Calling `open_app("notepad")` on Windows opens Notepad and returns `{"success": True, "pid": <number>}`.
+- Calling `open_app("xyznonexistent")` returns `{"success": False, "error": "..."}` without raising.
 
 ---
 
-### TASK 0.4 — Wire classifier to tool
+### TASK 0.4 — Wire classifier to tool: text input → action
 
-**DESCRIPTION:** Connect input, classifier, and tool into a single runnable script.
+**DESCRIPTION:** Connect the three components — input, classifier, tool — into a single runnable script.
 
 **INPUT:** A string typed at a terminal prompt.
 
-**OUTPUT:** If classified as tool call, the tool executes and prints a confirmation. Otherwise, prints a chat response.
+**OUTPUT:** If the input is classified as a tool call, the tool executes and a confirmation is printed. Otherwise, a chat response is printed.
 
 **FILES:**
 - CREATE: `app/jarvis_slice.py`
 
 **REQUIREMENTS:**
-- 0.4.1 — Define a `run(user_input)` function.
-- 0.4.2 — Call `classify(user_input)` from Task 0.2.
-- 0.4.3 — If `requires_tools=True` and `tool_name` is in the supported map, call the tool function.
-- 0.4.4 — If `requires_tools=False`, call `chat(user_input)` from Task 0.1 and print the result.
-- 0.4.5 — Handle a malformed or unexpected dict from `classify()` without crashing.
-- 0.4.6 — Run in a terminal loop until the user types "quit".
-- 0.4.7 — No exception may reach the terminal for any input.
+- The file must define a `run(user_input)` function.
+- The function must call `classify(user_input)` from Task 0.2.
+- If `requires_tools=True` and `tool_name` is in the supported tool map, the function must call the corresponding tool function.
+- If `requires_tools=False`, the function must call `chat(user_input)` from Task 0.1 and print the result.
+- The file must be executable directly and loop on terminal input until "quit" is typed.
+- The file must handle `classify()` returning a malformed or unexpected dict without crashing.
 
 **SUCCESS CRITERIA:**
 - Typing "open notepad" opens Notepad and prints a confirmation.
 - Typing "what is machine learning?" prints a text answer.
 - Typing "quit" exits cleanly.
-- No exception is visible in the terminal for any input tested.
+- No exception reaches the terminal for any input.
 
 ---
 
-### TASK 0.5 — Arabic input verification
+### TASK 0.5 — Verify Arabic input
 
 **DESCRIPTION:** Confirm that Arabic commands produce the same behavior as their English equivalents.
 
@@ -173,176 +166,177 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - MODIFY: `src/core/decision/classifier.py` — add Arabic examples to the system prompt if needed.
 
 **REQUIREMENTS:**
-- 0.5.1 — Test the Arabic equivalent of "open notepad" at the terminal.
-- 0.5.2 — If the classifier does not return `intent="tool_use"`, add at least three Arabic tool examples to the system prompt and re-test.
-- 0.5.3 — Test an Arabic question and confirm it returns a text answer.
-- 0.5.4 — No new files are needed unless the classifier fails.
+- The Arabic command for "open notepad" must produce the same classification as the English command.
+- If it does not, add at least three Arabic examples to the classifier system prompt and re-test.
+- No new files are needed unless the classifier fails on Arabic.
 
 **SUCCESS CRITERIA:**
-- Arabic command for "open notepad" opens Notepad.
-- Arabic question returns a text answer.
+- Typing the Arabic equivalent of "open notepad" opens Notepad.
+- Typing an Arabic question returns a text answer.
 - The classifier does not return `intent="chat"` for a clear Arabic tool command.
 
 ---
 
 ## 🏗️ Phase 1 — Foundation
 
-> **End state:** `python app/main.py --interface cli` executes all Boot Flow steps and prints "Jarvis ready."
+> **End state:** `python app/main.py --interface cli` runs without crashing, loads config, initializes logging, and prints "Jarvis ready."
 
 ---
 
-### TASK 1.1 — Settings file and loader
+### TASK 1.1 — Settings YAML and Pydantic loader
 
-**DESCRIPTION:** Create the configuration file and typed Python loader.
+**DESCRIPTION:** Create the configuration file and a typed Python loader for it.
 
 **INPUT:** `config/settings.yaml`.
 
-**OUTPUT:** A cached `get_settings()` function returning a fully typed settings object.
+**OUTPUT:** A callable `get_settings()` function that returns a fully typed settings object.
 
 **FILES:**
 - CREATE: `config/settings.example.yaml`
-- CREATE: `config/settings.yaml`
+- CREATE: `config/settings.yaml` (copy from example, fill in values)
 - CREATE: `src/core/config.py`
 
 **REQUIREMENTS:**
-- 1.1.1 — `settings.example.yaml` must contain all sections: jarvis, models, hardware, interfaces, paths, hotkeys, runtime.
-- 1.1.2 — The `runtime` section must include: `max_iterations`, `max_tool_retries`, `tool_timeout_s`, `execution_mode`.
-- 1.1.3 — `execution_mode` must default to `"balanced"` and accept only: safe, balanced, unrestricted.
-- 1.1.4 — Define one Pydantic model per YAML section in `src/core/config.py`.
-- 1.1.5 — `get_settings()` must be a cached singleton — reads the file exactly once.
-- 1.1.6 — Missing optional fields must not raise — Pydantic defaults apply.
-- 1.1.7 — Define `create_directories()` that creates all paths from the `paths` section.
+- `settings.example.yaml` must contain all sections: jarvis, models, hardware, interfaces, paths, hotkeys, runtime.
+- The `runtime` section must include: `max_iterations`, `max_tool_retries`, `tool_timeout_s`, `execution_mode`.
+- `execution_mode` must default to `"balanced"`.
+- `src/core/config.py` must define one Pydantic model per YAML section.
+- `get_settings()` must be a cached singleton — it reads the file once only.
+- `get_settings()` must not raise on missing optional fields — use Pydantic defaults.
+- A `create_directories()` function must create all paths defined in the `paths` section.
 
 **SUCCESS CRITERIA:**
 - `get_settings().jarvis.name` returns `"Jarvis"`.
 - `get_settings().runtime.execution_mode` returns `"balanced"`.
-- `get_settings()` called twice returns the same object instance.
-- `create_directories()` creates all configured directories.
+- `create_directories()` creates all configured directories without error.
+- Calling `get_settings()` twice returns the same object (cached).
 
 ---
 
 ### TASK 1.2 — Logging setup
 
-**DESCRIPTION:** Configure structured logging to terminal and rotating file.
+**DESCRIPTION:** Configure structured logging to both terminal and file.
 
 **INPUT:** A call to `setup_logging()` at startup.
 
-**OUTPUT:** Log entries appear in terminal and in `logs/jarvis.log`.
+**OUTPUT:** Log entries appear in the terminal and in `logs/jarvis.log`.
 
 **FILES:**
 - CREATE: `src/core/logging_setup.py`
 
 **REQUIREMENTS:**
-- 1.2.1 — Configure Loguru with two sinks: colored terminal and rotating file.
-- 1.2.2 — File rotation at 10 MB. Retention 7 days. Encoding UTF-8.
-- 1.2.3 — Log format: timestamp, level, message.
-- 1.2.4 — Accept a `level` string parameter (default `"INFO"`) and a `debug` boolean.
-- 1.2.5 — When `debug=True`, add a second file sink at DEBUG level writing to `logs/debug.log`.
-- 1.2.6 — Create the `logs/` directory if it does not exist.
+- The function must configure Loguru with two sinks: terminal (colored) and file.
+- File rotation must trigger at 10 MB. Retention must be 7 days.
+- Log format must include: timestamp, level, message.
+- The function must accept a `level` parameter (default `"INFO"`) and a `debug` boolean.
+- When `debug=True`, a second file sink at DEBUG level must be added to `logs/debug.log`.
+- The function must create the `logs/` directory if it does not exist.
 
 **SUCCESS CRITERIA:**
-- After calling `setup_logging()`, an INFO log call appears in both terminal and `logs/jarvis.log`.
-- `logs/` directory is created automatically if missing.
+- After calling `setup_logging()`, a log call at INFO level appears in both terminal and file.
+- The `logs/` directory is created automatically.
+- File rotation parameters are confirmed in the Loguru configuration.
 
 ---
 
 ### TASK 1.3 — Package skeleton
 
-**DESCRIPTION:** Create all Python package directories.
+**DESCRIPTION:** Create all Python package directories with `__init__.py` files.
 
 **INPUT:** Nothing.
 
-**OUTPUT:** All source directories are importable Python packages.
+**OUTPUT:** All source directories exist and are importable Python packages.
 
 **FILES:**
-- CREATE: `__init__.py` in every directory under `src/` as listed in `STRUCTURE.md`.
+- CREATE: All directories listed in `STRUCTURE.md` under `src/`, each with an empty `__init__.py`.
 
 **REQUIREMENTS:**
-- 1.3.1 — Every subdirectory under `src/` must have an empty `__init__.py`.
-- 1.3.2 — No directory listed in `STRUCTURE.md` may be skipped.
+- Every subdirectory under `src/` must have an `__init__.py` file.
+- The files must be empty (no imports, no code).
+- No directory may be skipped.
 
 **SUCCESS CRITERIA:**
-- `python -c "import src.core.decision"` succeeds without error.
-- `python -c "import src.skills.system"` succeeds without error.
-- `python -c "import src.interfaces.cli"` succeeds without error.
+- `python -c "import src.core.decision"` succeeds.
+- `python -c "import src.skills.system"` succeeds.
+- `python -c "import src.interfaces.cli"` succeeds.
 
 ---
 
 ### TASK 1.4 — Model capability profiles
 
-**DESCRIPTION:** Create the model metadata YAML and a Python loader.
+**DESCRIPTION:** Create the model metadata file and a Python loader.
 
 **INPUT:** `config/models.yaml`.
 
-**OUTPUT:** `get_model_profile(tag)` returns a dict of capability fields.
+**OUTPUT:** A `get_model_profile(tag)` function returning a dict of capability fields.
 
 **FILES:**
 - CREATE: `config/models.yaml`
 - CREATE: `src/models/profiles.py`
 
 **REQUIREMENTS:**
-- 1.4.1 — Entries for: `qwen3:8b`, `gemma3:4b`, `qwen2.5-coder:7b`, `llava:7b`.
-- 1.4.2 — Each entry must include: temperature, top_p, max_tokens, vram_gb, arabic_quality, reasoning, code_bias, vision, latency.
-- 1.4.3 — Define `get_model_profile(model_tag)` returning the dict.
-- 1.4.4 — Return empty dict (not raise) for unknown tags.
+- `models.yaml` must contain entries for: `qwen3:8b`, `gemma3:4b`, `qwen2.5-coder:7b`, `llava:7b`.
+- Each entry must include: temperature, top_p, max_tokens, vram_gb, arabic_quality, reasoning, code_bias, vision, latency.
+- `src/models/profiles.py` must define `get_model_profile(model_tag)` returning the dict for that model.
+- The function must return an empty dict (not raise) for an unknown model tag.
 
 **SUCCESS CRITERIA:**
 - `get_model_profile("qwen3:8b")["vram_gb"]` returns `5.0`.
 - `get_model_profile("llava:7b")["vision"]` returns `True`.
-- `get_model_profile("nonexistent")` returns `{}`.
+- `get_model_profile("nonexistent")` returns `{}` without raising.
 
 ---
 
 ### TASK 1.5 — LLM engine with VRAM guard
 
-**DESCRIPTION:** Expand the engine with model tracking and safe swapping.
+**DESCRIPTION:** Expand the engine from Task 0.1 with model tracking and safe swapping.
 
-**INPUT:** Sequential calls to `swap_to()` with different model names.
+**INPUT:** A call to `swap_to("qwen3:8b")` followed by `swap_to("gemma3:4b")`.
 
-**OUTPUT:** Only one model active at a time. No OOM error.
+**OUTPUT:** Models swap without error. Only one model is active at a time.
 
 **FILES:**
 - MODIFY: `src/models/llm/engine.py`
 
 **REQUIREMENTS:**
-- 1.5.1 — Add a module-level variable tracking the currently active model name.
-- 1.5.2 — Define `get_active_model()` returning the current model tag or `None`.
-- 1.5.3 — Define `unload_current_model()` calling the Ollama API to release the model.
-- 1.5.4 — Define `swap_to(model)` that unloads the current model if it differs, then updates the tracker.
-- 1.5.5 — `swap_to` must log a `model.swap` event with `from` and `to` fields.
-- 1.5.6 — No function may raise on failure — log the error and return gracefully.
-- 1.5.7 — Define `stream_chat(message, model, system)` as a generator yielding response tokens.
+- Add a module-level variable tracking the currently active model name.
+- Add `get_active_model()` returning the current model tag or `None`.
+- Add `unload_current_model()` that calls the Ollama API to release the model from memory.
+- Add `swap_to(model)` that unloads the current model if it differs from the requested model, then sets the active model tracker.
+- `swap_to` must log the swap event.
+- No function may raise an exception on failure — log and return gracefully.
 
 **SUCCESS CRITERIA:**
 - After `swap_to("gemma3:4b")`, `get_active_model()` returns `"gemma3:4b"`.
 - After `swap_to("qwen3:8b")`, `get_active_model()` returns `"qwen3:8b"`.
-- No OOM error during the sequence.
+- No OOM error occurs during the sequence.
 
 ---
 
 ### TASK 1.6 — Environment variables
 
-**DESCRIPTION:** Document and load all required secrets.
+**DESCRIPTION:** Document and load all required secrets from a `.env` file.
 
-**INPUT:** `.env` file with keys set.
+**INPUT:** `.env` file with keys filled in.
 
-**OUTPUT:** Variables accessible via `os.environ`.
+**OUTPUT:** Environment variables accessible via `os.environ`.
 
 **FILES:**
 - CREATE: `.env.example`
-- CREATE: `.env` (copied from example by user)
+- CREATE: `.env` (copy from example; user fills in values)
 
 **REQUIREMENTS:**
-- 1.6.1 — `.env.example` must list all keys with empty values and a comment explaining each.
-- 1.6.2 — Required keys: `TELEGRAM_BOT_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `YOUTUBE_API_KEY`, `SESSION_ENCRYPTION_KEY`, `JARVIS_DEBUG`, `OLLAMA_HOST`.
-- 1.6.3 — `JARVIS_DEBUG` default: `0`. `OLLAMA_HOST` default: `http://localhost:11434`.
-- 1.6.4 — `SESSION_ENCRYPTION_KEY` comment must describe how to generate the value.
-- 1.6.5 — `.env` must appear in `.gitignore`.
-- 1.6.6 — `app/main.py` must call `load_dotenv()` before any `src.*` import.
+- `.env.example` must list all required keys with empty values.
+- Required keys: `TELEGRAM_BOT_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `YOUTUBE_API_KEY`, `SESSION_ENCRYPTION_KEY`, `JARVIS_DEBUG`, `OLLAMA_HOST`.
+- `SESSION_ENCRYPTION_KEY` must have a comment explaining how to generate it.
+- `JARVIS_DEBUG` must default to `0`.
+- `OLLAMA_HOST` must default to `http://localhost:11434`.
+- `.env` must be listed in `.gitignore`.
+- `app/main.py` must call `load_dotenv()` before any other import.
 
 **SUCCESS CRITERIA:**
-- `os.environ.get("JARVIS_DEBUG")` returns `"0"` after loading a default `.env`.
-- `.env` does not appear in `git status`.
+- `os.environ.get("JARVIS_DEBUG")` returns `"0"` after loading a `.env` file with that value.
+- `.env` does not appear in `git status` output.
 
 ---
 
@@ -352,188 +346,183 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 **INPUT:** A dict of preference updates.
 
-**OUTPUT:** Saved to `data/user_profile.json` and loadable after restart.
+**OUTPUT:** Preferences saved to `data/user_profile.json` and loadable after restart.
 
 **FILES:**
 - CREATE: `src/core/memory/user_profile.py`
 
 **REQUIREMENTS:**
-- 1.7.1 — Define `load_profile()` returning a dict. Return defaults if file does not exist.
-- 1.7.2 — Define `save_profile(updates)` merging updates into the existing profile and writing to disk.
-- 1.7.3 — Define `get_profile_value(key, default)`.
-- 1.7.4 — Default profile must include: name, language, style, tone, technical_level, timezone.
-- 1.7.5 — Default language: `"ar"`. Default style: `"balanced"`.
-- 1.7.6 — File path must be read from `get_settings().paths.data`.
+- Define `load_profile()` returning a dict. Return defaults if file does not exist.
+- Define `save_profile(updates)` merging updates into the existing profile and writing to disk.
+- Define `get_profile_value(key, default)` for reading individual values.
+- Default profile must include: name, language, style, tone, technical_level, timezone.
+- Language default must be `"ar"`. Style default must be `"balanced"`.
+- The file path must come from `get_settings().paths.data`.
 
 **SUCCESS CRITERIA:**
 - `save_profile({"language": "en"})` writes to disk.
 - After Python restarts, `load_profile()["language"]` returns `"en"`.
-- `load_profile()` returns defaults when no file exists.
+- `load_profile()` returns default values when no file exists.
 
 ---
 
 ### TASK 1.8 — Skills manifest
 
-**DESCRIPTION:** Create the tool registry manifest declaring all tools with their metadata.
+**DESCRIPTION:** Create the tool registry manifest YAML that declares all tools.
 
 **INPUT:** Nothing.
 
-**OUTPUT:** `config/skills.yaml` with every tool declared.
+**OUTPUT:** `config/skills.yaml` with all tools declared.
 
 **FILES:**
 - CREATE: `config/skills.yaml`
 
 **REQUIREMENTS:**
-- 1.8.1 — Every tool in README Section 14 must have an entry.
-- 1.8.2 — Each entry must include: id, enabled, category, module path, platform list, risk_level, schema path.
-- 1.8.3 — `risk_level` must match README Section 9 Risk Classification table exactly.
-- 1.8.4 — `delete_file`, `kill_process`, `send_email`, `send_message`, `whatsapp_send` → `risk_level: high`.
-- 1.8.5 — `execute_python`, `run_shell`, `open_app`, `close_app` → `risk_level: medium`.
-- 1.8.6 — `web_search`, `read_file`, `system_info`, `take_screenshot` → `risk_level: low`.
-- 1.8.7 — Tools with `enabled: false` must not be loaded by the registry.
-- 1.8.8 — File must be valid YAML parseable without error.
+- Every tool in the system must have an entry.
+- Each entry must include: id (snake_case), enabled (bool), category, module path, platform list, risk_level (low|medium|high), schema path.
+- `risk_level` must be set based on the Risk Classification table in README Section 8.
+- Tools with `enabled: false` must not be loaded by the registry.
+- `delete_file`, `kill_process`, `send_email`, `send_message` must have `risk_level: high`.
+- `execute_python`, `run_shell`, `open_app` must have `risk_level: medium`.
+- `web_search`, `read_file`, `system_info` must have `risk_level: low`.
 
 **SUCCESS CRITERIA:**
-- Every tool in README Section 14 has an entry.
-- No entry has a missing or empty `risk_level`.
-- File parses without YAML error.
+- Every tool mentioned in README Section 14 has an entry in the YAML.
+- No tool has a missing or empty `risk_level` field.
+- File is valid YAML (parseable without error).
 
 ---
 
 ### TASK 1.9 — main.py entry point
 
-**DESCRIPTION:** Create the single entry point that executes all Boot Flow steps.
+**DESCRIPTION:** Create the single executable entry point for the system.
 
 **INPUT:** `--interface cli` command-line argument.
 
-**OUTPUT:** All 12 Boot Flow steps from README Section 7 execute in order. "Jarvis ready" is logged.
+**OUTPUT:** The system boots through all 10 steps in the Boot Flow (README Section 7) and prints "Jarvis ready."
 
 **FILES:**
 - CREATE: `app/main.py`
 
 **REQUIREMENTS:**
-- 1.9.1 — Accept `--interface` with choices: cli, web, voice, telegram, gui, all.
-- 1.9.2 — Accept `--debug` flag.
-- 1.9.3 — Call `load_dotenv()` as the very first action before any `src.*` import.
-- 1.9.4 — Add project root to `sys.path` so `src.*` imports work.
-- 1.9.5 — Execute Boot Flow steps 1 through 12 in order.
-- 1.9.6 — Log each step's completion.
-- 1.9.7 — Catch `KeyboardInterrupt` and log "Jarvis stopped by user" before exiting cleanly.
-- 1.9.8 — Step 11 (memory) must not abort on Redis or ChromaDB failure — switch to fallback and log warning.
-- 1.9.9 — Step 11 must abort if SQLite fails.
+- Must parse `--interface` argument with choices: cli, web, voice, telegram, gui, all.
+- Must parse `--debug` flag.
+- Must execute Boot Flow steps 1 through 10 in order.
+- Must catch `KeyboardInterrupt` and log "Jarvis stopped by user" before exiting.
+- Must add the project root to `sys.path` so `src.*` imports work.
+- Must call `load_dotenv()` before importing anything from `src/`.
+- Each boot step must log its completion.
 
 **SUCCESS CRITERIA:**
-- `python app/main.py --interface cli` executes all steps without error.
-- "Jarvis ready" appears in `logs/jarvis.log`.
+- `python app/main.py --interface cli` executes all boot steps without error.
+- "Jarvis ready" appears in the log.
 - `Ctrl+C` exits without a traceback.
 
 ---
 
-## 📦 Phase 2 — Execution Contract
+## 📦 Phase 2 — Execution Contract Implementation
 
-> **End state:** All five contract types are defined as Pydantic models and used across all phases. No raw dicts flow between layers.
+> **End state:** All four contract types (`InputPacket`, `DecisionOutput`, `LLMOutput`, `ToolResult`) are defined as Pydantic models and used across all phases.
 
 ---
 
-### TASK 2.1 — InputPacket model
+### TASK 2.1 — Define InputPacket
 
-**DESCRIPTION:** Define the `InputPacket` Pydantic model as specified in README Section 3.
+**DESCRIPTION:** Create the `InputPacket` Pydantic model as defined in README Section 3.
 
-**INPUT:** User message and session ID.
+**INPUT:** A user message string and session ID.
 
-**OUTPUT:** An `InputPacket` instance with all fields populated and type-safe.
+**OUTPUT:** An `InputPacket` instance with all fields populated.
 
 **FILES:**
 - CREATE: `src/core/context/bundle.py`
 
 **REQUIREMENTS:**
-- 2.1.1 — Define `InputPacket` with all fields from README Section 3: user_message, session_id, attachments, memory_snippets, recent_history, user_profile, tool_results, turn_number.
-- 2.1.2 — Define supporting types: `Attachment`, `Message`, `UserProfile` as Pydantic models.
-- 2.1.3 — Import `ToolResult` from `src/core/tools/result.py` (created in Task 2.4) to avoid duplication.
-- 2.1.4 — All list fields must default to empty lists.
-- 2.1.5 — No field may use `Any` as a type.
-- 2.1.6 — All optional fields must have explicit defaults.
+- Define `InputPacket` with all fields from the Execution Contract: user_message, session_id, attachments, memory_snippets, recent_history, user_profile, tool_results, turn_number.
+- Define supporting types: `Attachment`, `Message`, `UserProfile`, `ToolResult` as Pydantic models.
+- All list fields must default to empty lists.
+- All optional fields must have explicit defaults.
+- No field may have an ambiguous type (no `Any`).
 
 **SUCCESS CRITERIA:**
 - `InputPacket(user_message="hello", session_id="s1")` instantiates without error.
-- All fields are accessible with their declared types.
-- Assigning a wrong type raises a Pydantic `ValidationError`.
+- All fields accessible with correct types.
+- Attempting to assign a wrong type to a field raises a Pydantic validation error.
 
 ---
 
-### TASK 2.2 — DecisionOutput model
+### TASK 2.2 — Define DecisionOutput
 
-**DESCRIPTION:** Define the `DecisionOutput` Pydantic model as specified in README Section 3.
+**DESCRIPTION:** Create the `DecisionOutput` Pydantic model as defined in README Section 3.
 
-**INPUT:** Raw classification dict.
+**INPUT:** Raw classification output.
 
-**OUTPUT:** A typed `DecisionOutput` instance.
+**OUTPUT:** A `DecisionOutput` instance with all required fields.
 
 **FILES:**
 - CREATE: `src/core/decision/decision.py`
 
 **REQUIREMENTS:**
-- 2.2.1 — Define `DecisionOutput` with all fields from README Section 3.
-- 2.2.2 — `intent` must be constrained to the allowed values list.
-- 2.2.3 — `complexity` must be constrained to: low, medium, high.
-- 2.2.4 — `mode` must be constrained to: fast, normal, deep, planning, research.
-- 2.2.5 — `risk_level` must be constrained to: low, medium, high.
-- 2.2.6 — `tool_name` must allow `None`.
-- 2.2.7 — `tool_args` must default to `{}`.
-- 2.2.8 — `confidence` must be a float between 0.0 and 1.0 (use Pydantic validator).
+- Define `DecisionOutput` with all fields from the Execution Contract: intent, complexity, mode, model, requires_tools, requires_planning, tool_name, tool_args, confidence, risk_level.
+- `intent` must be constrained to the allowed values.
+- `complexity` must be constrained to: low, medium, high.
+- `mode` must be constrained to: fast, normal, deep, planning, research.
+- `risk_level` must be constrained to: low, medium, high.
+- `tool_name` must allow `None`.
+- `tool_args` must default to `{}`.
 
 **SUCCESS CRITERIA:**
-- A valid `DecisionOutput` instantiates without error.
-- Setting `intent="invalid_value"` raises a `ValidationError`.
-- Setting `confidence=1.5` raises a `ValidationError`.
+- `DecisionOutput(intent="chat", complexity="low", mode="fast", model="gemma3:4b", requires_tools=False, requires_planning=False, confidence=0.9, risk_level="low")` instantiates without error.
+- Setting `intent="invalid"` raises a validation error.
 
 ---
 
-### TASK 2.3 — LLMOutput model and parser
+### TASK 2.3 — Define LLMOutput
 
-**DESCRIPTION:** Define the `LLMOutput` model and the function that parses raw LLM text into it.
+**DESCRIPTION:** Create the `LLMOutput` Pydantic model as defined in README Section 3.
 
-**INPUT:** Raw LLM response string and a `requires_tools` bool.
+**INPUT:** Raw string from an LLM response.
 
-**OUTPUT:** `LLMOutput` with `type` set to either `"answer"` or `"tool_call"`.
+**OUTPUT:** An `LLMOutput` instance with `type` set to either `"answer"` or `"tool_call"`.
 
 **FILES:**
 - CREATE: `src/core/runtime/llm_output.py`
 
 **REQUIREMENTS:**
-- 2.3.1 — Define `LLMOutput` with fields: type, content, tool, args.
-- 2.3.2 — `type` must be constrained to: `"answer"` or `"tool_call"`.
-- 2.3.3 — Define `parse_llm_output(raw_text, requires_tools)` returning `LLMOutput`.
-- 2.3.4 — Attempt to extract a JSON block from the raw text using first `{` to last `}`.
-- 2.3.5 — If JSON found and `requires_tools=True`: return `LLMOutput(type="tool_call", ...)`.
-- 2.3.6 — If no JSON and `requires_tools=False`: return `LLMOutput(type="answer", content=raw_text)`.
-- 2.3.7 — If `requires_tools=True` and no valid JSON found: return `LLMOutput(type="tool_call", tool="")` as the parse failure indicator.
-- 2.3.8 — No exception may escape this function.
+- Define `LLMOutput` with fields: type, content, tool, args.
+- `type` must be constrained to: `"answer"` | `"tool_call"`.
+- `content` is populated when `type="answer"`.
+- `tool` and `args` are populated when `type="tool_call"`.
+- Define `parse_llm_output(raw_text, requires_tools)` that:
+  - Attempts to extract JSON matching `{"type": "tool_call", "tool": "...", "args": {...}}` from the text.
+  - Returns `LLMOutput(type="tool_call", ...)` if JSON found and `requires_tools=True`.
+  - Returns `LLMOutput(type="answer", content=raw_text)` if no JSON found and `requires_tools=False`.
+  - Returns `LLMOutput(type="tool_call", tool="", args={})` with a parse failure marker if `requires_tools=True` but no valid JSON found.
 
 **SUCCESS CRITERIA:**
-- Valid tool call JSON in input → `LLMOutput(type="tool_call", tool="open_app")`.
-- Plain text with `requires_tools=False` → `LLMOutput(type="answer")`.
-- Non-JSON text with `requires_tools=True` → `LLMOutput(type="tool_call", tool="")` (parse failure marker).
+- Parsing `'{"type":"tool_call","tool":"open_app","args":{"name":"chrome"}}'` returns `LLMOutput(type="tool_call", tool="open_app")`.
+- Parsing `"Paris is the capital of France."` with `requires_tools=False` returns `LLMOutput(type="answer")`.
+- Parsing non-JSON text with `requires_tools=True` returns a `tool_call` type with empty tool name (parse failure marker).
 
 ---
 
-### TASK 2.4 — ToolResult model
+### TASK 2.4 — Define ToolResult (execution layer)
 
-**DESCRIPTION:** Define the `ToolResult` Pydantic model as specified in README Section 3.
+**DESCRIPTION:** Create the `ToolResult` Pydantic model as defined in README Section 3.
 
-**INPUT:** Output from `tool.execute()`.
+**INPUT:** Results from `tool.execute()`.
 
-**OUTPUT:** A typed `ToolResult` instance.
+**OUTPUT:** A `ToolResult` instance with success status, data, and metadata.
 
 **FILES:**
 - CREATE: `src/core/tools/result.py`
 
 **REQUIREMENTS:**
-- 2.4.1 — Define `ToolResult` with fields: tool, success, data, error, duration_ms.
-- 2.4.2 — `data` defaults to `{}`.
-- 2.4.3 — `error` defaults to `""`.
-- 2.4.4 — `duration_ms` defaults to `0.0`.
-- 2.4.5 — This is the single definition. Import it in `bundle.py` to avoid duplication.
+- Define `ToolResult` with fields: tool, success, data, error, duration_ms.
+- `data` must default to `{}`.
+- `error` must default to `""`.
+- `duration_ms` must default to `0.0`.
+- Import `ToolResult` from `src/core/context/bundle.py` OR define it once here and import it in `bundle.py` — no duplicate definitions.
 
 **SUCCESS CRITERIA:**
 - `ToolResult(tool="open_app", success=True, data={"pid": 123})` instantiates without error.
@@ -541,21 +530,21 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 ---
 
-### TASK 2.5 — FinalResponse model
+### TASK 2.5 — Define FinalResponse
 
-**DESCRIPTION:** Define the `FinalResponse` type used as the output of `run_turn()`.
+**DESCRIPTION:** Create the `FinalResponse` type used as the output of `run_turn()`.
 
 **INPUT:** Approved response text with metadata.
 
-**OUTPUT:** A typed `FinalResponse` instance returned to the interface.
+**OUTPUT:** A `FinalResponse` instance returned to the interface layer.
 
 **FILES:**
 - CREATE: `src/core/runtime/final_response.py`
 
 **REQUIREMENTS:**
-- 2.5.1 — Define `FinalResponse` with fields: text, session_id, model, mode, quality.
-- 2.5.2 — All fields are required with no defaults.
-- 2.5.3 — The interface layer must only access `FinalResponse.text` for display.
+- Define `FinalResponse` with fields: text, session_id, model, mode, quality.
+- All fields are required. No defaults.
+- The interface layer must accept `FinalResponse` and display `text` to the user.
 
 **SUCCESS CRITERIA:**
 - `FinalResponse(text="hello", session_id="s1", model="qwen3:8b", mode="normal", quality=0.85)` instantiates without error.
@@ -564,20 +553,20 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 ### TASK 2.6 — Contract validation tests
 
-**DESCRIPTION:** Verify all five contract types enforce their schemas.
+**DESCRIPTION:** Write tests confirming all five contract types enforce their schemas correctly.
 
-**INPUT:** Valid and invalid field combinations for each type.
+**INPUT:** Valid and invalid field combinations.
 
-**OUTPUT:** Pydantic raises on invalid input. Accepts valid input.
+**OUTPUT:** Pydantic raises on invalid; accepts on valid.
 
 **FILES:**
 - CREATE: `tests/test_contracts.py`
 
 **REQUIREMENTS:**
-- 2.6.1 — Test each model with at least one valid instantiation.
-- 2.6.2 — Test each model with at least one invalid field value that should raise `ValidationError`.
-- 2.6.3 — Test `parse_llm_output` with all three cases from Task 2.3.
-- 2.6.4 — No Ollama calls in this test file — pure Pydantic tests.
+- Test that each model raises `ValidationError` on invalid field values.
+- Test that each model accepts valid field values.
+- Test `parse_llm_output` with all three cases from Task 2.3.
+- No real Ollama calls in this test file — pure type system tests.
 
 **SUCCESS CRITERIA:**
 - `pytest tests/test_contracts.py` passes with 0 failures.
@@ -586,7 +575,7 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 ## 🔄 Phase 3 — Runtime Loop
 
-> **End state:** A complete turn executes end-to-end through all five stages: assemble → decide → think → act → evaluate → return.
+> **End state:** A complete turn executes: InputPacket assembled → decision made → LLM called → response or tool call returned → evaluator approves or escalates → FinalResponse returned.
 
 ---
 
@@ -602,22 +591,22 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/context/assembler.py`
 
 **REQUIREMENTS:**
-- 3.1.1 — Define `assemble_context(user_message, session_id, attachments)` returning `InputPacket`.
-- 3.1.2 — Load user profile via `load_profile()` and attach to `user_profile` field.
-- 3.1.3 — Set `memory_snippets` and `recent_history` to empty lists. Phase 11 wires in the real calls.
-- 3.1.4 — Track `turn_number` per session using a module-level dict. Increment on each call.
-- 3.1.5 — Never raise on valid input.
+- Define `assemble_context(user_message, session_id, attachments)` returning `InputPacket`.
+- Must load user profile via `load_profile()`.
+- Memory fields (`memory_snippets`, `recent_history`) must be populated with empty lists in this phase. Phase 11 will wire in the actual memory calls.
+- Must track and increment `turn_number` per session using a module-level dict.
+- Must not raise on any valid input.
 
 **SUCCESS CRITERIA:**
 - `assemble_context("hello", "s1")` returns an `InputPacket` with `user_message="hello"`.
-- `turn_number` increments across calls with the same session ID.
-- `user_profile.language` is populated from the profile file.
+- `turn_number` increments on repeated calls with the same session ID.
+- `user_profile.language` is populated from the user profile file.
 
 ---
 
 ### TASK 3.2 — Decision function
 
-**DESCRIPTION:** Implement `decide()` that produces `DecisionOutput` from an `InputPacket`.
+**DESCRIPTION:** Implement the `decide()` function that produces `DecisionOutput` from an `InputPacket`.
 
 **INPUT:** `InputPacket`.
 
@@ -627,23 +616,23 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - MODIFY: `src/core/decision/decision.py`
 
 **REQUIREMENTS:**
-- 3.2.1 — Define `decide(packet) → DecisionOutput`.
-- 3.2.2 — Implement fast-path rules before any LLM call, as defined in README Section 11.
-- 3.2.3 — For non-fast-path cases, call `classify(packet.user_message)`.
-- 3.2.4 — Map the returned dict to a `DecisionOutput` instance.
-- 3.2.5 — On classifier failure, return a safe default `DecisionOutput` with `intent="chat"`.
-- 3.2.6 — Populate `risk_level` by looking up `tool_name` in `config/skills.yaml`. Default to `"low"` if not found.
+- Define `decide(packet: InputPacket) → DecisionOutput`.
+- Implement fast-path rules first (no LLM call): image in attachments → vision; message < 20 chars and no action keywords → fast chat.
+- For all other cases, call `classify(packet.user_message)` from `classifier.py`.
+- Map the raw classification dict to a `DecisionOutput` instance.
+- Handle classifier failure by returning a safe default `DecisionOutput`.
+- The `risk_level` on `DecisionOutput` must be read from `config/skills.yaml` for the classified `tool_name`. If no tool or tool not found, default to `"low"`.
 
 **SUCCESS CRITERIA:**
-- `decide(assemble_context("hello", "s1"))` returns `intent="chat"`.
+- `decide(assemble_context("hello", "s1"))` returns `DecisionOutput` with `intent="chat"`.
 - `decide(assemble_context("open chrome", "s1"))` returns `tool_name="open_app"`.
-- A classifier exception does not propagate — fallback is returned.
+- A classifier exception does not propagate — a fallback `DecisionOutput` is returned.
 
 ---
 
 ### TASK 3.3 — Executor (think step)
 
-**DESCRIPTION:** Implement `execute_turn()` that calls the model and returns `LLMOutput`.
+**DESCRIPTION:** Implement the `execute_turn()` function that calls the LLM and returns `LLMOutput`.
 
 **INPUT:** `DecisionOutput`, `InputPacket`.
 
@@ -653,52 +642,53 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/runtime/executor.py`
 
 **REQUIREMENTS:**
-- 3.3.1 — Define `execute_turn(decision, packet) → LLMOutput`.
-- 3.3.2 — Call `swap_to(decision.model)` before calling the model.
-- 3.3.3 — Call `build_system_prompt()` from the Prompt Builder. Use a stub returning empty string until Phase 5.
-- 3.3.4 — Construct the message list from the system prompt and user message.
-- 3.3.5 — Call `stream_chat()` and collect all tokens into a complete string.
-- 3.3.6 — Pass the complete string to `parse_llm_output(raw, decision.requires_tools)`.
-- 3.3.7 — Return the resulting `LLMOutput`.
-- 3.3.8 — On any Ollama error, return `LLMOutput(type="answer", content="<error message>")` without raising.
+- Define `execute_turn(decision, packet)` returning `LLMOutput`.
+- Must call `swap_to(decision.model)` before calling the LLM.
+- Must call `build_system_prompt()` from the Prompt Builder (Phase 5) — use a stub that returns an empty string until Phase 5 is complete.
+- Must construct the message list from the system prompt and the user message.
+- Must call `stream_chat()` and collect all tokens into a full string.
+- Must pass the full string to `parse_llm_output(raw, decision.requires_tools)`.
+- Must return the parsed `LLMOutput`.
 
 **SUCCESS CRITERIA:**
-- `execute_turn(decision, packet)` returns an `LLMOutput` with non-empty `content` or valid `tool` name.
-- An Ollama error returns an `LLMOutput(type="answer")` rather than raising.
+- `execute_turn(decision, packet)` returns an `LLMOutput` with a non-empty `content` or a valid `tool` name.
+- An Ollama error returns `LLMOutput(type="answer", content="I encountered an error...")` rather than raising.
 
 ---
 
 ### TASK 3.4 — Evaluator
 
-**DESCRIPTION:** Implement the function that scores a response and decides if retry is needed.
+**DESCRIPTION:** Implement the evaluator that scores a response and decides if retry is needed.
 
 **INPUT:** `LLMOutput`, `DecisionOutput`.
 
-**OUTPUT:** `EvalResult` with quality score and retry flag.
+**OUTPUT:** `EvalResult(quality, should_retry, reason)`.
 
 **FILES:**
 - CREATE: `src/core/runtime/evaluator.py`
 
 **REQUIREMENTS:**
-- 3.4.1 — Define `EvalResult` as a Pydantic model with fields: quality (float 0–1), should_retry (bool), reason (str).
-- 3.4.2 — Define `evaluate(output, decision) → EvalResult`.
-- 3.4.3 — Empty or whitespace-only `content` → quality=0.0, retry=True, reason="empty response".
-- 3.4.4 — `complexity == "high"` and `len(content) < 80` → quality=0.3, retry=True, reason="too short for complex task".
-- 3.4.5 — `requires_tools=True` and `output.type="answer"` and `len(content) < 50` → quality=0.4, retry=True, reason="expected tool call".
-- 3.4.6 — All other cases → quality=0.85, retry=False.
-- 3.4.7 — No model calls or external calls.
+- Define `EvalResult` as a Pydantic model with fields: quality (float 0–1), should_retry (bool), reason (str).
+- Define `evaluate(output, decision) → EvalResult`.
+- Rules:
+  - `output.content` empty or whitespace only → quality=0.0, retry=True.
+  - `decision.complexity == "high"` and `len(output.content) < 80` → quality=0.3, retry=True.
+  - `decision.requires_tools=True` and `output.type="answer"` and response is short → quality=0.4, retry=True.
+  - All other cases → quality=0.85, retry=False.
+- Must not call any model or external service.
 
 **SUCCESS CRITERIA:**
 - Empty content → `should_retry=True`.
-- Valid answer for a simple question → `should_retry=False`.
+- Valid answer for simple question → `should_retry=False`.
+- Rules match the conditions listed above exactly.
 
 ---
 
 ### TASK 3.5 — Runtime loop
 
-**DESCRIPTION:** Implement `run_turn()` driving the full cycle as defined in README Section 4.
+**DESCRIPTION:** Implement the main `run_turn()` function that drives the full cycle.
 
-**INPUT:** User message string, session ID, optional attachments.
+**INPUT:** User message string, session ID.
 
 **OUTPUT:** `FinalResponse`.
 
@@ -706,21 +696,20 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/runtime/loop.py`
 
 **REQUIREMENTS:**
-- 3.5.1 — Define `run_turn(user_input, session_id, attachments) → FinalResponse`.
-- 3.5.2 — Define `run_turn_streaming(user_input, session_id, attachments)` as a generator yielding string tokens.
-- 3.5.3 — Implement the loop exactly as described in README Section 4.
-- 3.5.4 — Read `max_iterations` from `get_settings().runtime.max_iterations`.
-- 3.5.5 — On tool call: call `execute_tool(output.tool, output.args)`, append `ToolResult` to `packet.tool_results`, continue loop.
-- 3.5.6 — On tool call with empty `tool` field (parse failure): return error `FinalResponse` immediately.
-- 3.5.7 — On approved answer: return `FinalResponse`.
-- 3.5.8 — On loop exhaustion: return `FinalResponse` with last content and exhaustion note.
-- 3.5.9 — Emit EventBus events: `turn.start`, `decision`, `turn.end`.
-- 3.5.10 — Memory saves are stub calls in this phase. Phase 11 replaces the stubs.
+- Define `run_turn(user_input, session_id, attachments) → FinalResponse`.
+- Define `run_turn_streaming(user_input, session_id, attachments)` as a generator yielding string tokens.
+- Implement the loop exactly as described in README Section 4 (Runtime Loop).
+- Read `max_iterations` from `get_settings().runtime.max_iterations`.
+- On tool call: call `execute_tool(output.tool, output.args)` from Phase 6, append result to `packet.tool_results`, and continue the loop.
+- On approved answer: build and return `FinalResponse`.
+- When `max_iterations` is exhausted: return `FinalResponse` with the last generated content and a note that iterations were exhausted.
+- Emit EventBus events: `turn.start`, `decision`, `turn.end`.
+- All memory saving (Phase 11) is wired here as stub calls that do nothing until Phase 11 is implemented.
 
 **SUCCESS CRITERIA:**
 - `run_turn("what is AI?", "s1")` returns a `FinalResponse` with non-empty `text`.
 - `run_turn("open notepad", "s1")` triggers the tool path and opens Notepad.
-- The loop runs at most `max_iterations` times.
+- Loop does not run more than `max_iterations` times.
 
 ---
 
@@ -728,36 +717,36 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 **DESCRIPTION:** Implement the publish-subscribe event system.
 
-**INPUT:** Event name string and data dict.
+**INPUT:** An event name and a data dict.
 
-**OUTPUT:** All registered handlers receive the data.
+**OUTPUT:** All registered handlers for that event receive the data.
 
 **FILES:**
 - CREATE: `src/core/events.py`
 
 **REQUIREMENTS:**
-- 3.6.1 — Define `EventBus` with methods: `subscribe(event, handler)`, `unsubscribe(event, handler)`, `emit(event, data)`.
-- 3.6.2 — Define a module-level singleton `bus`.
-- 3.6.3 — `emit` must not raise if a handler raises — log the error and continue to remaining handlers.
-- 3.6.4 — No external dependencies.
+- Define `EventBus` class with `subscribe(event, handler)`, `unsubscribe(event, handler)`, and `emit(event, data)` methods.
+- Define a module-level singleton `bus`.
+- `emit` must not raise if a handler raises — log the error and continue to other handlers.
+- No external dependencies — pure Python.
 
 **SUCCESS CRITERIA:**
 - Subscribe a handler to `"turn.end"`. Call `bus.emit("turn.end", {"text": "hi"})`. Handler is called with the dict.
-- A handler that raises does not prevent remaining handlers from running.
+- A handler that raises does not prevent other handlers from running.
 
 ---
 
 ## 🎯 Phase 4 — Decision System
 
-> **End state:** All intent types classified correctly. Correct model selected per intent. Risk level populated on every `DecisionOutput`.
+> **End state:** All intent types classified correctly. Correct model selected for each intent. Risk level populated on every `DecisionOutput`.
 
 ---
 
-### TASK 4.1 — Classifier hardening
+### TASK 4.1 — Classifier with robust JSON parsing
 
-**DESCRIPTION:** Harden the classifier to handle all LLM output variations without failure.
+**DESCRIPTION:** Harden the classifier to handle all LLM output variations.
 
-**INPUT:** Any non-empty user message.
+**INPUT:** Any user message string.
 
 **OUTPUT:** Always returns a valid dict matching the `DecisionOutput` schema fields.
 
@@ -765,24 +754,23 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - MODIFY: `src/core/decision/classifier.py`
 
 **REQUIREMENTS:**
-- 4.1.1 — Extract JSON by finding first `{` and last `}` in the response.
-- 4.1.2 — Strip all markdown code block markers before parsing.
-- 4.1.3 — Verify all required fields are present after parsing.
-- 4.1.4 — Retry with explicit correction instruction if any required field is missing.
-- 4.1.5 — Return safe fallback dict after 2 retries.
-- 4.1.6 — Log each retry and each fallback at WARNING level.
-- 4.1.7 — No exception may escape the function.
+- Extract JSON from LLM output by finding the first `{` and last `}` in the response string.
+- Strip markdown code block markers before parsing.
+- Validate that all required fields are present in the parsed dict.
+- Retry with an explicit correction instruction if any required field is missing.
+- Return a safe fallback dict after 2 failed retries.
+- Log each retry and each fallback event.
 
 **SUCCESS CRITERIA:**
-- Returns valid dict for any non-empty string input.
-- Returns fallback dict when model responds with pure prose.
-- No exception reaches the caller.
+- Classifier returns a valid dict for any non-empty string input.
+- Classifier returns the fallback dict when the model responds with free text.
+- No exception escapes the function.
 
 ---
 
-### TASK 4.2 — Fast-path rules
+### TASK 4.2 — Fast-path classification rules
 
-**DESCRIPTION:** Implement the no-LLM fast path for obvious classification cases.
+**DESCRIPTION:** Implement the no-LLM fast path for obvious cases.
 
 **INPUT:** `InputPacket`.
 
@@ -792,54 +780,54 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - MODIFY: `src/core/decision/decision.py`
 
 **REQUIREMENTS:**
-- 4.2.1 — Implement all fast-path rules from README Section 11.
-- 4.2.2 — Fast path must run before any LLM call attempt.
-- 4.2.3 — Log each fast-path match at DEBUG level.
-- 4.2.4 — Do not apply fast path if message contains any of these keywords: open, close, send, search, find, create, delete, run.
+- Implement all fast-path rules from README Section 11.
+- Fast path must run before any LLM call.
+- Each fast-path rule must have a corresponding log line at DEBUG level.
+- Fast path must not be applied if the message contains known tool action keywords (open, close, send, search, find, create, delete, run).
 
 **SUCCESS CRITERIA:**
-- A 5-character message with no action keywords routes to fast chat without triggering an Ollama call.
+- A message of 5 characters with no action keywords routes to fast chat without any Ollama call (verify by checking `get_active_model()` is unchanged).
 - An image in attachments routes to `llava:7b` via fast path.
 
 ---
 
 ### TASK 4.3 — Risk level population
 
-**DESCRIPTION:** Populate `risk_level` on `DecisionOutput` from the skills manifest.
+**DESCRIPTION:** Populate `risk_level` on `DecisionOutput` based on `config/skills.yaml`.
 
-**INPUT:** `tool_name` from classification result.
+**INPUT:** `tool_name` from classification.
 
-**OUTPUT:** `DecisionOutput.risk_level` set to the correct value.
+**OUTPUT:** `DecisionOutput.risk_level` set to the correct value from the manifest.
 
 **FILES:**
 - MODIFY: `src/core/decision/decision.py`
 
 **REQUIREMENTS:**
-- 4.3.1 — Load `config/skills.yaml` once at module import time.
-- 4.3.2 — Look up `risk_level` for the classified `tool_name`.
-- 4.3.3 — If `tool_name` is `None` or not found, set `risk_level="low"`.
+- Load `config/skills.yaml` once at module import time.
+- When a `tool_name` is present on `DecisionOutput`, look up its `risk_level` in the loaded manifest.
+- If `tool_name` is `None` or not found in the manifest, set `risk_level="low"`.
 
 **SUCCESS CRITERIA:**
-- A decision for `delete_file` returns `risk_level="high"`.
-- A decision for a conversational message returns `risk_level="low"`.
+- `decide(assemble_context("delete my desktop files", "s1"))` returns `risk_level="high"`.
+- `decide(assemble_context("what is AI?", "s1"))` returns `risk_level="low"`.
 
 ---
 
 ### TASK 4.4 — Escalation chain
 
-**DESCRIPTION:** Define the mode and model escalation sequence.
+**DESCRIPTION:** Define and implement the mode/model escalation sequence used by the runtime loop.
 
 **INPUT:** Current mode and model strings.
 
-**OUTPUT:** Next mode and model, or `None` if at maximum.
+**OUTPUT:** Next mode and model strings, or `None` if already at maximum.
 
 **FILES:**
 - CREATE: `src/core/runtime/escalation.py`
 
 **REQUIREMENTS:**
-- 4.4.1 — Define the chain as three levels: fast/gemma3:4b → normal/qwen3:8b → deep/qwen3:8b.
-- 4.4.2 — Define `get_next_escalation(current_mode, current_model) → tuple | None`.
-- 4.4.3 — The function must be pure (no side effects, no external calls).
+- Define the chain as: fast/gemma3:4b → normal/qwen3:8b → deep/qwen3:8b.
+- Define `get_next_escalation(current_mode, current_model)` returning a tuple `(mode, model)` or `None`.
+- The function must be pure (no side effects, no external calls).
 
 **SUCCESS CRITERIA:**
 - `get_next_escalation("fast", "gemma3:4b")` returns `("normal", "qwen3:8b")`.
@@ -851,7 +839,7 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 **DESCRIPTION:** Test all routing rules and the escalation chain.
 
-**INPUT:** Various test message strings.
+**INPUT:** Various test messages.
 
 **OUTPUT:** Correct `DecisionOutput` for each.
 
@@ -859,12 +847,12 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `tests/test_decision.py`
 
 **REQUIREMENTS:**
-- 4.5.1 — Test that code-intent messages route to `qwen2.5-coder:7b`.
-- 4.5.2 — Test that Arabic tool commands route to `intent="tool_use"`.
-- 4.5.3 — Test that image-attached packets route to `model="llava:7b"`.
-- 4.5.4 — Test the fast path produces output without an Ollama call.
-- 4.5.5 — Test the escalation chain from Task 4.4.
-- 4.5.6 — Mock `classify()` — no real Ollama calls.
+- Test that "code"-intent messages route to `qwen2.5-coder:7b`.
+- Test that Arabic tool commands route to `tool_use` intent.
+- Test that image-attached packets route to `llava:7b`.
+- Test the fast path (short message, no action keywords, no LLM call).
+- Test the escalation chain from Task 4.4.
+- No real Ollama calls — mock the `classify` function.
 
 **SUCCESS CRITERIA:**
 - `pytest tests/test_decision.py` passes with 0 failures.
@@ -873,61 +861,69 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 ## 📝 Phase 5 — Prompt Builder
 
-> **End state:** Every LLM call receives a system prompt assembled from the components in README Section 10 in the defined order.
+> **End state:** Every LLM call receives a system prompt assembled from the components in README Section 10 in the correct order.
 
 ---
 
 ### TASK 5.1 — Jarvis identity YAML
 
-**DESCRIPTION:** Create the identity definition file.
+**DESCRIPTION:** Create the identity definition file that all prompt assembly depends on.
 
 **INPUT:** Nothing.
 
-**OUTPUT:** `config/jarvis_identity.yaml` with all required fields.
+**OUTPUT:** `config/jarvis_identity.yaml` with all required fields present and non-empty.
 
 **FILES:**
 - CREATE: `config/jarvis_identity.yaml`
 
 **REQUIREMENTS:**
-- 5.1.1 — Include: name, role, component_notice, safety_rules (list), language_behavior.
-- 5.1.2 — `component_notice` must state that the model is a component of Jarvis, not the underlying weights.
-- 5.1.3 — `safety_rules` must include rules on: credentials, destructive actions, uncertainty, and privacy.
-- 5.1.4 — `language_behavior` must have entries for both `ar` and `en` with: greeting, affirmation, style.
+- Step 1: Create the file with a top-level `name` field set to `"Jarvis"`.
+- Step 2: Add `role` describing the assistant's function in one sentence.
+- Step 3: Add `component_notice` stating that the model is a component of Jarvis and must not identify itself as the underlying LLM.
+- Step 4: Add `safety_rules` as a list with at minimum four entries covering: credentials must never be shared; destructive actions require explicit user approval; uncertainty must be stated, not fabricated; private data must not be logged or repeated.
+- Step 5: Add `language_behavior` with entries for `ar` and `en`, each containing: greeting, affirmation, and style fields.
+- Step 6: Validate the file parses without error.
 
 **SUCCESS CRITERIA:**
-- File is valid YAML.
-- All required keys are present and non-empty.
+- File is valid YAML and loads without error.
+- All six fields listed above are present and non-empty.
+- `language_behavior` contains entries for both `ar` and `en`.
 
 ---
 
 ### TASK 5.2 — Mode fragments
 
-**DESCRIPTION:** Create the instruction fragments for each thinking mode.
+**DESCRIPTION:** Create the text fragments that define each thinking mode's response behavior.
 
 **INPUT:** A mode string.
 
-**OUTPUT:** The corresponding instruction text.
+**OUTPUT:** The corresponding instruction fragment as a string.
 
 **FILES:**
 - CREATE: `src/core/identity/personality.py`
 
 **REQUIREMENTS:**
-- 5.2.1 — Define `MODE_FRAGMENTS` dict with entries for: fast, normal, deep, planning, research.
-- 5.2.2 — Each value must be a one-to-three sentence instruction matching README Section 10.
-- 5.2.3 — Define `get_mode_fragment(mode)` returning the fragment or `""` for unknown modes.
+- Step 1: Create the file and define a dict named `MODE_FRAGMENTS`.
+- Step 2: Add an entry for `fast`: one to three sentences instructing concise output with no elaboration.
+- Step 3: Add an entry for `normal`: instructs complete, well-structured response.
+- Step 4: Add an entry for `deep`: instructs step-by-step reasoning with self-verification.
+- Step 5: Add an entry for `planning`: instructs decomposing into numbered steps before acting.
+- Step 6: Add an entry for `research`: instructs citing each claim from multiple sources and summarizing at the end.
+- Step 7: Define `get_mode_fragment(mode: str) -> str` that returns the fragment or an empty string for unknown modes. Must not raise on any input.
 
 **SUCCESS CRITERIA:**
 - `get_mode_fragment("fast")` returns a non-empty string.
-- `get_mode_fragment("unknown")` returns `""` without raising.
+- `get_mode_fragment("unknown_mode")` returns `""` without raising.
 - All five modes have distinct, non-empty fragments.
+- Each fragment matches the description in README Section 10.
 
 ---
 
 ### TASK 5.3 — System prompt builder
 
-**DESCRIPTION:** Implement the central `build_system_prompt()` function.
+**DESCRIPTION:** Implement the three public functions that build the complete system prompt. All three functions are required. They are called by the executor on every LLM call.
 
-**INPUT:** task_context, mode, tools list, previous_model, current_model.
+**INPUT:** task context string, mode string, tool list, previous model string or None, current model string.
 
 **OUTPUT:** A complete system prompt string.
 
@@ -935,108 +931,109 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/identity/builder.py`
 
 **REQUIREMENTS:**
-- 5.3.1 — Define `build_system_prompt(task_context, mode, tools, previous_model, current_model) → str`.
-- 5.3.2 — Assemble blocks in the exact order from README Section 10.
-- 5.3.3 — Load identity from `config/jarvis_identity.yaml` once at import time.
-- 5.3.4 — Load user profile on each call via `load_profile()`.
-- 5.3.5 — Include block 6 (tool list) only if `tools` is non-empty.
-- 5.3.6 — Include block 7 (handoff note) only if `previous_model` differs from `current_model` and is not `None`.
-- 5.3.7 — Tool list must include tool name and description only — no schema details.
+- Step 1: Create the file. Load `config/jarvis_identity.yaml` at module import time into a module-level variable. Never reload it on each call.
+- Step 2: Define `inject_identity(parts: list) -> None`. This function appends the identity block (name, role, component_notice) and the safety rules block to the `parts` list. It reads from the cached YAML.
+- Step 3: Define `inject_mode(parts: list, mode: str) -> None`. This function appends the mode fragment for the given mode by calling `get_mode_fragment(mode)`. If the mode is unknown, the block is omitted silently.
+- Step 4: Define `build_system_prompt(task_context, mode, tools, previous_model, current_model) -> str`. This function builds the complete prompt by: calling `inject_identity(parts)`; appending the user profile block via `load_profile()`; calling `inject_mode(parts, mode)`; appending the task context block; appending the tool list block only when `tools` is non-empty; appending the handoff note block only when `previous_model` is not None and differs from `current_model`; joining all parts with double newlines and returning the result.
+- Step 5: The tool list block must contain tool names and descriptions only — no schema or argument details.
+- Step 6: `load_profile()` is called on each `build_system_prompt()` call, not cached, because the profile can change at runtime.
 
 **SUCCESS CRITERIA:**
-- `build_system_prompt("open chrome", "fast", [], None, "gemma3:4b")` returns a non-empty string.
-- Returned string contains "Jarvis".
-- Returned string contains the fast-mode fragment.
-- Handoff note is absent when `previous_model=None`.
-- Handoff note is present when `previous_model="gemma3:4b"` and `current_model="qwen3:8b"`.
+- `build_system_prompt("open chrome", "fast", [], None, "gemma3:4b")` returns a non-empty string containing the word "Jarvis" and the fast mode fragment.
+- `inject_identity([])` populates the list with non-empty strings.
+- `inject_mode([], "deep")` populates the list with the deep fragment.
+- `inject_mode([], "nonexistent")` does not raise and does not add an empty string.
+- The handoff note is absent when `previous_model=None`.
+- The handoff note is present when `previous_model` differs from `current_model`.
 
 ---
 
 ### TASK 5.4 — Wire prompt builder into executor
 
-**DESCRIPTION:** Replace the stub in `executor.py` with the real prompt builder.
+**DESCRIPTION:** Replace the stub in `executor.py` with the real prompt builder call.
 
 **INPUT:** `DecisionOutput`, `InputPacket`.
 
-**OUTPUT:** LLM receives the correct assembled system prompt.
+**OUTPUT:** LLM receives the correct system prompt.
 
 **FILES:**
 - MODIFY: `src/core/runtime/executor.py`
 
 **REQUIREMENTS:**
-- 5.4.1 — Remove the stub that returned empty string.
-- 5.4.2 — Call `build_system_prompt()` with all parameters from the current decision and packet.
-- 5.4.3 — Pass the built prompt as the first system message.
-- 5.4.4 — Pass the tool list from `registry.to_ollama_format()` only when `decision.requires_tools=True`.
+- Remove the stub that returned an empty string.
+- Call `build_system_prompt()` with all parameters from the current decision and packet.
+- Pass the built prompt as the system message in the messages list.
+- Pass the tool list from `registry.to_ollama_format()` only when `decision.requires_tools=True`.
 
 **SUCCESS CRITERIA:**
-- After wiring, LLM responses do not identify the model by its weights name.
-- System prompt contains the correct mode fragment.
+- After wiring, the LLM response demonstrates awareness of its identity (does not identify as the raw model).
+- The system prompt contains the correct mode fragment for the current decision mode.
 
 ---
 
 ## 🛠️ Phase 6 — Tool System
 
-> **End state:** Any registered skill is callable through the full pipeline: LLM output → parse → registry → safety → validate → execute → ToolResult.
+> **End state:** Any registered skill is callable through the full pipeline: classify → registry → safety → validate → execute → ToolResult.
 
 ---
 
-### TASK 6.1 — BaseTool class
+### TASK 6.1 — BaseTool abstract class
 
-**DESCRIPTION:** Define the abstract base class all tools must extend.
+**DESCRIPTION:** Define the base class that all tools must extend.
 
-**INPUT:** A Python class extending `BaseTool`.
+**INPUT:** A Python class that extends `BaseTool`.
 
-**OUTPUT:** Class is discoverable and executable.
+**OUTPUT:** The class is discoverable and executable.
 
 **FILES:**
 - CREATE: `src/core/tools/base.py`
 
 **REQUIREMENTS:**
-- 6.1.1 — Define `BaseTool` as abstract with abstract method `execute(**kwargs) → ToolResult`.
-- 6.1.2 — Required class attributes: name, description, category, requires_confirmation, platform.
-- 6.1.3 — Define `is_available()` returning `True` by default; subclasses override.
-- 6.1.4 — Define `get_schema()` loading JSON Schema from `config/schemas/{category}/{name}.schema.json`; return `{}` if missing.
-- 6.1.5 — Define `to_ollama_format()` returning the Ollama tool-calling dict format.
+- Define `BaseTool` as an abstract class with abstract method `execute(**kwargs) → ToolResult`.
+- Required class attributes: name (str), description (str), category (str), requires_confirmation (bool), platform (list[str]).
+- Define `is_available()` returning `True` by default; subclasses override to check dependencies.
+- Define `get_schema()` loading the JSON Schema from `config/schemas/{category}/{name}.schema.json`; return `{}` if missing.
+- Define `to_ollama_format()` returning the tool in Ollama tool-calling dict format.
 
 **SUCCESS CRITERIA:**
-- A minimal subclass with name, description, category, and `execute()` can be instantiated.
-- Instantiating `BaseTool()` directly raises `TypeError`.
+- A minimal subclass with `name`, `description`, `category`, and `execute()` defined can be instantiated.
+- `isinstance(subclass_instance, BaseTool)` returns `True`.
+- Attempting to instantiate `BaseTool()` directly raises `TypeError`.
 
 ---
 
-### TASK 6.2 — Tool registry
+### TASK 6.2 — Tool registry with auto-discovery
 
 **DESCRIPTION:** Implement the registry that scans `src/skills/` and registers all `BaseTool` subclasses.
 
-**INPUT:** `src/skills/` directory.
+**INPUT:** `src/skills/` directory containing `BaseTool` subclasses.
 
-**OUTPUT:** All available tools registered and accessible by name.
+**OUTPUT:** All available tools registered and retrievable by name.
 
 **FILES:**
 - CREATE: `src/core/tools/registry.py`
 
 **REQUIREMENTS:**
-- 6.2.1 — Define `ToolRegistry` with: `discover()`, `get(name)`, `all_names()`, `all_available()`, `to_ollama_format()`, `get_schema(name)`.
-- 6.2.2 — `discover()` uses `pkgutil.walk_packages` to find all modules under `src/skills/`.
-- 6.2.3 — `discover()` imports each module and inspects for `BaseTool` subclasses.
-- 6.2.4 — `discover()` registers only tools where `is_available()` returns `True`.
-- 6.2.5 — `discover()` must be idempotent.
-- 6.2.6 — Define a module-level singleton `registry`.
-- 6.2.7 — Log the count of registered tools after discovery.
+- Define `ToolRegistry` class with `discover()`, `get(name)`, `all_names()`, `all_available()`, `to_ollama_format()`, `get_schema(name)` methods.
+- `discover()` must use `pkgutil.walk_packages` to find all modules under `src/skills/`.
+- `discover()` must import each module and inspect for `BaseTool` subclasses.
+- `discover()` must call `is_available()` on each candidate; register only those returning `True`.
+- `discover()` must be idempotent (calling it twice produces the same registry).
+- Define a module-level singleton `registry`.
+- Log the count of registered tools after discovery.
 
 **SUCCESS CRITERIA:**
-- `registry.discover()` finds `open_app` tool from Phase 8.
-- `registry.get("open_app")` returns the tool instance.
+- `registry.discover()` finds all tools where `is_available()=True`.
+- `registry.get("open_app")` returns the tool instance after discovery.
 - `registry.get("nonexistent")` returns `None`.
 
 ---
 
 ### TASK 6.3 — Safety classifier
 
-**DESCRIPTION:** Implement risk classification for tool execution requests.
+**DESCRIPTION:** Implement the function that classifies tool risk and determines execution permission.
 
-**INPUT:** Tool name string and args dict.
+**INPUT:** Tool name string, args dict.
 
 **OUTPUT:** `SafetyResult` with level and allowed status.
 
@@ -1044,42 +1041,46 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/tools/safety.py`
 
 **REQUIREMENTS:**
-- 6.3.1 — Define `SafetyResult` as a Pydantic model: level (str), allowed (bool | None), reason (str).
-- 6.3.2 — Define `classify_safety(tool_name, args) → SafetyResult`.
-- 6.3.3 — Read risk_level from `config/skills.yaml` for the given tool name.
-- 6.3.4 — Implement shell command blocklist: scan all string values in `args` for: `rm -rf`, `format c:`, `del /s /q`, `:(){:|:&};:`, `shutdown /`, `mkfs`, `dd if=`.
-- 6.3.5 — Blocked pattern match → `allowed=False` regardless of mode.
-- 6.3.6 — Do not hardcode tool names — use the manifest exclusively.
+- Define `SafetyResult` as a Pydantic model with fields: level (str), allowed (bool | None), reason (str).
+- Define `classify_safety(tool_name, args) → SafetyResult`.
+- `allowed=True` means auto-execute. `allowed=False` means block. `allowed=None` means ask user.
+- Read risk_level for the tool from the skills manifest loaded from `config/skills.yaml`.
+- Implement shell command blocklist check: scan all string values in `args` for blocked patterns.
+- Blocked patterns: `rm -rf`, `format c:`, `del /s /q`, `:(){:|:&};:`, `shutdown /`, `mkfs`, `dd if=`.
+- Do not hardcode tool names in this module — use the manifest exclusively.
 
 **SUCCESS CRITERIA:**
-- A `high` risk tool in BALANCED mode returns `allowed=None`.
-- A `low` risk tool in BALANCED mode returns `allowed=True`.
-- Args containing `"rm -rf"` return `allowed=False`.
+- A tool with `risk_level: high` in BALANCED mode returns `allowed=None` (require confirmation).
+- A tool with `risk_level: low` in BALANCED mode returns `allowed=True`.
+- Args containing `"rm -rf"` return `allowed=False` regardless of mode.
 
 ---
 
-### TASK 6.4 — Execution mode enforcer
+### TASK 6.4 — Execution mode enforcement
 
-**DESCRIPTION:** Apply the three-mode policy to determine execution permission.
+**DESCRIPTION:** Apply the three-mode policy (SAFE, BALANCED, UNRESTRICTED) inside the tool executor.
 
-**INPUT:** `SafetyResult`, `execution_mode` string.
+**INPUT:** Current `execution_mode` from settings, `SafetyResult`.
 
-**OUTPUT:** `True` (auto-execute), `False` (block), or `"confirm"` (pause for user).
+**OUTPUT:** Decision to proceed, confirm, or block.
 
 **FILES:**
 - CREATE: `src/core/tools/mode_enforcer.py`
 
 **REQUIREMENTS:**
-- 6.4.1 — Define `should_execute(safety_result, execution_mode) → bool | str`.
-- 6.4.2 — SAFE: return `"confirm"` for all risk levels.
-- 6.4.3 — BALANCED: return `True` for low, `"confirm"` for medium, `False` for high.
-- 6.4.4 — UNRESTRICTED: return `True` for all risk levels.
-- 6.4.5 — Define `is_explicit_override(user_message, tool_name) → bool` checking for `"confirm: {tool_name}"`.
+- Define `should_execute(safety_result, execution_mode) → bool | "confirm"`.
+  - Returns `True` to auto-execute.
+  - Returns `False` to block.
+  - Returns `"confirm"` to pause and ask user.
+- SAFE mode: return `"confirm"` for all risk levels.
+- BALANCED mode: return `True` for low, `"confirm"` for medium, `False` for high (unless explicit override phrase detected).
+- UNRESTRICTED mode: return `True` for all risk levels.
+- Define `is_explicit_override(user_message, tool_name) → bool` that checks if the user typed `"confirm: {tool_name}"` as their last message.
 
 **SUCCESS CRITERIA:**
-- `should_execute(high_risk_result, "balanced")` returns `False`.
-- `should_execute(low_risk_result, "safe")` returns `"confirm"`.
-- `should_execute(high_risk_result, "unrestricted")` returns `True`.
+- `should_execute(SafetyResult(level="high", ...), "balanced")` returns `False`.
+- `should_execute(SafetyResult(level="low", ...), "safe")` returns `"confirm"`.
+- `should_execute(SafetyResult(level="high", ...), "unrestricted")` returns `True`.
 
 ---
 
@@ -1095,16 +1096,16 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/tools/validator.py`
 
 **REQUIREMENTS:**
-- 6.5.1 — Define `validate_args(args, schema) → str | None`.
-- 6.5.2 — Check all `required` fields are present.
-- 6.5.3 — Check field types match schema declarations for: string, integer, boolean, number.
-- 6.5.4 — Do not require the `jsonschema` library — implement manually.
-- 6.5.5 — Return a descriptive error string naming the failing field.
+- Define `validate_args(args, schema) → str | None`.
+- Check that all `required` fields are present in args.
+- Check that field types match schema type declarations for: string, integer, boolean, number.
+- Do not require the `jsonschema` library — implement basic required + type checks manually.
+- Return a descriptive error string naming the failing field.
 
 **SUCCESS CRITERIA:**
-- Valid args matching schema → returns `None`.
-- Missing required field → returns error string containing the field name.
-- Wrong type for a field → returns error string containing the field name.
+- Validates `{"name": "chrome"}` against a schema requiring `name: string` → returns `None`.
+- Validates `{}` against a schema requiring `name` → returns an error string containing "name".
+- Validates `{"name": 123}` against a schema requiring `name: string` → returns an error string.
 
 ---
 
@@ -1120,15 +1121,15 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/tools/executor.py`
 
 **REQUIREMENTS:**
-- 6.6.1 — Define `execute_tool(tool_name, args) → ToolResult`.
-- 6.6.2 — Execute the pipeline in order: find → safety → mode enforcement → validate → execute.
-- 6.6.3 — Tool not found → `ToolResult(success=False, error="Tool not found")`.
-- 6.6.4 — Blocked → `ToolResult(success=False, error="Blocked by safety policy")`.
-- 6.6.5 — Confirmation required → prompt terminal; user decline → `ToolResult(success=False, error="User declined")`.
-- 6.6.6 — Validation fail → `ToolResult(success=False, error=f"Invalid args: {detail}")`.
-- 6.6.7 — Execution exception → `ToolResult(success=False, error=str(exception))`.
-- 6.6.8 — Record `duration_ms` on the returned `ToolResult`.
-- 6.6.9 — Log `tool.start`, `tool.done` or `tool.error` with duration_ms.
+- Define `execute_tool(tool_name, args) → ToolResult`.
+- Pipeline in order: find tool → classify safety → apply mode enforcement → validate args → execute → return.
+- If tool not found: return `ToolResult(tool=tool_name, success=False, error="Tool not found")`.
+- If blocked: return `ToolResult(tool=tool_name, success=False, error="Blocked by safety policy")`.
+- If user confirmation required: print confirmation prompt to terminal; if user declines: return `ToolResult(success=False, error="User declined")`.
+- If validation fails: return `ToolResult(success=False, error=f"Invalid args: {validation_error}")`.
+- If `tool.execute()` raises: catch the exception; return `ToolResult(success=False, error=str(exception))`.
+- Log: `tool.start`, `tool.done` or `tool.error`, with duration_ms.
+- Record duration_ms on the returned `ToolResult`.
 
 **SUCCESS CRITERIA:**
 - `execute_tool("open_app", {"name": "notepad"})` opens Notepad and returns `success=True`.
@@ -1139,38 +1140,45 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 ### TASK 6.7 — Tool call parser and retry
 
-**DESCRIPTION:** Implement the retry logic when parse fails on a required tool call.
+**DESCRIPTION:** Implement the parser that extracts tool call JSON from LLM output, validates it, handles failures, and retries up to the configured limit. This task closes the tool output enforcement gap: free-text responses when a tool is required are never accepted.
 
 **INPUT:** Raw LLM output string, `requires_tools` bool.
 
-**OUTPUT:** Valid `LLMOutput` or parse failure indicator.
+**OUTPUT:** Parsed and validated `LLMOutput`.
 
 **FILES:**
 - MODIFY: `src/core/runtime/llm_output.py`
 
 **REQUIREMENTS:**
-- 6.7.1 — Implement as defined in Task 2.3.
-- 6.7.2 — When `requires_tools=True` and parsing fails, the caller must retry the LLM call with an appended instruction stating the required format.
-- 6.7.3 — Maximum retries read from `get_settings().runtime.max_tool_retries`.
-- 6.7.4 — After max retries, return parse failure indicator (`tool=""`).
-- 6.7.5 — The runtime loop must check for the parse failure indicator and return a user-facing error.
+- Step 1: In `parse_llm_output(raw_text, requires_tools)`, attempt to locate the first `{` and last `}` in `raw_text` and extract that substring.
+- Step 2: Attempt to parse the extracted substring as JSON. If extraction or parsing fails, proceed to the failure path.
+- Step 3 — Validate structure: confirm the parsed dict contains all three required fields: `type`, `tool`, and `args`. If any field is missing, treat as parse failure.
+- Step 4 — Validate types: `type` must equal the string `"tool_call"`. `tool` must be a non-empty string. `args` must be a dict. Any deviation is a parse failure.
+- Step 5 — On parse failure when `requires_tools=False`: return `LLMOutput(type="answer", content=raw_text)`. This is the only case where free text is accepted.
+- Step 6 — On parse failure when `requires_tools=True`: log the failure with the raw text. Do not return yet.
+- Step 7 — Retry path: the caller (executor) must resend the LLM call with an appended instruction: "You must respond with only a JSON object containing exactly these fields: type, tool, args. No other text is permitted."
+- Step 8: Maximum retries is read from `get_settings().runtime.max_tool_retries` (default 2). After exhausting all retries, return `LLMOutput(type="tool_call", tool="", args={})` as the parse failure indicator.
+- Step 9: The runtime loop must detect `tool==""` on a `tool_call` type output and return a user-facing message explaining the model failed to produce a valid tool call, without raising.
+- Step 10: Log each retry attempt with: attempt number, raw text length, and the specific validation error that caused the failure.
 
 **SUCCESS CRITERIA:**
-- Valid JSON tool call → `LLMOutput(type="tool_call", tool="open_app")`.
-- Plain text when `requires_tools=True` → triggers retry; exhausted retries → parse failure indicator.
-- No exception escapes.
+- Valid tool call JSON in raw text → `LLMOutput(type="tool_call", tool="open_app")`.
+- Raw text missing the `tool` field → logged failure + retry triggered.
+- After max retries exhausted → `LLMOutput(tool="")` returned, no exception raised.
+- Free text with `requires_tools=False` → `LLMOutput(type="answer")`, no retry.
+- No exception escapes from any parsing path under any input.
 
 ---
 
 ## 🔒 Phase 7 — Safety Modes
 
-> **End state:** Execution mode is configurable. All tool executions apply the correct policy. Risk levels are present on all tools.
+> **End state:** Execution mode is configurable. All tool executions apply the correct policy. Risk levels are populated on all tools.
 
 ---
 
 ### TASK 7.1 — Execution mode in config
 
-**DESCRIPTION:** Add and enforce `execution_mode` in settings.
+**DESCRIPTION:** Add the `execution_mode` field to settings and ensure it is read at runtime.
 
 **INPUT:** `config/settings.yaml` with `runtime.execution_mode` set.
 
@@ -1181,192 +1189,193 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - MODIFY: `src/core/config.py`
 
 **REQUIREMENTS:**
-- 7.1.1 — Add `execution_mode` to the `runtime` YAML section with default `"balanced"`.
-- 7.1.2 — Add to the `RuntimeConfig` Pydantic model.
-- 7.1.3 — Validate that the value is one of: safe, balanced, unrestricted. Reject others.
+- Add `execution_mode` to the `runtime` section of the settings YAML with default `"balanced"`.
+- Add `execution_mode` to the `RuntimeConfig` Pydantic model.
+- Validate that the value is one of: `"safe"`, `"balanced"`, `"unrestricted"`. Reject others with a validation error.
 
 **SUCCESS CRITERIA:**
-- `get_settings().runtime.execution_mode` returns `"balanced"` from default config.
-- Setting `execution_mode: "invalid"` raises a Pydantic `ValidationError` on load.
+- `get_settings().runtime.execution_mode` returns `"balanced"` with a default settings file.
+- Setting `execution_mode: "invalid"` in the YAML raises a Pydantic validation error on load.
 
 ---
 
-### TASK 7.2 — Risk levels audit
+### TASK 7.2 — Risk levels on all tool entries
 
-**DESCRIPTION:** Verify every tool entry in `config/skills.yaml` has a correct `risk_level`.
+**DESCRIPTION:** Ensure every tool in `config/skills.yaml` has a correctly classified `risk_level`.
 
 **INPUT:** `config/skills.yaml`.
 
-**OUTPUT:** Every entry has a `risk_level` matching README Section 9 exactly.
+**OUTPUT:** Every entry has a `risk_level` field.
 
 **FILES:**
 - MODIFY: `config/skills.yaml`
 
 **REQUIREMENTS:**
-- 7.2.1 — Every entry must have a `risk_level` field.
-- 7.2.2 — Values must match README Section 9 Risk Classification table exactly.
-- 7.2.3 — No entry may have a missing, empty, or invalid `risk_level`.
+- Add `risk_level` to every entry that lacks it.
+- Classification must follow README Section 8 Risk Classification table exactly.
+- No entry may have an empty or missing `risk_level`.
 
 **SUCCESS CRITERIA:**
-- YAML parses without error.
-- Every entry has one of: low, medium, high.
+- Parsing the YAML and checking all entries confirms `risk_level` is present on every tool.
+- `delete_file` has `risk_level: high`.
+- `web_search` has `risk_level: low`.
 
 ---
 
-### TASK 7.3 — Mode enforcement integration test
+### TASK 7.3 — CLI execution mode toggle
 
-**DESCRIPTION:** Verify the three modes produce the correct behavior in the executor.
+**DESCRIPTION:** Add a `/mode` slash command to change execution mode at runtime.
 
-**INPUT:** Tool calls of different risk levels under each mode.
+**INPUT:** `/mode safe` or `/mode balanced` or `/mode unrestricted` typed in CLI.
 
-**OUTPUT:** Correct behavior per mode/risk combination.
+**OUTPUT:** Mode updated in settings; confirmation printed.
 
 **FILES:**
-- CREATE: `tests/test_safety_modes.py`
+- MODIFY: `src/interfaces/cli/commands.py`
 
 **REQUIREMENTS:**
-- 7.3.1 — Test low-risk tool in SAFE mode → confirmation prompt (mock `input()`).
-- 7.3.2 — Test low-risk tool in BALANCED mode → auto-executes.
-- 7.3.3 — Test high-risk tool in BALANCED mode → blocked.
-- 7.3.4 — Test high-risk tool in UNRESTRICTED mode → auto-executes.
-- 7.3.5 — Mock actual tool execution — only test the mode enforcement decision.
+- Add `/mode {value}` command to the CLI command handler.
+- The command must update `execution_mode` in the in-memory settings object.
+- The command must print a confirmation: `"Execution mode set to: {value}"`.
+- The command must reject invalid values with a message listing valid options.
+- Mode change applies to all subsequent tool calls in the current session only. It does not write to the YAML file.
 
 **SUCCESS CRITERIA:**
-- `pytest tests/test_safety_modes.py` passes with 0 failures.
+- Typing `/mode safe` prints confirmation and subsequent tool calls require confirmation.
+- Typing `/mode invalid` prints an error listing valid modes.
 
 ---
 
-### TASK 7.4 — Explicit override phrase
+### TASK 7.4 — Safety tests
 
-**DESCRIPTION:** Implement and test the high-risk override mechanism for BALANCED mode.
+**DESCRIPTION:** Test the three-mode policy with all risk levels.
+
+**INPUT:** All combinations of mode and risk level.
+
+**OUTPUT:** Correct `should_execute()` return value for each combination.
+
+**FILES:**
+- CREATE: `tests/test_safety.py`
+
+**REQUIREMENTS:**
+- Test all 9 combinations (3 modes × 3 risk levels).
+- Test that blocked shell patterns block execution regardless of mode.
+- No real tool execution in these tests — test `should_execute()` and `classify_safety()` in isolation.
+
+**SUCCESS CRITERIA:**
+- `pytest tests/test_safety.py` passes with 0 failures.
+
+---
+
+### TASK 7.5 — High-risk explicit approval flow
+
+**DESCRIPTION:** Implement the explicit approval phrase check for high-risk tools in BALANCED mode.
 
 **INPUT:** User message containing `"confirm: {tool_name}"`.
 
-**OUTPUT:** `is_explicit_override()` returns `True`.
+**OUTPUT:** High-risk tool executes without additional confirmation prompt.
 
 **FILES:**
 - MODIFY: `src/core/tools/mode_enforcer.py`
 
 **REQUIREMENTS:**
-- 7.4.1 — Define `is_explicit_override(user_message, tool_name) → bool`.
-- 7.4.2 — Check if the user message exactly matches the pattern `"confirm: {tool_name}"` (case-insensitive).
-- 7.4.3 — The executor must call this before blocking a high-risk tool in BALANCED mode.
-- 7.4.4 — If override detected, proceed with the confirmation flow rather than blocking.
+- `is_explicit_override(user_message, tool_name)` must return `True` only when the message is exactly `"confirm: {tool_name}"` (case-insensitive).
+- The runtime loop must pass the original user message to `is_explicit_override` before blocking a high-risk tool.
+- If `is_explicit_override` returns `True`, treat the tool as medium-risk for this call only.
 
 **SUCCESS CRITERIA:**
-- `is_explicit_override("confirm: delete_file", "delete_file")` returns `True`.
-- `is_explicit_override("please delete_file", "delete_file")` returns `False`.
-
----
-
-### TASK 7.5 — Mode change at runtime
-
-**DESCRIPTION:** Allow the execution mode to be changed without restarting.
-
-**INPUT:** A `/mode safe|balanced|unrestricted` command from any interface.
-
-**OUTPUT:** The executor uses the new mode for all subsequent tool calls.
-
-**FILES:**
-- CREATE: `src/core/tools/mode_manager.py`
-
-**REQUIREMENTS:**
-- 7.5.1 — Maintain the active execution mode in a module-level variable, initialized from `get_settings()`.
-- 7.5.2 — Define `get_execution_mode() → str`.
-- 7.5.3 — Define `set_execution_mode(mode)` that updates the variable and logs the change.
-- 7.5.4 — Reject invalid mode values with a `ValueError`.
-- 7.5.5 — The executor must call `get_execution_mode()` rather than reading from settings directly.
-
-**SUCCESS CRITERIA:**
-- `set_execution_mode("safe")` then `get_execution_mode()` returns `"safe"`.
-- `set_execution_mode("invalid")` raises `ValueError`.
+- User types `"confirm: delete_file"` → `is_explicit_override` returns `True` → tool proceeds to confirmation prompt.
+- User types anything else → `is_explicit_override` returns `False` → high-risk blocked in BALANCED mode.
 
 ---
 
 ## 🖥️ Phase 8 — System Control Skills
 
-> **End state:** OS-level operations work: open/close apps, file operations, clipboard, notifications, screenshots, code execution.
+> **End state:** All OS-level operations work correctly on Windows, Linux, and macOS.
 
 ---
 
-### TASK 8.1 — App launcher (BaseTool subclass)
+### TASK 8.1 — App launcher as BaseTool
 
-**DESCRIPTION:** Refactor the Phase 0 app launcher as a proper `BaseTool` subclass.
+**DESCRIPTION:** Refactor the `open_app` and `close_app` functions from Phase 0 into `BaseTool` subclasses.
 
-**INPUT:** `{"name": "chrome"}`.
+**INPUT:** `{"name": "notepad"}`.
 
-**OUTPUT:** App opens. `ToolResult(success=True)` returned.
+**OUTPUT:** App opens. `ToolResult(success=True, data={"pid": ...})`.
 
 **FILES:**
 - MODIFY: `src/skills/system/apps.py`
 
 **REQUIREMENTS:**
-- 8.1.1 — Define `AppLauncherTool(BaseTool)` with name="open_app".
-- 8.1.2 — Define `AppCloseTool(BaseTool)` with name="close_app", requires_confirmation=True.
-- 8.1.3 — Wrap existing functions from Phase 0.
-- 8.1.4 — `is_available()` must return `True` on all platforms.
-- 8.1.5 — Also define: `BringToFrontTool` (name="bring_to_front"), `ListProcessesTool` (name="list_processes").
-- 8.1.6 — Create `config/schemas/system/open_app.schema.json`.
-- 8.1.7 — Create `config/schemas/system/close_app.schema.json`.
+- Define `AppLauncherTool` extending `BaseTool` with `name="open_app"`.
+- Define `AppCloseTool` extending `BaseTool` with `name="close_app"` and `requires_confirmation=True`.
+- Define `BringToFrontTool` with `name="bring_to_front"` for Windows only.
+- All existing logic from Phase 0 must be preserved and wrapped in `execute()`.
+- Add `platform` list to each tool. `bring_to_front` is `["windows"]` only.
+- Create JSON Schema files for each tool.
 
 **SUCCESS CRITERIA:**
-- `registry.discover()` finds `open_app` and `close_app`.
-- `execute_tool("open_app", {"name": "notepad"})` returns `success=True` and Notepad is open.
-- `execute_tool("close_app", {"name": "notepad"})` prompts, then closes.
+- `registry.discover()` registers `open_app` and `close_app`.
+- `execute_tool("open_app", {"name": "notepad"})` opens Notepad and returns `success=True`.
+- `execute_tool("close_app", {"name": "notepad"})` triggers confirmation prompt.
 
 ---
 
-### TASK 8.2 — System info and process control
+### TASK 8.2 — System information tool
 
-**DESCRIPTION:** Implement tools for system monitoring and process management.
+**DESCRIPTION:** Implement tools to retrieve system metrics.
 
-**INPUT:** Various args per tool.
+**INPUT:** `{}` or `{"metric": "cpu"}`.
 
-**OUTPUT:** `ToolResult` with system data or operation confirmation.
+**OUTPUT:** `ToolResult(data={"cpu_percent": ..., "ram_used_gb": ..., ...})`.
 
 **FILES:**
 - CREATE: `src/skills/system/sysinfo.py`
 
 **REQUIREMENTS:**
-- 8.2.1 — Define `SystemInfoTool` (name="system_info"): returns CPU%, RAM used/total GB, disk free GB.
-- 8.2.2 — Add GPU VRAM used/total if `pynvml` is available; skip gracefully if not.
-- 8.2.3 — Define `KillProcessTool` (name="kill_process", risk_level=high, requires_confirmation=True).
-- 8.2.4 — On Windows use `taskkill /IM {name}.exe /F`. On Linux/macOS use `pkill {name}`.
-- 8.2.5 — Create JSON Schema files for all tools.
+- Define `SystemInfoTool` with `name="system_info"` returning CPU%, RAM used/total, disk free.
+- Define `ListProcessesTool` with `name="list_processes"` returning a list of running processes.
+- Define `KillProcessTool` with `name="kill_process"` and `requires_confirmation=True`.
+- Use `psutil` for all metrics.
+- GPU VRAM: use `pynvml` if available; skip silently if not installed.
+- Cross-platform: all three tools must work on Windows, Linux, and macOS.
 
 **SUCCESS CRITERIA:**
-- `execute_tool("system_info", {})` returns valid numeric CPU and RAM values.
-- `execute_tool("kill_process", {"name": "notepad.exe"})` prompts, then closes Notepad.
+- `system_info()` returns a dict with at least `cpu_percent`, `ram_used_gb`, `disk_free_gb`.
+- `list_processes()` returns a list with at least 5 entries.
+- `kill_process()` requires confirmation before executing.
 
 ---
 
-### TASK 8.3 — Clipboard
+### TASK 8.3 — Clipboard tool
 
-**DESCRIPTION:** Implement clipboard read and write tools.
+**DESCRIPTION:** Implement read and write clipboard operations.
 
-**INPUT:** Empty dict (read) or `{"text": "..."}` (write).
+**INPUT:** `{}` for read, `{"text": "hello"}` for write.
 
-**OUTPUT:** `ToolResult` with clipboard content or write confirmation.
+**OUTPUT:** `ToolResult(data={"content": "clipboard text"})` for read.
 
 **FILES:**
 - CREATE: `src/skills/system/clipboard.py`
 
 **REQUIREMENTS:**
-- 8.3.1 — Define `ReadClipboardTool` (name="read_clipboard") using `pyperclip`.
-- 8.3.2 — Define `WriteClipboardTool` (name="write_clipboard") using `pyperclip`.
-- 8.3.3 — Create JSON Schema files for both tools.
+- Define `ReadClipboardTool` with `name="read_clipboard"`.
+- Define `WriteClipboardTool` with `name="write_clipboard"`.
+- Use `pyperclip` for text operations.
+- If clipboard contains an image (Windows only), save to `data/temp/clipboard_image.png` and return the path.
+- Return `success=False` gracefully if the clipboard is empty or unreadable.
 
 **SUCCESS CRITERIA:**
-- Copy text in any app. `execute_tool("read_clipboard", {})` returns that text.
-- `execute_tool("write_clipboard", {"text": "test"})` → pasting anywhere yields "test".
+- Copy text in any app. Call `read_clipboard()`. Returns that text.
+- Call `write_clipboard({"text": "test"})`. Paste in any app. "test" appears.
 
 ---
 
-### TASK 8.4 — System notifications
+### TASK 8.4 — Notification tool
 
-**DESCRIPTION:** Implement a cross-platform notification tool.
+**DESCRIPTION:** Send a system notification on Windows, Linux, and macOS.
 
-**INPUT:** `{"title": "...", "message": "...", "type": "info|success|warning|error"}`.
+**INPUT:** `{"title": "Done", "message": "Task complete", "type": "success"}`.
 
 **OUTPUT:** Notification appears. `ToolResult(success=True)`.
 
@@ -1374,476 +1383,476 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/skills/notify/toasts.py`
 
 **REQUIREMENTS:**
-- 8.4.1 — Define `SendNotificationTool` (name="send_notification").
-- 8.4.2 — On Windows: use `winotify`. On Linux: use `notify-send`. On macOS: use `osascript`.
-- 8.4.3 — On any failure: print to console as fallback and return `success=True`.
-- 8.4.4 — Create JSON Schema file.
+- Define `SendNotificationTool` with `name="send_notification"`.
+- On Windows: use `winotify`.
+- On Linux: use `notify-send` via subprocess.
+- On macOS: use `osascript` via subprocess.
+- If the platform library is unavailable, fall back to printing to console and return `success=True` with a `fallback="console"` field in data.
+- `type` must accept: info, success, warning, error.
 
 **SUCCESS CRITERIA:**
-- `execute_tool("send_notification", {"title": "Test", "message": "Hello", "type": "info"})` produces a visible notification or console fallback.
+- Notification appears within 3 seconds on the test platform.
+- No exception raised on any platform, even if the native notification system is unavailable.
 
 ---
 
-### TASK 8.5 — Screen capture and OCR
+### TASK 8.5 — Screenshot and OCR tools
 
-**DESCRIPTION:** Implement screenshot and OCR tools.
+**DESCRIPTION:** Capture the screen and extract text using OCR.
 
-**INPUT:** Empty dict (full screen) or `{"region": {"x":0,"y":0,"w":800,"h":600}}`.
+**INPUT:** `{}` for full screen, `{"region": {"x": 0, "y": 0, "w": 800, "h": 600}}` for region.
 
-**OUTPUT:** `ToolResult` with screenshot path and extracted text.
+**OUTPUT:** `ToolResult(data={"path": "data/screenshots/...", "text": "..."})`.
 
 **FILES:**
 - CREATE: `src/skills/screen/capture.py`
 
 **REQUIREMENTS:**
-- 8.5.1 — Define `ScreenshotTool` (name="take_screenshot") using `mss`.
-- 8.5.2 — Save PNG to `data/screenshots/`.
-- 8.5.3 — Define `OCRTool` (name="read_screen_text") combining screenshot + `pytesseract`.
-- 8.5.4 — Create JSON Schema files.
+- Define `ScreenshotTool` with `name="take_screenshot"` using `mss`.
+- Define `OCRTool` with `name="read_screen_text"` using `pytesseract`.
+- Screenshots saved to `data/screenshots/` with timestamp filename.
+- OCR must specify both Arabic and English language codes for Tesseract.
+- Return `success=False` if Tesseract binary is not installed, with a clear error message.
 
 **SUCCESS CRITERIA:**
-- `execute_tool("take_screenshot", {})` creates a PNG file in `data/screenshots/`.
-- `execute_tool("read_screen_text", {})` returns a non-empty text string from a screen with visible text.
+- `take_screenshot()` creates a PNG file in `data/screenshots/`.
+- `read_screen_text()` on a screen with visible text returns non-empty extracted text.
 
 ---
 
-### TASK 8.6 — File operations
+### TASK 8.6 — File operations tools
 
-**DESCRIPTION:** Implement file management tools.
+**DESCRIPTION:** Implement all file operation tools.
 
-**INPUT:** Operation-specific args.
+**INPUT:** Operation-specific args (path, content, etc.).
 
-**OUTPUT:** `ToolResult` with file content, confirmation, or error.
+**OUTPUT:** Operation-specific `ToolResult`.
 
 **FILES:**
 - CREATE: `src/skills/files/file_ops.py`
 
 **REQUIREMENTS:**
-- 8.6.1 — Define: `ReadFileTool`, `WriteFileTool`, `ListDirectoryTool`, `SearchFilesTool`, `MoveFileTool`, `CopyFileTool`, `DeleteFileTool`.
-- 8.6.2 — `DeleteFileTool`: use `send2trash`, not `os.remove`. Set `requires_confirmation=True`.
-- 8.6.3 — All write and delete operations must verify the path is within `ALLOWED_ROOTS` (user home and `data/`).
-- 8.6.4 — Return `ToolResult(success=False)` for paths outside allowed roots.
-- 8.6.5 — Create JSON Schema files for all tools.
+- Define tools: `ReadFileTool`, `WriteFileTool`, `ListDirectoryTool`, `SearchFilesTool`, `MoveFileTool`, `CopyFileTool`, `DeleteFileTool`.
+- `DeleteFileTool` must use `send2trash` — never `os.remove`. Set `requires_confirmation=True`.
+- `WriteFileTool` must set `requires_confirmation=True` if the file already exists.
+- Implement path safety: all paths must be under the user's home directory or under the configured `data/` directory. Reject paths outside these roots.
+- Create JSON Schema files for each tool.
 
 **SUCCESS CRITERIA:**
-- `execute_tool("read_file", {"path": "config/settings.yaml"})` returns file content.
-- `execute_tool("delete_file", {"path": "data/test.txt"})` after prompting sends file to recycle bin.
-- Path outside `ALLOWED_ROOTS` returns `success=False`.
+- Read a known text file. Content returned correctly.
+- Write `data/test_write.txt`. File exists with correct content.
+- Delete a file. File appears in system Recycle Bin (not permanently deleted).
+- Attempt to read a path outside allowed roots. Returns `success=False`.
 
 ---
 
-### TASK 8.7 — Code execution
+### TASK 8.7 — Code executor tool
 
-**DESCRIPTION:** Implement safe Python and shell code execution.
+**DESCRIPTION:** Execute Python code or shell commands in a controlled subprocess.
 
-**INPUT:** `{"language": "python", "code": "print(2+2)"}`.
+**INPUT:** `{"code": "print(2+2)"}` or `{"command": "ls"}`.
 
-**OUTPUT:** `ToolResult` with stdout, stderr, and return code.
+**OUTPUT:** `ToolResult(data={"stdout": "4\n", "stderr": "", "returncode": 0})`.
 
 **FILES:**
 - CREATE: `src/skills/coder/executor.py`
 
 **REQUIREMENTS:**
-- 8.7.1 — Define `RunPythonTool` (name="execute_python", requires_confirmation=True).
-- 8.7.2 — Execute in a subprocess with a configurable timeout (default from settings).
-- 8.7.3 — Scan code for blocked patterns before execution: `os.remove`, `shutil.rmtree`, `subprocess.run`, `sys.exit`.
-- 8.7.4 — Return `ToolResult(success=False)` if a blocked pattern is found.
-- 8.7.5 — Return `ToolResult(success=False)` on timeout.
-- 8.7.6 — Create JSON Schema file.
+- Define `RunPythonTool` with `name="execute_python"` and `requires_confirmation=True`.
+- Define `RunShellTool` with `name="run_shell"` and `requires_confirmation=True`.
+- Both must run in a subprocess with a configurable timeout (default 30s from settings).
+- Both must check for blocked patterns before execution: `os.remove`, `shutil.rmtree`, `os.system`, `sys.exit` (Python); `rm -rf`, `format`, `del /s`, `shutdown`, `reboot` (shell).
+- Capture stdout and stderr. Return both in `data`.
+- On timeout: return `success=False` with error `"Timeout after {n}s"`.
 
 **SUCCESS CRITERIA:**
-- Code `print(2+2)` returns `data.stdout = "4\n"` and `success=True`.
-- Code containing `os.remove(...)` returns `success=False` without execution.
+- `execute_python({"code": "print(2+2)"})` returns `stdout="4\n"` and `success=True`.
+- Code containing `os.remove` is blocked before subprocess is created.
+- Infinite loop code is killed after timeout.
 
 ---
 
-### TASK 8.8 — Web search
+### TASK 8.8 — Web search tool
 
-**DESCRIPTION:** Implement a web search tool with no API key required.
+**DESCRIPTION:** Search the web using DuckDuckGo and return results.
 
-**INPUT:** `{"query": "latest AI news", "max_results": 5}`.
+**INPUT:** `{"query": "Python tutorial", "max_results": 5}`.
 
-**OUTPUT:** `ToolResult` with list of results.
+**OUTPUT:** `ToolResult(data={"results": [{title, url, snippet}]})`.
 
 **FILES:**
 - CREATE: `src/skills/search/web_search.py`
 
 **REQUIREMENTS:**
-- 8.8.1 — Define `WebSearchTool` (name="web_search") using DuckDuckGo HTML search.
-- 8.8.2 — Return at most `max_results` entries, each with title, url, snippet.
-- 8.8.3 — Cache identical queries for 5 minutes using a module-level dict.
-- 8.8.4 — Return `ToolResult(success=False)` on network error.
-- 8.8.5 — Create JSON Schema file.
+- Define `WebSearchTool` with `name="web_search"`.
+- Use DuckDuckGo HTML search endpoint — no API key required.
+- Parse results with `BeautifulSoup`.
+- Cache identical queries for 5 minutes using a module-level dict.
+- Return `success=False` on network error — do not raise.
 
 **SUCCESS CRITERIA:**
-- `execute_tool("web_search", {"query": "Python tutorial"})` returns 5 results with valid URLs.
-- Identical query within 5 minutes returns from cache without HTTP request.
+- `web_search({"query": "Python tutorial"})` returns at least 3 results with non-empty titles and URLs.
+- The same query within 5 minutes returns `data.cached=True` and makes no HTTP request.
 
 ---
 
 ## 🌐 Phase 9 — Browser & Web Skills
 
-> **End state:** Playwright browser with persistent sessions, downloads, auth wall detection, and WhatsApp automation.
+> **End state:** Playwright browser with persistent sessions, file transfers, and WhatsApp automation.
 
 ---
 
 ### TASK 9.1 — Playwright browser core
 
-**DESCRIPTION:** Implement core browser tools using a singleton Playwright instance.
+**DESCRIPTION:** Implement browser navigation and interaction tools.
 
-**INPUT:** URL, selector, or text strings.
+**INPUT:** `{"url": "https://example.com"}` for navigate.
 
-**OUTPUT:** `ToolResult` with page state or content.
+**OUTPUT:** `ToolResult(data={"title": "Example Domain"})`.
 
 **FILES:**
 - CREATE: `src/skills/browser/browser.py`
 
 **REQUIREMENTS:**
-- 9.1.1 — Use a single Playwright Chromium instance (singleton).
-- 9.1.2 — Register `atexit` cleanup to close browser on process exit.
-- 9.1.3 — Define: `NavigateTool`, `ClickTool`, `FillTool`, `GetTextTool`, `BrowserScreenshotTool`.
-- 9.1.4 — `GetTextTool` must return page content as clean text, stripping navigation and ads.
-- 9.1.5 — Create JSON Schema files for all tools.
+- Use a module-level singleton for the Playwright instance — not recreated per call.
+- Define tools: `NavigateTool`, `ClickTool`, `FillTool`, `GetTextTool`, `BrowserScreenshotTool`.
+- Register `atexit` cleanup to close the browser on exit.
+- All tools must return `success=False` on Playwright exception — do not raise.
 
 **SUCCESS CRITERIA:**
-- `execute_tool("browser_navigate", {"url": "https://example.com"})` returns page title "Example Domain".
-- Browser instance persists between consecutive tool calls.
+- `browser_navigate({"url": "https://example.com"})` returns `data.title="Example Domain"`.
+- Browser instance persists between tool calls (singleton verified by checking instance identity).
 
 ---
 
 ### TASK 9.2 — Session persistence
 
-**DESCRIPTION:** Save and load browser sessions so Jarvis stays logged in between restarts.
+**DESCRIPTION:** Save and load browser sessions so the user stays logged in between Jarvis restarts.
 
 **INPUT:** Domain string.
 
-**OUTPUT:** Session saved to encrypted file. Loaded on next browser open.
+**OUTPUT:** Session saved to `data/sessions/{domain}.json`; restored on next launch.
 
 **FILES:**
 - CREATE: `src/skills/browser/session.py`
 
 **REQUIREMENTS:**
-- 9.2.1 — Define `save_session(domain)` saving Playwright storage state to `data/sessions/{domain}.json`.
-- 9.2.2 — Define `load_session(domain)` returning the storage state dict or `None`.
-- 9.2.3 — Encrypt session files using Fernet with `SESSION_ENCRYPTION_KEY` from env. Skip encryption if key not set.
-- 9.2.4 — Sessions path must come from `get_settings().paths.sessions`.
+- Define `save_session(domain)` and `load_session(domain)`.
+- If `SESSION_ENCRYPTION_KEY` is set in `.env`, encrypt the session file using Fernet.
+- If the key is not set, save as plain JSON with a warning log.
+- `load_session` returns `None` if file does not exist or decryption fails.
 
 **SUCCESS CRITERIA:**
-- Log into a site. Call `save_session`. Kill Python. Restart. Load session. Navigate to site. Not prompted for login.
+- Log into a test site. Save session. Restart Python. Load session. Navigate to site. Still logged in.
 
 ---
 
 ### TASK 9.3 — File download and upload
 
-**DESCRIPTION:** Implement file download interception and file upload via Playwright.
+**DESCRIPTION:** Handle file downloads triggered by browser navigation, and file uploads via file input fields.
 
-**INPUT:** URL for download, or selector + path for upload.
+**INPUT:** Download: triggered by page. Upload: `{"selector": "#upload", "path": "data/test.txt"}`.
 
-**OUTPUT:** `ToolResult` with file path (download) or confirmation (upload).
+**OUTPUT:** `ToolResult(data={"path": "data/downloads/...", "filename": "..."})`.
 
 **FILES:**
 - CREATE: `src/skills/browser/transfer.py`
 
 **REQUIREMENTS:**
-- 9.3.1 — Define `DownloadTool` (name="browser_download"): intercept download events, save to `data/downloads/`.
-- 9.3.2 — Define `UploadTool` (name="browser_upload"): use `page.set_input_files(selector, path)`.
-- 9.3.3 — Validate file exists before upload attempt.
-- 9.3.4 — Create JSON Schema files.
+- Intercept downloads via `page.on("download")` and save to `data/downloads/`.
+- Handle filename conflicts by appending a timestamp.
+- For uploads, use `page.set_input_files(selector, path)`.
+- Validate that the local file path exists before attempting upload.
 
 **SUCCESS CRITERIA:**
-- Download a public PDF → file exists in `data/downloads/`.
-- Upload a local file via a file input element → DOM state confirms upload.
+- Click a download link on a test page. File appears in `data/downloads/`.
+- Upload a local file to a file input field. DOM reflects the upload.
 
 ---
 
-### TASK 9.4 — Auth wall detection
+### TASK 9.4 — Auth wall detection and pause
 
-**DESCRIPTION:** Detect login and captcha pages and pause automation.
+**DESCRIPTION:** Detect when the browser hits a login page and pause automation for the user.
 
-**INPUT:** Currently open browser page.
+**INPUT:** Current browser page state.
 
-**OUTPUT:** User notified. Automation resumes after user signals completion.
+**OUTPUT:** Automation paused; user notified; resumes after user signals completion.
 
 **FILES:**
 - CREATE: `src/skills/browser/auth_handler.py`
 
 **REQUIREMENTS:**
-- 9.4.1 — Define `check_for_auth_wall(page) → bool` checking URL and title for auth keywords.
-- 9.4.2 — Auth keywords: login, sign in, تسجيل الدخول, captcha, verify.
-- 9.4.3 — Define `handle_auth_wall(page)`: send notification via `send_notification`, block until user presses Enter, save session.
-- 9.4.4 — Never silently proceed past an auth wall.
+- Define `check_for_auth_wall(page) → bool` that checks URL and title for auth keywords.
+- Auth keywords: login, sign in, تسجيل الدخول, captcha, verify, authenticate.
+- Define `handle_auth_wall(page)` that sends a notification and blocks until user presses Enter.
+- After user presses Enter, save the session for the current domain.
 
 **SUCCESS CRITERIA:**
-- Navigating to a login-required page triggers notification and blocks.
-- After user presses Enter, session is saved and automation continues.
+- Navigate to a login-required page. Notification appears. User logs in. Enter pressed. Session saved. Next navigation succeeds without login prompt.
 
 ---
 
 ### TASK 9.5 — WhatsApp Web automation
 
-**DESCRIPTION:** Implement sending messages via WhatsApp Web using Playwright.
+**DESCRIPTION:** Send messages and read conversations through WhatsApp Web.
 
-**INPUT:** `{"contact": "Ahmed", "message": "Hello"}`.
+**INPUT:** `{"action": "send", "contact": "Ahmed", "message": "Hello"}`.
 
-**OUTPUT:** Message sent. `ToolResult(success=True)`.
+**OUTPUT:** `ToolResult(success=True)` and message visible in WhatsApp Web.
 
 **FILES:**
 - CREATE: `src/skills/social/whatsapp.py`
 
 **REQUIREMENTS:**
-- 9.5.1 — Define `WhatsAppSendTool` (name="whatsapp_send", risk_level=high, requires_confirmation=True).
-- 9.5.2 — Load session for `web.whatsapp.com`.
-- 9.5.3 — If no session: take screenshot of QR, display path to terminal, wait 30 seconds, save session.
-- 9.5.4 — Search for contact via WhatsApp search input.
-- 9.5.5 — Type and send message.
-- 9.5.6 — Create JSON Schema file.
+- Define `WhatsAppSendTool` and `WhatsAppReadTool`.
+- Load session for `web.whatsapp.com` on first use.
+- If session missing or expired: take screenshot of QR code, display in terminal, wait for scan, save session.
+- Find contact via WhatsApp search. Send message via keyboard input.
+- `WhatsAppSendTool` has `risk_level: medium`.
 
 **SUCCESS CRITERIA:**
-- `execute_tool("whatsapp_send", {"contact": "Ahmed", "message": "Test"})` after prompting sends the message.
+- Command "send Ahmed: Meeting at 3pm" → message visible in WhatsApp Web contact chat.
 
 ---
 
-### TASK 9.6 — PDF and Office readers
+### TASK 9.6 — Session manager integration
 
-**DESCRIPTION:** Implement document reading tools.
+**DESCRIPTION:** Wire session loading into the browser singleton so all browser tools use sessions automatically.
+
+**INPUT:** Domain of the current page.
+
+**OUTPUT:** Browser context initialized with saved session if available.
+
+**FILES:**
+- MODIFY: `src/skills/browser/browser.py`
+
+**REQUIREMENTS:**
+- When creating the browser page for a domain, call `load_session(domain)`.
+- If session loaded: initialize context with `storage_state` from the session.
+- If no session: create default context.
+- After each successful navigation, call `save_session(domain)` to keep session fresh.
+
+**SUCCESS CRITERIA:**
+- Login to a test site. Restart Jarvis. Navigate to the same site. No login prompt.
+
+---
+
+## 🔌 Phase 10 — Google APIs
+
+> **End state:** Single OAuth consent flow provides access to Calendar, Gmail, Drive, Contacts, and YouTube.
+
+---
+
+### TASK 10.1 — Unified Google OAuth
+
+**DESCRIPTION:** Implement a single OAuth manager for all Google APIs.
+
+**INPUT:** `credentials.json` from Google Cloud Console.
+
+**OUTPUT:** `data/google_token.json` saved; token auto-refreshes.
+
+**FILES:**
+- CREATE: `src/skills/api/google_auth.py`
+
+**REQUIREMENTS:**
+- Use combined scopes covering: Calendar, Gmail, Drive, Contacts, YouTube.
+- On first run: open browser for consent, save token.
+- On subsequent runs: load token, refresh silently if expired.
+- If refresh fails: trigger consent flow again.
+- Token path: `data/google_token.json`. This file must be gitignored.
+
+**SUCCESS CRITERIA:**
+- First run: browser opens → consent → token saved.
+- Second run: no browser → token loaded → API call succeeds.
+
+---
+
+### TASK 10.2 — Google Calendar
+
+**DESCRIPTION:** Implement Calendar CRUD tools.
+
+**INPUT:** Tool-specific args.
+
+**OUTPUT:** `ToolResult` with event data or operation confirmation.
+
+**FILES:**
+- CREATE: `src/skills/api/calendar.py`
+
+**REQUIREMENTS:**
+- Define: `CalendarListTool`, `CalendarCreateTool`, `CalendarUpdateTool`, `CalendarDeleteTool`, `CalendarSearchTool`.
+- `CalendarDeleteTool` has `risk_level: medium`.
+- All tools call `get_google_credentials()` on each use — credentials auto-refresh.
+
+**SUCCESS CRITERIA:**
+- Create event → list → found → delete → list → gone.
+
+---
+
+### TASK 10.3 — Gmail
+
+**DESCRIPTION:** Implement Gmail send, read, and management tools.
+
+**INPUT:** Tool-specific args.
+
+**OUTPUT:** `ToolResult` with message data or operation confirmation.
+
+**FILES:**
+- CREATE: `src/skills/api/gmail.py`
+
+**REQUIREMENTS:**
+- Define: `GmailListTool`, `GmailSearchTool`, `GmailSendTool`, `GmailReplyTool`, `GmailMarkTool`, `GmailMoveTool`.
+- `GmailSendTool` and `GmailReplyTool` have `risk_level: high`.
+
+**SUCCESS CRITERIA:**
+- Send email to self → found in inbox → mark read → unread count decreases.
+
+---
+
+### TASK 10.4 — Google Drive
+
+**DESCRIPTION:** Implement Drive file management tools.
+
+**INPUT:** Tool-specific args.
+
+**OUTPUT:** `ToolResult` with file data or transfer confirmation.
+
+**FILES:**
+- CREATE: `src/skills/api/drive.py`
+
+**REQUIREMENTS:**
+- Define: `DriveListTool`, `DriveSearchTool`, `DriveUploadTool`, `DriveDownloadTool`, `DriveShareTool`, `DriveCreateFolderTool`.
+- `DriveShareTool` has `risk_level: medium`.
+
+**SUCCESS CRITERIA:**
+- Upload file → list → found → download → content matches original.
+
+---
+
+### TASK 10.5 — Google Contacts
+
+**DESCRIPTION:** Implement Contacts search and name resolution.
+
+**INPUT:** `{"action": "search", "query": "Ahmed"}`.
+
+**OUTPUT:** `ToolResult(data={"contacts": [{"name": "...", "email": "..."}]})`.
+
+**FILES:**
+- CREATE: `src/skills/api/contacts.py`
+
+**REQUIREMENTS:**
+- Define: `ContactsListTool`, `ContactsSearchTool`, `ContactsGetTool`, `ContactsCreateTool`.
+- Define `resolve_name(name) → str | None` returning email for a given display name.
+- `resolve_name` is used by Gmail tools when `to` field contains a name instead of an email.
+
+**SUCCESS CRITERIA:**
+- `contacts_search({"query": "Ahmed"})` returns matching contact with email.
+- "Send email to Ahmed about the meeting" → Gmail resolves Ahmed's email via Contacts.
+
+---
+
+### TASK 10.6 — YouTube
+
+**DESCRIPTION:** Implement YouTube search and video info tools.
+
+**INPUT:** `{"query": "machine learning tutorial", "max_results": 5}`.
+
+**OUTPUT:** `ToolResult(data={"videos": [{title, url, duration, views}]})`.
+
+**FILES:**
+- CREATE: `src/skills/api/youtube.py`
+
+**REQUIREMENTS:**
+- Define: `YouTubeSearchTool`, `YouTubeGetInfoTool`, `YouTubeOpenTool`.
+- `YouTubeOpenTool` opens the video URL in the default browser.
+
+**SUCCESS CRITERIA:**
+- Search returns 5 results with valid YouTube URLs.
+- Open tool opens the URL in the browser.
+
+---
+
+### TASK 10.7 — PDF and Office readers
+
+**DESCRIPTION:** Implement document reading and writing tools.
 
 **INPUT:** File path.
 
-**OUTPUT:** `ToolResult` with extracted text.
+**OUTPUT:** Extracted text or structured data.
 
 **FILES:**
 - CREATE: `src/skills/pdf/reader.py`
 - CREATE: `src/skills/office/reader.py`
 
 **REQUIREMENTS:**
-- 9.6.1 — Define `PdfReadTextTool` (name="pdf_read_text") using `pdfplumber`.
-- 9.6.2 — Define `DocxReadTool`, `XlsxReadTool`, `PptxReadTool` using respective libraries.
-- 9.6.3 — Define `DocxWriteTool` (name="docx_write") for creating simple Word documents.
-- 9.6.4 — Create JSON Schema files.
+- PDF: `PdfReadTextTool` (pdfplumber), `PdfSummarizeTool` (LLM-assisted, chunked).
+- Office: `DocxReadTool`, `XlsxReadTool`, `PptxReadTool`, `DocxWriteTool`, `XlsxWriteTool`.
+- All read tools return the extracted content as a string or structured dict.
+- Write tools have `requires_confirmation=True`.
 
 **SUCCESS CRITERIA:**
-- `execute_tool("pdf_read_text", {"path": "test.pdf"})` returns non-empty text from a known PDF.
-- `execute_tool("docx_read", {"path": "test.docx"})` returns the document text.
-
----
-
-## 🔌 Phase 10 — Google APIs
-
-> **End state:** One OAuth consent flow grants access to all Google services. Calendar, Gmail, Drive, Contacts, YouTube all work via tool calls.
-
----
-
-### TASK 10.1 — Unified Google OAuth
-
-**DESCRIPTION:** Implement a single OAuth flow covering all Google API scopes.
-
-**INPUT:** `credentials.json` from Google Cloud Console.
-
-**OUTPUT:** `data/google_token.json` saved. All Google APIs accessible.
-
-**FILES:**
-- CREATE: `src/skills/api/google_auth.py`
-
-**REQUIREMENTS:**
-- 10.1.1 — Combine scopes for: Calendar, Gmail, Drive, Contacts, YouTube.
-- 10.1.2 — Save token to `data/google_token.json`. This file must be in `.gitignore`.
-- 10.1.3 — Load and auto-refresh expired token silently.
-- 10.1.4 — If token is invalid: open browser for consent, save new token.
-- 10.1.5 — Define `get_google_credentials()` returning a valid `Credentials` object.
-
-**SUCCESS CRITERIA:**
-- First run: browser opens for consent, token saved.
-- Second run: no browser, token loaded from file.
-
----
-
-### TASK 10.2 — Google Calendar
-
-**DESCRIPTION:** Implement Calendar CRUD operations as tools.
-
-**INPUT:** Action-specific args.
-
-**OUTPUT:** `ToolResult` with event data or confirmation.
-
-**FILES:**
-- CREATE: `src/skills/api/calendar.py`
-
-**REQUIREMENTS:**
-- 10.2.1 — Define tools: `CalendarListTool`, `CalendarCreateTool`, `CalendarUpdateTool`, `CalendarDeleteTool`, `CalendarSearchTool`.
-- 10.2.2 — `CalendarDeleteTool`: requires_confirmation=True, risk_level=high.
-- 10.2.3 — All tools must use `get_google_credentials()`.
-- 10.2.4 — Create JSON Schema files.
-
-**SUCCESS CRITERIA:**
-- Create test event → list → event found. Delete → list again → event gone.
-
----
-
-### TASK 10.3 — Gmail
-
-**DESCRIPTION:** Implement Gmail read, search, send, and reply as tools.
-
-**INPUT:** Action-specific args.
-
-**OUTPUT:** `ToolResult` with email data or confirmation.
-
-**FILES:**
-- CREATE: `src/skills/api/gmail.py`
-
-**REQUIREMENTS:**
-- 10.3.1 — Define tools: `GmailListTool`, `GmailSearchTool`, `GmailSendTool`, `GmailReplyTool`, `GmailMarkTool`.
-- 10.3.2 — `GmailSendTool` and `GmailReplyTool`: requires_confirmation=True, risk_level=high.
-- 10.3.3 — Create JSON Schema files.
-
-**SUCCESS CRITERIA:**
-- Send email to self → appears in inbox. Search → found. Mark read → unread count decreases.
-
----
-
-### TASK 10.4 — Google Drive
-
-**DESCRIPTION:** Implement Drive file management as tools.
-
-**INPUT:** Action-specific args.
-
-**OUTPUT:** `ToolResult` with file data or confirmation.
-
-**FILES:**
-- CREATE: `src/skills/api/drive.py`
-
-**REQUIREMENTS:**
-- 10.4.1 — Define tools: `DriveListTool`, `DriveSearchTool`, `DriveUploadTool`, `DriveDownloadTool`, `DriveShareTool`.
-- 10.4.2 — Save downloads to `data/downloads/`.
-- 10.4.3 — Create JSON Schema files.
-
-**SUCCESS CRITERIA:**
-- Upload a local file → appears in Drive. Download it back → content matches.
-
----
-
-### TASK 10.5 — Google Contacts
-
-**DESCRIPTION:** Implement Contacts lookup and name-to-email resolution.
-
-**INPUT:** Search query or contact fields.
-
-**OUTPUT:** `ToolResult` with contact data.
-
-**FILES:**
-- CREATE: `src/skills/api/contacts.py`
-
-**REQUIREMENTS:**
-- 10.5.1 — Define tools: `ContactsSearchTool`, `ContactsGetTool`, `ContactsCreateTool`.
-- 10.5.2 — Define `resolve_name(name) → str | None` returning the email for a given name.
-- 10.5.3 — Create JSON Schema files.
-
-**SUCCESS CRITERIA:**
-- Search known contact by name → email returned.
-- "Send email to Ahmed" → Contacts resolves name → Gmail sends to correct address.
-
----
-
-### TASK 10.6 — YouTube
-
-**DESCRIPTION:** Implement YouTube search and video opening.
-
-**INPUT:** Search query or video ID.
-
-**OUTPUT:** `ToolResult` with video data or browser opened.
-
-**FILES:**
-- CREATE: `src/skills/api/youtube.py`
-
-**REQUIREMENTS:**
-- 10.6.1 — Define tools: `YouTubeSearchTool`, `YouTubeGetInfoTool`, `YouTubeOpenTool`.
-- 10.6.2 — Create JSON Schema files.
-
-**SUCCESS CRITERIA:**
-- `execute_tool("youtube_search", {"query": "machine learning"})` returns 5 results with valid URLs.
-
----
-
-### TASK 10.7 — Media and Network tools
-
-**DESCRIPTION:** Implement media control and network info tools.
-
-**INPUT:** Action-specific args.
-
-**OUTPUT:** `ToolResult` with confirmation or data.
-
-**FILES:**
-- CREATE: `src/skills/media/player.py`
-- CREATE: `src/skills/network/network.py`
-
-**REQUIREMENTS:**
-- 10.7.1 — Define `SetVolumeTool` (name="set_volume"): platform-specific volume control.
-- 10.7.2 — Define `PlayPauseTool` (name="play_pause"): system media key.
-- 10.7.3 — Define `CheckConnectionTool` (name="check_connection"): ping test.
-- 10.7.4 — Define `GetIPTool` (name="get_ip"): local and public IP.
-- 10.7.5 — Create JSON Schema files.
-
-**SUCCESS CRITERIA:**
-- `execute_tool("set_volume", {"level": 50})` sets system volume to 50%.
-- `execute_tool("check_connection", {})` returns `True` when internet is available.
+- Read a multi-page PDF. Non-empty text returned.
+- Read a .docx file. Text content returned.
+- Create a .docx with one paragraph. File exists and is readable by Word.
 
 ---
 
 ## 💾 Phase 11 — Context + Memory
 
-> **End state:** Facts told in session 1 are recalled in session 2. Memory is injected into every turn. Feedback collected.
+> **End state:** Facts from session 1 are recalled in session 2. Every turn auto-saves.
 
 ---
 
 ### TASK 11.1 — Short-term memory
 
-**DESCRIPTION:** Implement session history using Redis with in-memory fallback.
+**DESCRIPTION:** Implement Redis-backed session history with in-memory fallback.
 
-**INPUT:** Role string, content string, session ID.
+**INPUT:** Role and content strings.
 
-**OUTPUT:** Message saved. Retrievable after restart (with Redis).
+**OUTPUT:** Message saved; retrievable by session ID.
 
 **FILES:**
 - CREATE: `src/core/memory/short_term.py`
 
 **REQUIREMENTS:**
-- 11.1.1 — Define `save_message(session_id, role, content)`.
-- 11.1.2 — Define `get_history(session_id, n=10) → list[dict]`.
-- 11.1.3 — Use Redis as primary backend. On connection failure: switch to in-memory dict and log warning.
-- 11.1.4 — Set Redis TTL to 24 hours per session key.
-- 11.1.5 — Trim to last 50 messages per session.
+- Define `save_message(session_id, role, content)`.
+- Define `get_history(session_id, n=10) → list[dict]`.
+- Use Redis if available; fall back to module-level dict on connection failure.
+- Log a warning (not error) when falling back to in-memory.
+- Maximum 50 messages per session; trim oldest when exceeded.
+- Redis TTL: 24 hours per session key.
 
 **SUCCESS CRITERIA:**
-- Save 3 messages. `get_history()` returns all 3 in order.
-- With Redis: restart Python. `get_history()` still returns the 3 messages.
-- Without Redis: in-memory fallback works without crashing.
+- Save 3 messages. Get history. 3 returned in order.
+- With Redis: restart Python. History still present.
+- Without Redis: no crash; in-memory history works.
 
 ---
 
 ### TASK 11.2 — Long-term semantic memory
 
-**DESCRIPTION:** Implement persistent semantic memory using ChromaDB.
+**DESCRIPTION:** Implement ChromaDB-backed semantic search.
 
 **INPUT:** Text string and metadata dict.
 
-**OUTPUT:** Stored and retrievable via semantic search.
+**OUTPUT:** Stored; retrievable by semantic query.
 
 **FILES:**
 - CREATE: `src/core/memory/long_term.py`
 
 **REQUIREMENTS:**
-- 11.2.1 — Define `remember(text, metadata)` adding to ChromaDB collection.
-- 11.2.2 — Define `recall(query, n=5) → list[str]` returning top-N semantically similar snippets.
-- 11.2.3 — Use `sentence-transformers` for embeddings.
-- 11.2.4 — Persist to `data/chroma/`.
+- Define `remember(text, metadata)`.
+- Define `recall(query, n=5) → list[str]`.
+- Use `all-MiniLM-L6-v2` embeddings via `sentence-transformers`.
+- Persist to `data/chroma/` directory.
 
 **SUCCESS CRITERIA:**
-- `remember("User prefers concise Arabic answers")`. Restart Python. `recall("user preferences")` returns that text.
+- `remember("User prefers concise responses")`. Restart Python. `recall("user style preferences")` returns that text in top results.
 
 ---
 
-### TASK 11.3 — SQLite store
+### TASK 11.3 — SQLite structured store
 
-**DESCRIPTION:** Implement the structured relational store.
+**DESCRIPTION:** Implement SQLite-backed structured storage for conversations and metadata.
 
 **INPUT:** SQL operations via wrapper functions.
 
@@ -1853,17 +1862,18 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/memory/database.py`
 
 **REQUIREMENTS:**
-- 11.3.1 — Create tables on init: conversations, feedback, tasks.
-- 11.3.2 — Define `insert_conversation(session_id, role, content)`.
-- 11.3.3 — Define `insert_feedback(session_id, model, mode, score)`.
-- 11.3.4 — Auto-create tables if missing. Migration-safe (additive only).
+- Define tables: conversations, feedback, tasks, routing_weights.
+- Auto-create tables on first connection.
+- Define CRUD functions for each table.
+- Use parameterized queries throughout — no string formatting in SQL.
+- Database path from `get_settings().paths.sqlite`.
 
 **SUCCESS CRITERIA:**
-- Insert one row per table. Restart Python. Query all tables. Rows present.
+- Insert row in each table. Restart. All rows present.
 
 ---
 
-### TASK 11.4 — Memory injection into context assembler
+### TASK 11.4 — Memory injection into Context assembler
 
 **DESCRIPTION:** Wire memory retrieval into `assemble_context()`.
 
@@ -1875,64 +1885,69 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - MODIFY: `src/core/context/assembler.py`
 
 **REQUIREMENTS:**
-- 11.4.1 — Call `get_history(session_id, n=10)` and assign to `recent_history`.
-- 11.4.2 — Call `recall(user_message, n=3)` and assign to `memory_snippets`.
-- 11.4.3 — Both calls must fail gracefully (empty list returned if backend unavailable).
+- Replace the empty list stubs from Phase 3 with real calls:
+  - `get_history(session_id, n=10)` → `recent_history`.
+  - `recall(user_message, n=3)` → `memory_snippets`.
+- If Redis or ChromaDB is unavailable, `assemble_context` still returns a valid `InputPacket` (empty lists for unavailable sources).
 
 **SUCCESS CRITERIA:**
-- Tell Jarvis "my name is Ahmed" in turn 1. Turn 2: "what is my name?" returns "Ahmed".
+- After telling Jarvis "my name is Ahmed" in turn 1, turn 2 "what is my name?" returns "Ahmed" without explicit repetition.
 
 ---
 
-### TASK 11.5 — Auto-save after turns
+### TASK 11.5 — Auto-save after every turn
 
-**DESCRIPTION:** Save every turn to memory stores after `run_turn()` completes.
+**DESCRIPTION:** Save each turn's interaction to all memory backends automatically.
 
-**INPUT:** Completed turn data.
+**INPUT:** Completed turn (user message, response, session ID, decision metadata).
 
-**OUTPUT:** User message and response saved to short-term, SQLite, and long-term memory.
+**OUTPUT:** All backends updated.
 
 **FILES:**
 - MODIFY: `src/core/runtime/loop.py`
 
 **REQUIREMENTS:**
-- 11.5.1 — After every turn: call `save_message(session_id, "user", user_input)`.
-- 11.5.2 — After every turn: call `save_message(session_id, "assistant", response_text)`.
-- 11.5.3 — After every turn: call `insert_conversation()` for both messages.
-- 11.5.4 — When `eval.quality > 0.8`: call `remember()` with the outcome.
+- After every `run_turn()` completion, call:
+  - `save_message(session_id, "user", user_input)`
+  - `save_message(session_id, "assistant", response.text)`
+  - `insert_conversation(session_id, "user", user_input)`
+  - `insert_conversation(session_id, "assistant", response.text)`
+- If response quality > 0.8: call `remember(f"[{decision.intent}] '{user_input[:80]}' received positive response", metadata)`.
+- Memory saves must not block the response — use `asyncio.create_task` or a background thread.
 
 **SUCCESS CRITERIA:**
-- Run 5 turns. SQLite `conversations` table has 10 rows.
+- After 5 turns, SQLite `conversations` table has 10 rows.
+- Good-quality responses appear in ChromaDB after the turn.
 
 ---
 
-### TASK 11.6 — Feedback collection and weight updates
+### TASK 11.6 — Feedback collection
 
-**DESCRIPTION:** Collect turn outcomes and update routing weights.
+**DESCRIPTION:** Collect implicit and explicit feedback signals and save to the database.
 
-**INPUT:** Turn quality score and model/mode used.
+**INPUT:** Turn outcome, evaluator result, explicit user rating.
 
-**OUTPUT:** Feedback rows in SQLite. Routing weights updated every 20 turns.
+**OUTPUT:** Feedback row inserted in SQLite.
 
 **FILES:**
 - CREATE: `src/core/memory/feedback.py`
-- CREATE: `src/core/decision/weight_updater.py`
 
 **REQUIREMENTS:**
-- 11.6.1 — Define `record_feedback(session_id, model, mode, intent, score)` inserting into the feedback table.
-- 11.6.2 — Call `record_feedback()` from `run_turn()` after evaluation.
-- 11.6.3 — Every 20 turns: compute average score per (intent, model) pair and nudge weights via exponential moving average.
-- 11.6.4 — Max delta per update: ±0.15 to prevent thrashing.
+- Define `record_feedback(session_id, model, mode, intent, score)`.
+- Implicit signals: evaluator quality score → record after each turn.
+- Explicit: `/thumbsup` and `/thumbsdown` CLI commands set score to 1.0 and 0.0 respectively.
+- Trigger weight recalculation every 20 turns.
+- Privacy: define `disable_feedback(session_id)` and `clear_all_feedback()`.
 
 **SUCCESS CRITERIA:**
-- 5 turns → 5 rows in feedback table.
-- After simulating poor performance on code tasks with `gemma3:4b`, that pair's weight decreases.
+- After 5 turns, 5 rows appear in the feedback table.
+- `/thumbsup` inserts a row with score=1.0.
 
 ---
 
 ## 🤖 Phase 12 — Agents
 
-> **End state:** Multi-step goals execute autonomously without step-by-step guidance.
+> **End state:** Multi-step goals execute without step-by-step user guidance.
 
 ---
 
@@ -1940,7 +1955,7 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 **DESCRIPTION:** Implement chain-of-thought reasoning with self-critique.
 
-**INPUT:** A complex question string.
+**INPUT:** Question string.
 
 **OUTPUT:** Higher-quality answer than a direct LLM call.
 
@@ -1948,85 +1963,90 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/agents/thinker.py`
 
 **REQUIREMENTS:**
-- 12.1.1 — Define `think(question, model) → str`.
-- 12.1.2 — Use a system prompt that requires: reasoning steps, then answer, then self-critique.
-- 12.1.3 — Extract the final answer from the response after the self-critique marker.
+- Define `think(question, model) → str`.
+- Use a system prompt that instructs: reason step-by-step, self-critique, then provide final answer after a delimiter.
+- Extract only the final answer from the response.
+- Fall back to full response if delimiter not found.
 
 **SUCCESS CRITERIA:**
-- `think("trade-offs between RAG and fine-tuning")` produces a more detailed answer than direct `chat()` on the same question.
+- `think("What are the trade-offs between SQL and NoSQL?")` returns a more complete answer than `chat("What are the trade-offs between SQL and NoSQL?")`.
+- Measured by: response contains at least 3 distinct points.
 
 ---
 
 ### TASK 12.2 — Planner agent
 
-**DESCRIPTION:** Decompose a complex goal into ordered executable steps.
+**DESCRIPTION:** Decompose a multi-step goal into an ordered list of steps.
 
-**INPUT:** Goal string and list of available tool names.
+**INPUT:** Goal string, list of available tool names.
 
-**OUTPUT:** Ordered list of step dicts with: id, description, tool, args, depends_on.
+**OUTPUT:** List of Step objects with tool assignments.
 
 **FILES:**
 - CREATE: `src/core/agents/planner.py`
 
 **REQUIREMENTS:**
-- 12.2.1 — Define `plan(goal, available_tools) → list[dict]`.
-- 12.2.2 — Use `qwen3:8b` in planning mode.
-- 12.2.3 — System prompt must instruct the model to return a JSON array of step objects.
-- 12.2.4 — Handle JSON parse failure with retry (max 2).
+- Define `Step` as a Pydantic model: id, description, tool (str|None), args (dict), depends_on (list[str]).
+- Define `plan(goal, available_tools) → list[Step]`.
+- Use `qwen3:8b` in planning mode.
+- Parse the LLM response as a JSON list of steps.
+- Return an empty list on parse failure — do not raise.
 
 **SUCCESS CRITERIA:**
-- `plan("search AI news and save to file", ["web_search", "write_file"])` returns 2+ steps in dependency order.
+- `plan("search AI news and save a summary to a file", ["web_search", "write_file"])` returns at least 2 steps in dependency order.
 
 ---
 
 ### TASK 12.3 — Step executor
 
-**DESCRIPTION:** Execute a planned step list with dependency-based output passing.
+**DESCRIPTION:** Execute a list of Steps, passing outputs between dependent steps.
 
-**INPUT:** List of step dicts from the planner.
+**INPUT:** `list[Step]`.
 
-**OUTPUT:** All steps executed. Results from each step available to dependent steps.
+**OUTPUT:** Dict of step results.
 
 **FILES:**
 - CREATE: `src/core/agents/step_executor.py`
 
 **REQUIREMENTS:**
-- 12.3.1 — Define `execute_plan(steps) → dict` returning results keyed by step ID.
-- 12.3.2 — Execute in topological order based on `depends_on` field.
-- 12.3.3 — Inject results from prior steps into args of dependent steps.
+- Execute steps in topological order (dependencies first).
+- For each step: if `step.tool` is set, call `execute_tool(step.tool, resolved_args)`.
+- Inject prior step results into args using `$step_id.field` placeholder syntax.
+- Stop on first failure; return results so far with failure details.
 
 **SUCCESS CRITERIA:**
-- 3-step plan (search → summarize → save) executes fully. File exists with search content after completion.
+- 3-step plan (search → summarize → save) executes all three steps. File created with search content.
 
 ---
 
 ### TASK 12.4 — Researcher agent
 
-**DESCRIPTION:** Implement multi-source web research producing a structured report.
+**DESCRIPTION:** Perform multi-source web research and produce a summary report.
 
-**INPUT:** Research topic string.
+**INPUT:** Topic string.
 
-**OUTPUT:** Markdown report with content from multiple sources.
+**OUTPUT:** Markdown report string.
 
 **FILES:**
 - CREATE: `src/core/agents/researcher.py`
 
 **REQUIREMENTS:**
-- 12.4.1 — Define `research(topic) → str` returning a Markdown report.
-- 12.4.2 — Generate 3 distinct search queries from the topic via LLM.
-- 12.4.3 — Search each query, fetch the top result content.
-- 12.4.4 — Summarize and combine sources via LLM.
+- Generate 3 distinct search queries from the topic using an LLM call.
+- Execute each search query.
+- Fetch top result page content for each query.
+- Summarize all sources into a single Markdown report using an LLM call.
+- Include source URLs in the report.
 
 **SUCCESS CRITERIA:**
-- `research("local AI 2025")` returns Markdown with content from at least 3 distinct URLs.
+- `research("local AI models 2025")` returns a Markdown string containing content from at least 2 distinct domains.
 
 ---
 
 ### TASK 12.5 — Computer use agent
 
-**DESCRIPTION:** Implement autonomous screen observation and action loop.
+**DESCRIPTION:** Autonomously control the screen to accomplish a goal.
 
-**INPUT:** A goal string.
+**INPUT:** Goal string.
 
 **OUTPUT:** Goal accomplished or failure message.
 
@@ -2034,10 +2054,10 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/core/agents/computer_use.py`
 
 **REQUIREMENTS:**
-- 12.5.1 — Define `computer_use(goal) → str` looping: screenshot → describe/OCR → decide action → execute.
-- 12.5.2 — Max iterations: read from config.
-- 12.5.3 — All pyautogui actions require confirmation.
-- 12.5.4 — Return a success or failure string.
+- Loop: take screenshot → describe (OCR first; LLaVA if semantic understanding needed) → ask LLM for next action → execute via `pyautogui` → repeat.
+- Maximum 10 iterations from settings.
+- Every action requires user confirmation in BALANCED mode.
+- Maintain an audit log of all actions taken.
 
 **SUCCESS CRITERIA:**
 - Goal "open Notepad and type hello" → Notepad opens → "hello" typed → success returned.
@@ -2046,56 +2066,57 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 ## 💻 Phase 13 — CLI Interface
 
-> **End state:** `python app/main.py --interface cli` shows a Rich terminal chat. Arabic RTL. Slash commands work.
+> **End state:** Rich terminal chat with streaming, Arabic RTL, slash commands, and hotkeys.
 
 ---
 
-### TASK 13.1 — Rich streaming chat loop
+### TASK 13.1 — Rich chat loop
 
 **DESCRIPTION:** Implement the terminal chat interface.
 
-**INPUT:** User types in terminal.
+**INPUT:** Text typed at terminal prompt.
 
-**OUTPUT:** Streaming response rendered with Rich.
+**OUTPUT:** Streaming response displayed in Rich formatting.
 
 **FILES:**
 - CREATE: `src/interfaces/cli/interface.py`
 
 **REQUIREMENTS:**
-- 13.1.1 — Define `run_cli(cfg)` as the main loop.
-- 13.1.2 — Use `rich.live.Live` to stream response tokens.
-- 13.1.3 — Detect Arabic text by counting Arabic-range characters (above 30% → RTL).
-- 13.1.4 — Apply RTL alignment for Arabic messages.
-- 13.1.5 — Handle `KeyboardInterrupt` and `EOFError` cleanly.
+- Define `run_cli(cfg)`.
+- Use `rich.live.Live` for streaming display.
+- Detect Arabic text (>30% Arabic characters) and set text justification to right.
+- Handle `/` prefix to route to command handler.
+- Handle `KeyboardInterrupt` cleanly (print goodbye, exit without traceback).
 
 **SUCCESS CRITERIA:**
-- Arabic message → response with RTL alignment.
-- Streaming shows tokens appearing progressively.
-- Ctrl+C exits without traceback.
+- Arabic message → response displayed with RTL alignment.
+- Streaming shows tokens progressively.
+- Ctrl+C exits cleanly.
 
 ---
 
 ### TASK 13.2 — Slash commands
 
-**DESCRIPTION:** Implement all slash command handlers.
+**DESCRIPTION:** Implement all CLI slash commands.
 
-**INPUT:** Commands starting with `/`.
+**INPUT:** Command string starting with `/`.
 
-**OUTPUT:** Command executes and output printed.
+**OUTPUT:** Command-specific output.
 
 **FILES:**
 - CREATE: `src/interfaces/cli/commands.py`
 
 **REQUIREMENTS:**
-- 13.2.1 — Handle: `/clear`, `/model`, `/mode`, `/memory`, `/tools`, `/status`, `/profile`, `/config`, `/help`.
-- 13.2.2 — `/clear` asks for confirmation before clearing history.
-- 13.2.3 — `/model` validates against available models.
-- 13.2.4 — `/mode` calls `set_execution_mode()` or sets thinking mode depending on value.
-- 13.2.5 — `/tools` lists all registered tools with name, description, risk_level.
+- Implement: `/clear`, `/model`, `/mode`, `/memory`, `/tools`, `/status`, `/profile`, `/help`, `/thumbsup`, `/thumbsdown`.
+- `/mode` updates `execution_mode` from Phase 7.
+- `/thumbsup` and `/thumbsdown` call `record_feedback()` from Phase 11.
+- Each command must print a clear result message.
+- Unknown commands must print "Unknown command. Type /help for list."
 
 **SUCCESS CRITERIA:**
-- All 9 commands execute without error.
-- `/model invalid_name` returns an error without crashing.
+- All listed commands execute without error.
+- `/mode invalid` prints error listing valid values.
+- `/mode safe` changes mode; subsequent tool call requires confirmation.
 
 ---
 
@@ -2103,29 +2124,29 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 **DESCRIPTION:** Register system-wide keyboard shortcuts.
 
-**INPUT:** Hotkey pressed anywhere on the OS.
+**INPUT:** Hotkey combinations from config.
 
-**OUTPUT:** Configured action fires.
+**OUTPUT:** Shortcuts active system-wide while Jarvis is running.
 
 **FILES:**
 - CREATE: `src/interfaces/cli/hotkeys.py`
 
 **REQUIREMENTS:**
-- 13.3.1 — Read hotkey bindings from `get_settings().hotkeys`.
-- 13.3.2 — Register in a background thread at CLI startup.
-- 13.3.3 — On failure: log warning and continue without the hotkey (no crash).
+- Register hotkeys from `get_settings().hotkeys`.
+- Use `keyboard` library on Windows, `pynput` on Linux/macOS.
+- Hotkey registration must run in a background thread — not block the main loop.
+- Registration failure must log a warning, not crash.
 
 **SUCCESS CRITERIA:**
-- Ctrl+Alt+J (or configured hotkey) from another window brings CLI to focus.
-- CLI starts successfully even if hotkey registration fails.
+- Ctrl+Alt+J (or configured key) brings CLI to focus from another window.
 
 ---
 
 ### TASK 13.4 — Input history
 
-**DESCRIPTION:** Persist CLI input history across sessions.
+**DESCRIPTION:** Persist and navigate command history across sessions.
 
-**INPUT:** Arrow up/down keys during input.
+**INPUT:** Up/down arrow keys in terminal.
 
 **OUTPUT:** Previous inputs recalled.
 
@@ -2133,48 +2154,49 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - MODIFY: `src/interfaces/cli/interface.py`
 
 **REQUIREMENTS:**
-- 13.4.1 — Store each user input to `data/cli_history.txt`.
-- 13.4.2 — Load history on startup.
-- 13.4.3 — Support up/down arrow navigation through history.
+- Save each user input to `data/cli_history.txt`.
+- Support arrow key navigation using `prompt_toolkit` or readline.
+- Maximum 500 entries in history file.
 
 **SUCCESS CRITERIA:**
-- Type 3 messages. Press up 3 times. All 3 recalled in reverse order. Survives restart.
+- Type 3 messages. Press up arrow 3 times. All 3 recalled in reverse order. History present after restart.
 
 ---
 
 ### TASK 13.5 — Status bar
 
-**DESCRIPTION:** Display runtime status after each response.
+**DESCRIPTION:** Display current system state below the chat area.
 
-**INPUT:** Current session state.
+**INPUT:** State after each turn completion.
 
-**OUTPUT:** One-line status bar showing model, mode, and turn count.
+**OUTPUT:** One-line status bar showing model, mode, execution_mode, and turn count.
 
 **FILES:**
 - MODIFY: `src/interfaces/cli/interface.py`
 
 **REQUIREMENTS:**
-- 13.5.1 — Display after each response: active model, current mode, turn count, session ID.
-- 13.5.2 — Update automatically — never requires user command.
+- Display after each response: `[model: qwen3:8b] [mode: normal] [safety: balanced] [turn: 5]`.
+- Update after every turn.
 
 **SUCCESS CRITERIA:**
-- Status bar updates after every turn with correct values.
+- Status bar shows correct values after each response.
+- Changing mode via `/mode` updates the status bar on next turn.
 
 ---
 
 ## 🌐 Phase 14 — Web UI
 
-> **End state:** Browser chat at localhost:8080 with streaming, RTL Arabic support, file upload, conversation sidebar.
+> **End state:** Glassmorphism chat interface in browser with streaming, file upload, conversation management, and dashboard.
 
 ---
 
-### TASK 14.1 — FastAPI app and WebSocket endpoint
+### TASK 14.1 — FastAPI application and WebSocket endpoint
 
-**DESCRIPTION:** Create the web server and WebSocket handler.
+**DESCRIPTION:** Create the web server and WebSocket connection for real-time chat.
 
 **INPUT:** Browser connects to `http://localhost:8080`.
 
-**OUTPUT:** Chat page loads. Messages stream in real time.
+**OUTPUT:** Chat page served; messages stream via WebSocket.
 
 **FILES:**
 - CREATE: `src/interfaces/web/app.py`
@@ -2182,127 +2204,213 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `app/server.py`
 
 **REQUIREMENTS:**
-- 14.1.1 — FastAPI app serving static files and templates.
-- 14.1.2 — WebSocket endpoint at `/ws/{session_id}`.
-- 14.1.3 — Receive JSON message with `message` and `mode` fields.
-- 14.1.4 — Stream tokens back as `{"type": "token", "data": "..."}` frames.
-- 14.1.5 — Send `{"type": "done"}` after all tokens.
-- 14.1.6 — Handle disconnection gracefully.
+- Define FastAPI app with static files and Jinja2 templates.
+- WebSocket endpoint at `/ws/{session_id}`.
+- WebSocket must receive `{"message": str, "mode": str}` and stream tokens back as `{"type": "token", "data": str}`.
+- Send `{"type": "done"}` when streaming completes.
+- Handle `WebSocketDisconnect` gracefully — log, do not raise.
+- Support multiple concurrent sessions (multiple browser tabs).
 
 **SUCCESS CRITERIA:**
-- Navigate to localhost:8080 → chat page loads.
-- Send message → streamed response appears.
+- Navigate to `http://localhost:8080`. Page loads.
+- Send message. Tokens stream to the browser and display progressively.
 
 ---
 
-### TASK 14.2 — HTML structure
+### TASK 14.2 — HTML document structure
 
-**DESCRIPTION:** Create the single-page chat application HTML skeleton.
+**DESCRIPTION:** Create the single-page HTML document for the chat interface.
 
-**INPUT:** Browser request.
+**INPUT:** Browser request for `/`.
 
-**OUTPUT:** All structural elements rendered.
+**OUTPUT:** HTML document with all required DOM elements.
 
 **FILES:**
 - CREATE: `src/interfaces/web/templates/index.html`
 
 **REQUIREMENTS:**
-- 14.2.1 — Elements required: sidebar (conversation list, search, settings), main area (header, messages, input bar), toast container.
-- 14.2.2 — Input bar elements: attachment button, mode selector row, text area, send/mic button.
-- 14.2.3 — No JavaScript in this file beyond minimal DOM setup.
+- Required elements by ID: `sidebar`, `search-bar`, `conversation-list`, `settings-btn`, `main`, `header`, `model-indicator`, `messages`, `input-bar`, `attach-btn`, `mode-selector`, `message-input`, `send-btn`, `settings-panel`, `toast-container`, `dashboard`.
+- Load CSS from `/static/style.css` and JS from `/static/chat.js`.
+- Load external libraries via CDN: marked.js (Markdown), highlight.js (syntax), KaTeX (math).
+- No inline JavaScript.
+- No inline styles.
 
 **SUCCESS CRITERIA:**
-- All structural elements present in DOM on page load.
-- No JavaScript errors in browser console.
+- All listed IDs present in DOM (verifiable with browser DevTools).
+- No console errors on page load.
 
 ---
 
-### TASK 14.3 — CSS: design system
+### TASK 14.3 — CSS design system
 
-**DESCRIPTION:** Implement the complete visual design system.
+**DESCRIPTION:** Implement the complete glassmorphism design system.
 
-**INPUT:** Browser renders the page.
+**INPUT:** Nothing — this is the stylesheet.
 
-**OUTPUT:** Glassmorphism dark UI with all components styled.
+**OUTPUT:** All UI components styled correctly in dark and light themes.
 
 **FILES:**
 - CREATE: `src/interfaces/web/static/style.css`
 
 **REQUIREMENTS:**
-- 14.3.1 — Define all CSS custom properties: background colors, glass effects, accent gradient, text colors, radii, fonts.
-- 14.3.2 — Dark theme default. Light theme as `[data-theme="light"]` overrides.
-- 14.3.3 — Glass panels: `backdrop-filter: blur()`, semi-transparent background, subtle border.
-- 14.3.4 — Message bubbles: user (accent gradient), assistant (glass panel).
-- 14.3.5 — Input bar: auto-expanding textarea, mode selector buttons, dynamic send/mic button.
-- 14.3.6 — Toast notifications: 4 types (success, error, info, warning) with slide-in animation.
-- 14.3.7 — Responsive layout for mobile and desktop.
-- 14.3.8 — Arabic messages apply RTL direction and Arabic font.
+- Define all CSS custom properties (variables) for: colors, blur values, gradients, radius, fonts, shadows.
+- Dark theme variables: `--bg-primary: #0a0a1a`, `--glass-bg: rgba(255,255,255,0.05)`, accent gradient blue→teal.
+- Light theme: override variables under `[data-theme="light"]`.
+- Glassmorphism class `.glass`: `backdrop-filter: blur(16px)` + rgba background + border.
+- Sidebar: fixed width 280px, collapsible via `.collapsed` class.
+- Messages: user bubble (gradient background), assistant bubble (glass panel).
+- Typing indicator: three-dot animation.
+- Message entry animation: fade + scale from below.
+- Mode buttons: row with active state highlighted.
+- Send button: round gradient with hover glow.
+- Toast notifications: positioned top-right, color-coded by type.
+- Dashboard stat cards: glass panel with label and value.
+- Responsive: on viewport < 768px, sidebar overlays full width.
 
 **SUCCESS CRITERIA:**
-- Dark theme renders correctly.
-- Arabic text in a message bubble renders right-to-left.
-- Mode buttons visually distinct when active.
+- Dark theme renders correctly in Chrome and Firefox.
+- Light theme switches correctly when `data-theme` attribute changes.
+- Message bubbles visually distinct (user vs assistant).
+- No horizontal scroll at any viewport width.
 
 ---
 
-### TASK 14.4 — JavaScript: WebSocket and streaming
+### TASK 14.4 — JavaScript: WebSocket and chat core
 
-**DESCRIPTION:** Implement client-side WebSocket connection and token streaming.
+**DESCRIPTION:** Implement WebSocket connection, message sending, and token streaming display.
 
-**INPUT:** User sends a message.
+**INPUT:** User types a message and presses Enter or clicks send.
 
-**OUTPUT:** Tokens appear progressively. RTL detected automatically.
+**OUTPUT:** Message appears in chat. Response streams token by token.
 
 **FILES:**
 - CREATE: `src/interfaces/web/static/chat.js`
 
 **REQUIREMENTS:**
-- 14.4.1 — Establish WebSocket connection on page load.
-- 14.4.2 — Reconnect automatically with exponential backoff (1s, 2s, 4s, 8s, max 30s).
-- 14.4.3 — Display connection status indicator (green/yellow/red dot).
-- 14.4.4 — Append tokens as they arrive. Show cursor animation during streaming.
-- 14.4.5 — Detect RTL: if more than 30% Arabic characters → apply `direction: rtl`.
-- 14.4.6 — Render Markdown in assistant responses.
-- 14.4.7 — Add syntax highlighting to code blocks with copy button.
-- 14.4.8 — Scroll to bottom on new messages.
+- Connect WebSocket on page load. Reconnect on close with exponential backoff (1s, 2s, 4s, max 30s).
+- Detect Arabic text (>30% Arabic chars) → set `direction: rtl` on message element.
+- Token streaming: append each token to the active assistant message element as it arrives.
+- Show typing indicator (three dots) while waiting for first token.
+- Hide typing indicator when first token arrives.
+- `send_btn` shows mic icon when input is empty; switches to arrow icon when user types.
+- Mode selector: clicking a mode button sets it as active; sends mode with next message.
+- Enter key sends message. Shift+Enter inserts newline.
 
 **SUCCESS CRITERIA:**
-- Arabic response renders RTL.
-- Streaming tokens appear progressively.
-- Reconnect after server restart.
+- Arabic message → assistant response displays RTL.
+- Streaming shows tokens appearing progressively.
+- Mode selector updates active mode visually and functionally.
 
 ---
 
-### TASK 14.5 — JavaScript: input bar interactions
+### TASK 14.5 — JavaScript: Markdown, code, and math rendering
 
-**DESCRIPTION:** Implement all input bar behaviors.
+**DESCRIPTION:** Render Markdown, code syntax highlighting, and math in assistant messages.
 
-**INPUT:** User interacts with input controls.
+**INPUT:** Markdown-formatted text in assistant response.
 
-**OUTPUT:** Message sent with correct mode and attachments.
+**OUTPUT:** Rendered HTML with styled code blocks and math.
 
 **FILES:**
 - MODIFY: `src/interfaces/web/static/chat.js`
 
 **REQUIREMENTS:**
-- 14.5.1 — Mode selector: 5 buttons (fast, normal, deep, planning, research). Active state on click. Mode sent with message.
-- 14.5.2 — Textarea: auto-expand up to 8 lines. Enter sends. Shift+Enter adds newline.
-- 14.5.3 — Send/mic button: empty input → mic icon. Typing → send arrow. Smooth morph.
-- 14.5.4 — Attachment menu: upload file, upload image, paste clipboard image.
-- 14.5.5 — Drag-and-drop file onto chat area → auto-attach.
-- 14.5.6 — Attachment preview strip above input with remove button per item.
+- Use `marked.js` to parse assistant message content as Markdown before inserting into DOM.
+- After Markdown parse, apply `highlight.js` to all `code` elements within the message.
+- Add a "Copy" button to each code block. Button shows "Copied!" for 2 seconds after click.
+- Render KaTeX for `$...$` (inline) and `$$...$$` (block) math expressions.
 
 **SUCCESS CRITERIA:**
-- Mode selection updates server behavior (verify via model indicator).
-- Drag file → preview card appears → send → server receives attachment.
+- Response with markdown headings, bold, lists, and code block renders correctly.
+- Code block has syntax colors and Copy button.
+- Math expression `$E=mc^2$` renders as formatted equation.
 
 ---
 
-### TASK 14.6 — REST API routes
+### TASK 14.6 — JavaScript: Attachment system
 
-**DESCRIPTION:** Implement all REST endpoints for conversation management.
+**DESCRIPTION:** Allow file and image attachments before sending a message.
 
-**INPUT:** HTTP requests from browser JavaScript.
+**INPUT:** File selected via "+" menu, drag-and-drop, or Ctrl+V paste.
+
+**OUTPUT:** Attachment preview card above input bar. Attachment sent with message.
+
+**FILES:**
+- MODIFY: `src/interfaces/web/static/chat.js`
+
+**REQUIREMENTS:**
+- "+" button opens a menu with options: Upload File, Upload Image.
+- Drag-and-drop anywhere on the chat area attaches the file.
+- Ctrl+V with an image on the clipboard attaches it.
+- Each attachment shows a preview card with filename, type icon, size, and a remove (×) button.
+- On send: upload file to `/api/upload` → receive `{id, name, type, size}` → include in WebSocket message.
+- Image attachments show a thumbnail preview.
+
+**SUCCESS CRITERIA:**
+- Drag a file onto chat area. Preview card appears.
+- Send message with attachment. Server receives the attachment ID.
+- Remove button removes the attachment from the preview strip.
+
+---
+
+### TASK 14.7 — JavaScript: Sidebar and conversation management
+
+**DESCRIPTION:** Display and manage conversation history in the sidebar.
+
+**INPUT:** User interaction with sidebar elements.
+
+**OUTPUT:** Conversations listed, searchable, manageable.
+
+**FILES:**
+- MODIFY: `src/interfaces/web/static/chat.js`
+
+**REQUIREMENTS:**
+- Load conversation list from `/api/conversations` on page load.
+- Group conversations by date: Today, Yesterday, Previous 7 days, Previous 30 days, Older.
+- New Chat button: generate new session ID, clear message area.
+- Click conversation: load messages from `/api/conversations/{id}`.
+- Inline rename: click title → contenteditable → Enter to save → PUT request.
+- Delete: confirm dialog → DELETE request → remove from list.
+- Pin: toggle → re-sort list (pinned at top).
+- Search: Ctrl+K focuses search bar → filter by title (instant, client-side).
+
+**SUCCESS CRITERIA:**
+- Create, rename, pin, and delete conversations all work.
+- Pinned conversation stays at top after page reload (persisted server-side).
+- Search filters list instantly as user types.
+
+---
+
+### TASK 14.8 — JavaScript: Settings panel
+
+**DESCRIPTION:** Implement the settings panel with all configuration options.
+
+**INPUT:** User interaction with settings controls.
+
+**OUTPUT:** Settings applied immediately and persisted.
+
+**FILES:**
+- MODIFY: `src/interfaces/web/static/chat.js`
+
+**REQUIREMENTS:**
+- Settings panel opens/closes via gear icon.
+- Sections: Appearance (theme, font size, blur, animations), Behavior (default mode, language, enter key), Model (selector, temperature), Data (export JSON, clear conversations, clear memory).
+- Theme toggle: dark/light — applies immediately by toggling `data-theme` attribute.
+- All settings persisted to `localStorage`.
+- Settings loaded from `localStorage` on page load.
+
+**SUCCESS CRITERIA:**
+- Toggle dark/light → changes immediately without reload.
+- Reload page → settings restored from storage.
+- Export conversations downloads a JSON file.
+
+---
+
+### TASK 14.9 — REST API routes
+
+**DESCRIPTION:** Implement all HTTP endpoints used by the Web UI JavaScript.
+
+**INPUT:** HTTP requests from browser.
 
 **OUTPUT:** JSON responses.
 
@@ -2310,67 +2418,104 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/interfaces/web/routes.py`
 
 **REQUIREMENTS:**
-- 14.6.1 — Implement: `GET /`, `GET /api/conversations`, `GET /api/conversations/:id`, `PUT /api/conversations/:id`, `DELETE /api/conversations/:id`.
-- 14.6.2 — Implement: `DELETE /api/memory`, `POST /api/upload`, `GET /api/settings`, `PUT /api/settings`, `GET /api/status`.
-- 14.6.3 — `/api/status` must return: active model, execution mode, VRAM used/total (if available), registered tool count.
-- 14.6.4 — `/api/upload` saves file to `data/temp/`, returns `{id, name, type, size}`.
+- Implement all endpoints:
+  - `GET /api/conversations` → paginated list
+  - `GET /api/conversations/{id}` → messages
+  - `PUT /api/conversations/{id}` → update title, pin, archive
+  - `DELETE /api/conversations/{id}` → delete
+  - `DELETE /api/memory` → clear session memory
+  - `POST /api/upload` → file upload → returns `{id, name, type, size}`
+  - `GET /api/settings`, `PUT /api/settings` → user settings CRUD
+  - `GET /api/status` → active model, VRAM usage, active tool, CPU%, RAM%
+  - `POST /api/feedback` → record thumbs up/down
+- All endpoints return JSON. Use correct HTTP status codes (200, 400, 404).
 
 **SUCCESS CRITERIA:**
 - All endpoints return correct HTTP status codes.
-- `/api/status` returns valid JSON with current system state.
+- Conversation CRUD works end-to-end.
+- `/api/status` returns a valid dict with at least `model` and `mode` fields.
 
 ---
 
-### TASK 14.7 — Sidebar: conversations and search
+### TASK 14.10 — Connection status and error handling
 
-**DESCRIPTION:** Implement the conversation history sidebar.
+**DESCRIPTION:** Display connection status and handle errors gracefully in the UI.
 
-**INPUT:** User interacts with conversation list.
+**INPUT:** WebSocket connection state changes.
 
-**OUTPUT:** History shown, search works, CRUD operations complete.
+**OUTPUT:** Status indicator updates; errors shown as toasts.
 
 **FILES:**
 - MODIFY: `src/interfaces/web/static/chat.js`
 
 **REQUIREMENTS:**
-- 14.7.1 — Load and display conversation list grouped by date: Today, Yesterday, Previous 7 days, Older.
-- 14.7.2 — New conversation button, inline rename, delete with confirmation, pin.
-- 14.7.3 — Search: filter by title on keystroke, by content via server-side call.
-- 14.7.4 — Keyboard shortcut Ctrl+K opens search.
-- 14.7.5 — Persist expanded/collapsed state in localStorage.
+- Connection status indicator in header: green (connected), yellow (reconnecting), red (offline).
+- When offline: disable input bar and show "Reconnecting..." text.
+- When reconnected: re-enable input bar and show "Connected" toast.
+- Message send failure: show error toast with retry button.
+- Toast system: success (green), error (red), info (blue), warning (orange). Auto-dismiss after 4 seconds.
 
 **SUCCESS CRITERIA:**
-- Create 5 conversations. Rename one. Pin one. Delete one. All operations persist after page reload.
-- Search "test" filters the list to matching conversations.
+- Stop server. Yellow dot + "Reconnecting..." shown immediately.
+- Restart server. Green dot restored within reconnect interval.
+- Error from server received as WebSocket message → error toast shown.
 
 ---
 
-### TASK 14.8 — Settings panel and feedback
+### TASK 14.11 — Dashboard panel
 
-**DESCRIPTION:** Implement the settings panel and per-message feedback.
+**DESCRIPTION:** Display live system metrics above the chat area.
 
-**INPUT:** User interacts with settings or feedback buttons.
+**INPUT:** `/api/status` polled every 3 seconds.
 
-**OUTPUT:** Settings saved. Feedback recorded in database.
+**OUTPUT:** Live stat cards with current values.
 
 **FILES:**
 - MODIFY: `src/interfaces/web/static/chat.js`
 
 **REQUIREMENTS:**
-- 14.8.1 — Settings panel sections: Appearance (theme, font size), Behavior (default mode, language, enter key), Model (active model, temperature), Data (export, clear).
-- 14.8.2 — All settings persist in localStorage and apply immediately.
-- 14.8.3 — Per-message 👍/👎 buttons visible on hover. Click → POST to `/api/feedback` → toast confirmation.
-- 14.8.4 — Toast notifications: 4 types, auto-dismiss after 4 seconds.
+- Poll `/api/status` every 3 seconds.
+- Display: VRAM used/total (with progress bar), active model, active tool, CPU%, RAM%.
+- VRAM bar color: green < 70%, amber 70-90%, red > 90%.
+- Dashboard is collapsible (click to hide/show).
 
 **SUCCESS CRITERIA:**
-- Toggle theme → changes immediately. Persists on reload.
-- Click 👍 → feedback recorded → toast appears.
+- Dashboard updates every 3 seconds.
+- VRAM bar fills proportionally to actual usage.
+- While a tool runs, "Active Tool" shows the tool name.
+
+---
+
+### TASK 14.12 — Feedback and message actions
+
+**DESCRIPTION:** Add per-message feedback and action buttons.
+
+**INPUT:** User hovers over a message; clicks an action.
+
+**OUTPUT:** Action executes; feedback recorded.
+
+**FILES:**
+- MODIFY: `src/interfaces/web/static/chat.js`
+
+**REQUIREMENTS:**
+- Actions visible on hover for each message.
+- Assistant messages: 👍, 👎, Copy, Regenerate.
+- User messages: Edit.
+- 👍/👎 → POST to `/api/feedback`.
+- Copy → copies message text to clipboard; shows "Copied!" briefly.
+- Regenerate → resends the user message; replaces the assistant response.
+- Edit → makes user message editable; resubmits on Enter.
+
+**SUCCESS CRITERIA:**
+- Click 👍 → feedback recorded → button highlighted.
+- Click Copy → message text in clipboard.
+- Click Regenerate → new response replaces old.
 
 ---
 
 ## 🎙️ Phase 15 — Voice Pipeline
 
-> **End state:** "Hey Jarvis" → speak command → hear spoken answer.
+> **End state:** "Hey Jarvis" → speech command → spoken response.
 
 ---
 
@@ -2378,18 +2523,19 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 **DESCRIPTION:** Implement speech-to-text using Whisper.
 
-**INPUT:** Audio from microphone.
+**INPUT:** Audio from microphone (numpy array).
 
-**OUTPUT:** Transcribed text with detected language.
+**OUTPUT:** `{"text": "open chrome", "language": "ar"}`.
 
 **FILES:**
 - CREATE: `src/models/speech/stt.py`
 
 **REQUIREMENTS:**
-- 15.1.1 — Load `whisper.load_model("medium")` once at import, cached.
-- 15.1.2 — Define `record_audio(duration) → numpy array` capturing from default microphone.
-- 15.1.3 — Define `transcribe(audio_array) → dict` with keys: text, language.
-- 15.1.4 — Auto-detect language.
+- Define `load_model(size)` that loads and caches the Whisper model.
+- Define `record_audio(duration)` capturing from the default microphone via `sounddevice`.
+- Define `transcribe(audio_array) → dict` with `text` and `language` fields.
+- Model size from settings: default `"medium"`.
+- Do not reload the model on each call — cache after first load.
 
 **SUCCESS CRITERIA:**
 - 5 seconds of Arabic speech → correct Arabic transcription.
@@ -2401,7 +2547,7 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 **DESCRIPTION:** Implement text-to-speech using Piper.
 
-**INPUT:** Text string and language string.
+**INPUT:** Text string, language string.
 
 **OUTPUT:** Audio played through speakers.
 
@@ -2409,36 +2555,38 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/models/speech/tts.py`
 
 **REQUIREMENTS:**
-- 15.2.1 — Load Arabic voice model (`ar_JO-kareem-medium.onnx`) and English voice model.
-- 15.2.2 — Define `speak(text, language)` synthesizing and playing audio.
-- 15.2.3 — Auto-select voice based on language parameter.
+- Define `load_voice(language)` loading the appropriate Piper ONNX voice file.
+- Define `synthesize(text, language) → bytes` returning audio bytes.
+- Define `speak(text, language)` playing audio via `sounddevice`.
+- Arabic voice: `ar_JO-kareem-medium.onnx`.
+- Auto-select voice based on `is_arabic(text)` detection.
 
 **SUCCESS CRITERIA:**
-- `speak("مرحباً", "ar")` produces natural Arabic audio.
-- `speak("Hello", "en")` produces natural English audio.
+- `speak("مرحباً", "ar")` produces audible Arabic speech.
+- `speak("Hello", "en")` produces audible English speech.
 
 ---
 
 ### TASK 15.3 — Wake word detection
 
-**DESCRIPTION:** Implement continuous wake word monitoring.
+**DESCRIPTION:** Detect "Hey Jarvis" from continuous microphone input.
 
-**INPUT:** Continuous microphone audio.
+**INPUT:** Continuous audio stream.
 
-**OUTPUT:** EventBus event emitted when "Hey Jarvis" detected.
+**OUTPUT:** Event emitted when wake word detected.
 
 **FILES:**
 - CREATE: `src/interfaces/voice/wake_word.py`
 
 **REQUIREMENTS:**
-- 15.3.1 — Load openWakeWord model for "hey_jarvis".
-- 15.3.2 — Process audio in 1280-frame chunks.
-- 15.3.3 — Trigger when score exceeds 0.5.
-- 15.3.4 — Emit `bus.emit("wake_word", {})` on detection.
+- Load openWakeWord `hey_jarvis` model.
+- Run detection on 1280-sample audio chunks.
+- Emit `bus.emit("wake_word.detected", {})` when score > 0.5.
+- Run in a daemon thread — does not block the main loop.
 
 **SUCCESS CRITERIA:**
 - "Hey Jarvis" spoken → event fires within 1 second.
-- 60 seconds of random speech → no false triggers.
+- Random speech for 60 seconds → no false triggers.
 
 ---
 
@@ -2446,152 +2594,155 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 
 **DESCRIPTION:** Auto-stop recording when the user stops speaking.
 
-**INPUT:** Microphone stream post-wake-word.
+**INPUT:** Microphone audio stream.
 
-**OUTPUT:** Audio segment ending at speech completion.
+**OUTPUT:** Audio segment ending at speech boundary.
 
 **FILES:**
 - CREATE: `src/interfaces/voice/vad.py`
 
 **REQUIREMENTS:**
-- 15.4.1 — Use `webrtcvad` at aggressiveness level 2.
-- 15.4.2 — Stop recording after 1 second of continuous silence.
-- 15.4.3 — Define `record_with_vad() → numpy array`.
+- Use `webrtcvad` at aggressiveness level 2.
+- Stop recording after 1 second of continuous silence.
+- Minimum recording length: 0.5 seconds.
+- Maximum recording length: configurable from settings.
 
 **SUCCESS CRITERIA:**
-- Speak 3 seconds, pause 1 second → recording stops. Audio array length corresponds to speech duration.
+- Speak 3 seconds then pause 1 second → recording stops at that boundary.
+- Short phrase + pause → captured correctly.
 
 ---
 
 ### TASK 15.5 — Full voice pipeline
 
-**DESCRIPTION:** Integrate all voice components into one pipeline.
+**DESCRIPTION:** Assemble the complete voice interaction loop.
 
-**INPUT:** "Hey Jarvis" spoken by user.
+**INPUT:** Wake word detected.
 
-**OUTPUT:** Spoken response from Jarvis.
+**OUTPUT:** Spoken response played to user.
 
 **FILES:**
 - CREATE: `src/interfaces/voice/pipeline.py`
 
 **REQUIREMENTS:**
-- 15.5.1 — Define `run_voice_pipeline(cfg)` looping: wait for wake word → record with VAD → transcribe → `run_turn()` → speak.
-- 15.5.2 — Play an activation chime after wake word detection.
-- 15.5.3 — Auto-select TTS language from transcription result.
+- Define `run_voice_pipeline(cfg)`.
+- Loop: wait for wake word → play confirmation chime → record with VAD → transcribe → `run_turn()` → speak response.
+- After speaking, return to listening state.
+- Session ID persists across voice turns for the same session.
 
 **SUCCESS CRITERIA:**
-- "Hey Jarvis, what is the capital of Egypt?" → spoken answer within 15 seconds.
+- "Hey Jarvis, what is the capital of France?" → "Paris" (or equivalent) spoken within 15 seconds.
 
 ---
 
 ## 👁️ Phase 16 — Vision + Image Generation
 
-> **End state:** Images are understood and described. Text prompts produce generated images.
+> **End state:** Images described in Arabic. Images generated from text prompts.
 
 ---
 
 ### TASK 16.1 — LLaVA image understanding
 
-**DESCRIPTION:** Implement image description using LLaVA via Ollama.
+**DESCRIPTION:** Describe images using the LLaVA model.
 
-**INPUT:** Image path and optional question string.
+**INPUT:** Image file path, question string.
 
-**OUTPUT:** Text description.
+**OUTPUT:** Text description string.
 
 **FILES:**
 - CREATE: `src/models/vision/llava.py`
 
 **REQUIREMENTS:**
-- 16.1.1 — Define `describe_image(image_path, question) → str`.
-- 16.1.2 — Encode image as base64 for Ollama vision API.
-- 16.1.3 — Swap to `llava:7b` before calling. VRAM guard applies.
-- 16.1.4 — No exception on valid image path.
+- Define `describe_image(image_path, question) → str`.
+- Encode image as base64 before passing to Ollama.
+- Call `swap_to("llava:7b")` before the model call; restore previous model after.
+- Return a fallback message if the model call fails.
 
 **SUCCESS CRITERIA:**
-- Screenshot of code → LLaVA identifies the programming language.
-- Arabic text in image → LLaVA reads the text correctly.
+- Upload a screenshot of code → LLaVA identifies the language and describes what the code does.
 
 ---
 
 ### TASK 16.2 — Stable Diffusion image generation
 
-**DESCRIPTION:** Implement image generation using Stable Diffusion 1.5.
+**DESCRIPTION:** Generate images from text prompts using Stable Diffusion 1.5.
 
 **INPUT:** Prompt string (any language).
 
-**OUTPUT:** Generated PNG file path.
+**OUTPUT:** PNG file saved to `data/generated/`; path returned.
 
 **FILES:**
 - CREATE: `src/models/diffusion/sd.py`
 
 **REQUIREMENTS:**
-- 16.2.1 — Define `generate_image(prompt, steps, width, height) → str`.
-- 16.2.2 — Translate Arabic prompts to English via LLM before generation.
-- 16.2.3 — Unload the current LLM before loading SD. Unload SD after generation.
-- 16.2.4 — Save output to `data/generated/`.
+- Define `generate_image(prompt, steps, width, height) → str` (file path).
+- Translate Arabic prompts to English via LLM before generation.
+- Unload the current LLM via `unload_current_model()` before loading SD.
+- Delete the pipeline and call `torch.cuda.empty_cache()` after generation.
+- Save output to `data/generated/image_{timestamp}.png`.
 
 **SUCCESS CRITERIA:**
-- English prompt → PNG file created in `data/generated/`.
-- Arabic prompt → translated and image generated.
-- VRAM released after generation.
+- `generate_image("a sunset over the Nile")` → PNG file created and path returned.
+- Arabic prompt produces an image (translation confirmed by checking English prompt in log).
 
 ---
 
 ### TASK 16.3 — Vision integration into runtime
 
-**DESCRIPTION:** Wire image understanding into context assembly.
+**DESCRIPTION:** Wire image description into the Context assembler.
 
-**INPUT:** `InputPacket` with image attachment.
+**INPUT:** `InputPacket` with image attachments.
 
-**OUTPUT:** LLaVA description included in `memory_snippets`.
+**OUTPUT:** Image descriptions injected into `memory_snippets`.
 
 **FILES:**
 - MODIFY: `src/core/context/assembler.py`
 
 **REQUIREMENTS:**
-- 16.3.1 — When `attachments` contains image paths, call `describe_image()` for each.
-- 16.3.2 — Append descriptions to `memory_snippets`.
-- 16.3.3 — Only call LLaVA if the image path exists and is valid.
+- For each image attachment in the packet, call `describe_image(path, "Describe this image")`.
+- Prepend the description to `memory_snippets`.
+- If LLaVA is unavailable, skip silently — do not block context assembly.
 
 **SUCCESS CRITERIA:**
-- Upload a chart image. Ask "what trend does this show?" → answer based on image content.
+- Upload a chart image. Ask "what trend does this show?" Response reflects image content.
 
 ---
 
 ### TASK 16.4 — Screen description tool
 
-**DESCRIPTION:** Implement a tool that describes the current screen using LLaVA.
+**DESCRIPTION:** Describe the current screen using vision.
 
-**INPUT:** Empty dict or question string.
+**INPUT:** `{}`.
 
-**OUTPUT:** `ToolResult` with screen description.
+**OUTPUT:** Natural language description of screen contents.
 
 **FILES:**
 - CREATE: `src/skills/screen/describe.py`
 
 **REQUIREMENTS:**
-- 16.4.1 — Define `DescribeScreenTool` (name="describe_screen").
-- 16.4.2 — Take screenshot via `ScreenshotTool`, then call `describe_image()`.
-- 16.4.3 — Create JSON Schema file.
+- Define `DescribeScreenTool` with `name="describe_screen"`.
+- Take screenshot via `ScreenshotTool`.
+- Pass screenshot to `describe_image()`.
+- Return description in `ToolResult.data`.
 
 **SUCCESS CRITERIA:**
-- `execute_tool("describe_screen", {})` returns an accurate description of visible content.
+- "What's on my screen?" → accurate description of visible windows.
 
 ---
 
 ## 📱 Phase 17 — Telegram + GUI
 
-> **End state:** Telegram bot handles all message types. PyQt6 desktop app with tray icon works.
+> **End state:** Telegram bot handles text, photos, and voice. PyQt6 desktop app with tray.
 
 ---
 
 ### TASK 17.1 — Telegram bot
 
-**DESCRIPTION:** Implement the Telegram bot handling text, photo, voice, and document messages.
+**DESCRIPTION:** Implement the full Telegram bot interface.
 
-**INPUT:** Various Telegram message types.
+**INPUT:** Messages received via Telegram.
 
-**OUTPUT:** Jarvis responds correctly to each type.
+**OUTPUT:** Responses sent back via Telegram.
 
 **FILES:**
 - CREATE: `src/interfaces/telegram/bot.py`
@@ -2599,317 +2750,268 @@ Enforcement: mark Phase 0 done in the progress tracker only after both tests pas
 - CREATE: `src/interfaces/telegram/commands.py`
 
 **REQUIREMENTS:**
-- 17.1.1 — Text messages → `run_turn()` → reply.
-- 17.1.2 — Photos → download → `describe_image()` → reply.
-- 17.1.3 — Voice notes → download → `transcribe()` → `run_turn()` → reply.
-- 17.1.4 — Documents → download → appropriate reader tool → summary reply.
-- 17.1.5 — Commands: `/start`, `/clear`, `/model`, `/mode`, `/image`, `/search`.
+- Text → `run_turn()` → reply.
+- Photo → download to temp → `describe_image()` → reply.
+- Voice note → download → `transcribe()` → `run_turn()` → reply.
+- Document → download → `pdf_read_text()` or `docx_read()` → summary reply.
+- Commands: `/start`, `/clear`, `/model`, `/mode`, `/image`.
+- Simulate streaming by sending "Typing..." then editing with full response.
 
 **SUCCESS CRITERIA:**
-- Arabic voice note → correct transcription and answer.
-- Photo upload → image described in user's language.
+- Send Arabic voice note → transcription + Arabic answer returned.
+- Send photo → image described.
 
 ---
 
 ### TASK 17.2 — PyQt6 desktop app
 
-**DESCRIPTION:** Implement the native desktop chat window.
+**DESCRIPTION:** Implement the desktop GUI application.
 
 **INPUT:** User interaction with desktop window.
 
-**OUTPUT:** Chat works. Arabic RTL correct.
+**OUTPUT:** Chat works with Arabic RTL.
 
 **FILES:**
 - CREATE: `src/interfaces/gui/main_window.py`
 - CREATE: `src/interfaces/gui/settings_dialog.py`
 
 **REQUIREMENTS:**
-- 17.2.1 — Scrollable chat area, expanding input, send and mic buttons.
-- 17.2.2 — Model dropdown populated from available models.
-- 17.2.3 — Mode toolbar with 5 mode options.
-- 17.2.4 — Arabic text in chat bubble renders RTL.
+- Chat area, expanding input, send/mic buttons, model dropdown, mode toolbar.
+- Arabic RTL rendering via `Qt.RightToLeft` layout direction.
+- Settings dialog for model, language, voice, theme, startup.
 
 **SUCCESS CRITERIA:**
-- Arabic message → RTL rendering correct.
-- Voice button activates STT and sends transcription.
+- Launch GUI. Type Arabic message. RTL correct. Response appears.
 
 ---
 
-### TASK 17.3 — System tray
+### TASK 17.3 — System tray daemon
 
-**DESCRIPTION:** Run Jarvis as a background daemon with system tray icon.
+**DESCRIPTION:** Run Jarvis as a background tray process.
 
-**INPUT:** App started with `--background` flag or minimized.
+**INPUT:** App minimized or `--background` flag.
 
-**OUTPUT:** Tray icon visible. Wake word active in background.
+**OUTPUT:** Tray icon visible; wake word active in background.
 
 **FILES:**
 - CREATE: `src/interfaces/gui/tray.py`
 - CREATE: `src/interfaces/gui/autostart.py`
 
 **REQUIREMENTS:**
-- 17.3.1 — Pystray icon with right-click menu: Open GUI, Open Web UI, Settings, Quit.
-- 17.3.2 — Wake word listener runs in background thread.
-- 17.3.3 — Wake word detection brings GUI window to front.
-- 17.3.4 — Define `set_autostart(enabled)` for platform-specific auto-start registration.
+- `pystray` tray icon with menu: Open GUI, Open Web UI, Settings, Quit.
+- Wake word listener in background thread.
+- Wake word detection → bring main window to foreground.
+- Auto-start: Windows registry, Linux `.config/autostart/`, macOS `LaunchAgents`.
 
 **SUCCESS CRITERIA:**
-- App in tray. "Hey Jarvis" → GUI window appears.
-- Toggle auto-start → registry/plist entry added/removed.
+- App in tray. Say "Hey Jarvis". GUI appears.
+- Auto-start enabled. Reboot. Jarvis starts automatically.
 
 ---
 
-### TASK 17.4 — Task decomposition
+### TASK 17.4 — Task decomposition engine
 
-**DESCRIPTION:** Implement DAG-based task execution with parallel steps and selective retry.
+**DESCRIPTION:** Execute complex goals using a DAG of subtasks with parallel execution.
 
 **INPUT:** Goal string.
 
-**OUTPUT:** All subtasks executed. Only failed subtasks retry.
+**OUTPUT:** All subtasks executed; failed ones retried selectively.
 
 **FILES:**
 - CREATE: `src/core/agents/decomposer.py`
 - CREATE: `src/core/agents/graph_executor.py`
 
 **REQUIREMENTS:**
-- 17.4.1 — Define `Subtask` with fields: id, title, tool, args, depends_on, status, result.
-- 17.4.2 — Define `decompose(goal) → TaskGraph` using LLM in planning mode.
-- 17.4.3 — Define `execute_graph(graph) → dict` using topological sort and `asyncio.gather()` for the parallel frontier.
-- 17.4.4 — Save graph state to SQLite after each subtask. Define `resume(run_id)` to restart from checkpoint.
+- `Subtask` Pydantic model: id, title, tool, args, depends_on, status, result.
+- `TaskGraph` Pydantic model: goal, run_id, subtasks.
+- `decompose(goal) → TaskGraph`.
+- `execute_graph(graph)` using topological sort + `asyncio.gather()` for parallel frontier.
+- Save graph state to SQLite after each subtask for resume support.
+- `resume(run_id)` loads graph and skips completed subtasks.
 
 **SUCCESS CRITERIA:**
-- 3 independent tasks show concurrent execution in logs.
-- Force-fail one task. Call retry. Only that task re-runs.
-- Kill process mid-execution. Resume with same `run_id`. Skips completed tasks.
+- "Book meeting and send agenda email" → Calendar + Gmail tools used in correct order.
+- Force-fail one subtask. Restart with run_id. Only that subtask re-executes.
 
 ---
 
 ## ✅ Phase 18 — QA + Security
 
-> **End state:** All tests pass. No credentials in logs. Performance benchmarks met.
+> **End state:** Tests pass. No credentials in logs. Performance benchmarks met.
 
 ---
 
-### TASK 18.1 — Test suite structure
+### TASK 18.1 — Test suite
 
-**DESCRIPTION:** Create all test files covering every phase.
+**DESCRIPTION:** Write comprehensive tests for all phases.
 
 **INPUT:** `pytest tests/` command.
 
-**OUTPUT:** All tests pass. Coverage ≥ 70%.
+**OUTPUT:** All tests pass; coverage ≥ 70%.
 
 **FILES:**
 - CREATE: `tests/test_contracts.py` (Phase 2)
 - CREATE: `tests/test_decision.py` (Phase 4)
-- CREATE: `tests/test_safety_modes.py` (Phase 7)
-- CREATE: `tests/test_runtime.py` (Phase 3)
+- CREATE: `tests/test_safety.py` (Phase 7)
 - CREATE: `tests/test_tools.py` (Phase 6)
-- CREATE: `tests/test_skills.py` (Phases 8–10)
+- CREATE: `tests/test_runtime.py` (Phase 3)
 - CREATE: `tests/test_memory.py` (Phase 11)
+- CREATE: `tests/test_skills.py` (Phase 8)
+- CREATE: `tests/test_browser.py` (Phase 9)
+- CREATE: `tests/test_apis.py` (Phase 10)
 - CREATE: `tests/test_agents.py` (Phase 12)
+- CREATE: `tests/test_voice.py` (Phase 15)
+- CREATE: `tests/test_vision.py` (Phase 16)
 
 **REQUIREMENTS:**
-- 18.1.1 — All tests listed in earlier phases must be present.
-- 18.1.2 — Tests must not make real network calls unless tagged `@pytest.mark.integration`.
-- 18.1.3 — Mock all Ollama calls in unit tests.
-- 18.1.4 — Each test file must have a docstring describing what it covers.
+- No hardcoded credentials in test files.
+- Tests that require Ollama must be marked with `@pytest.mark.integration` and skipped in CI.
+- All pure logic tests (contracts, safety, decision rules) must work without Ollama.
 
 **SUCCESS CRITERIA:**
-- `pytest tests/ --cov=src -x` passes with 0 failures and ≥ 70% coverage.
+- `pytest tests/ --cov=src -m "not integration"` → 0 failures, ≥ 70% coverage.
 
 ---
 
-### TASK 18.2 — Security audit: credentials
+### TASK 18.2 — Security hardening
 
-**DESCRIPTION:** Verify no credentials appear in log files or source code.
+**DESCRIPTION:** Verify and fix all security requirements.
 
-**INPUT:** All log files and source files.
+**INPUT:** Code review of all skills and config.
 
-**OUTPUT:** Zero credential matches found.
+**OUTPUT:** Security checklist complete.
 
 **FILES:**
-- CREATE: `scripts/credential_audit.py`
+- MODIFY: Multiple files as needed.
 
 **REQUIREMENTS:**
-- 18.2.1 — Scan `logs/` for patterns: Google API key format, OAuth token format, generic token/key patterns.
-- 18.2.2 — Scan `src/` for hardcoded values matching the same patterns.
-- 18.2.3 — Print each match with file, line number, and masked value.
-- 18.2.4 — Exit with code 1 if any match found.
+- `delete_file` uses `send2trash` — never `os.remove` on user-specified paths.
+- `run_shell` checks blocked patterns before `subprocess.Popen`.
+- `send_email` always triggers confirmation in BALANCED mode.
+- `google_token.json` path never appears in any log line.
+- Browser session files encrypted when `SESSION_ENCRYPTION_KEY` set.
+- All tool args validated against JSON Schema before execution.
+- File paths checked against allowed roots.
+- Error messages passed to LLM do not contain stack traces.
+- `.env` in `.gitignore`.
 
 **SUCCESS CRITERIA:**
-- `python scripts/credential_audit.py` exits with code 0 after a complete test run.
+- Each item above verified by code inspection and checked off.
 
 ---
 
-### TASK 18.3 — Security audit: tool safety
+### TASK 18.3 — Performance benchmarks
 
-**DESCRIPTION:** Verify all safety requirements are enforced.
-
-**INPUT:** Code review of `src/skills/` and `src/core/tools/`.
-
-**OUTPUT:** Security checklist fully verified.
-
-**FILES:**
-- No new files — audit and fix existing files.
-
-**REQUIREMENTS:**
-- 18.3.1 — `delete_file` uses `send2trash` — verify no `os.remove` on user files.
-- 18.3.2 — `run_shell` checks blocklist before any subprocess call.
-- 18.3.3 — `send_email` always has `requires_confirmation=True`.
-- 18.3.4 — Session files encrypted when `SESSION_ENCRYPTION_KEY` is set.
-- 18.3.5 — All tool args pass through the schema validator before execution.
-- 18.3.6 — File paths checked against `ALLOWED_ROOTS` before write/delete.
-- 18.3.7 — No stack traces logged at INFO level (only at DEBUG).
-
-**SUCCESS CRITERIA:**
-- All 7 items manually verified and checked off.
-
----
-
-### TASK 18.4 — Performance benchmarks
-
-**DESCRIPTION:** Measure and verify system performance against defined targets.
+**DESCRIPTION:** Measure and verify system performance against targets.
 
 **INPUT:** `python scripts/benchmark.py`.
 
-**OUTPUT:** All metrics within target values.
+**OUTPUT:** All metrics within defined targets.
 
 **FILES:**
 - CREATE: `scripts/benchmark.py`
 
 **REQUIREMENTS:**
-- 18.4.1 — Measure: cold start time (process start to "Jarvis ready" logged).
-- 18.4.2 — Measure: simple chat response time with `gemma3:4b`.
-- 18.4.3 — Measure: file read tool execution time.
-- 18.4.4 — Measure: peak VRAM during normal chat.
-- 18.4.5 — Write results to `data/benchmark_results.json`.
-
-**Targets:**
-
-| Metric | Target |
-|--------|--------|
-| Cold start | < 10 seconds |
-| Simple chat (gemma3:4b) | < 5 seconds |
-| File read tool | < 1 second |
-| VRAM peak during chat | < 5.5 GB |
+- Measure:
+  - Cold start time (first response): target < 10 seconds.
+  - Simple chat response (gemma3:4b): target < 5 seconds.
+  - File read tool execution: target < 1 second.
+  - VRAM peak during chat: target < 5.5 GB.
+  - Voice round-trip (wake to spoken answer): target < 15 seconds.
+- Output results as JSON to `data/benchmark_results.json`.
 
 **SUCCESS CRITERIA:**
-- `python scripts/benchmark.py` exits with code 0 when all targets are met.
-- Results written to `data/benchmark_results.json`.
+- All metrics within targets.
+- Results file created and readable.
 
 ---
 
-### TASK 18.5 — Windows 11 clean install verification
+### TASK 18.4 — Windows 11 clean install test
 
-**DESCRIPTION:** Verify the full install and feature set on a clean Windows 11 system.
+**DESCRIPTION:** Verify full installation and operation on a clean Windows 11 system.
 
-**INPUT:** Clean Windows 11 machine (physical or VM).
+**INPUT:** Clean Windows 11 machine (or VM).
 
-**OUTPUT:** All features work after running install script.
+**OUTPUT:** All features work after fresh install.
 
 **FILES:**
 - MODIFY: `scripts/install.ps1` (finalize)
 
 **REQUIREMENTS:**
-- 18.5.1 — Run `install.ps1` on a machine without any prior Jarvis installation.
-- 18.5.2 — Verify: CLI chat in Arabic, file operations, app launch, notifications, clipboard.
-- 18.5.3 — Verify: Web UI at localhost:8080.
-- 18.5.4 — Verify: Voice pipeline activates.
+- `install.ps1` completes without manual steps beyond entering API keys.
+- Text chat, file operations, app launch, notification, and clipboard all work.
+- Web UI accessible at localhost:8080.
+- No `ModuleNotFoundError` at any point.
 
 **SUCCESS CRITERIA:**
-- All steps complete without manual intervention beyond entering API keys.
+- All listed features work on the clean machine without manual troubleshooting.
 
 ---
 
-### TASK 18.6 — Linux verification
+### TASK 18.5 — Credential audit
 
-**DESCRIPTION:** Verify core features on Ubuntu 22.04 or later.
+**DESCRIPTION:** Verify no credentials appear in log files.
 
-**INPUT:** Ubuntu 22.04 machine.
+**INPUT:** All files in `logs/`.
 
-**OUTPUT:** Platform-independent features work. Windows-only features report as unavailable.
+**OUTPUT:** Zero credential matches.
 
 **FILES:**
-- MODIFY: `scripts/install.sh` (finalize)
+- CREATE: `scripts/credential_audit.py`
 
 **REQUIREMENTS:**
-- 18.6.1 — Core chat, tool execution, file ops, browser, APIs all work.
-- 18.6.2 — Windows-only tools (winotify, pycaw) return `is_available()=False` without error.
+- Scan all files in `logs/` for patterns matching: API keys, OAuth tokens, email+password combinations.
+- Print each match found with file name and line number.
+- Exit with code 1 if any match found; exit 0 if clean.
 
 **SUCCESS CRITERIA:**
-- Platform check: `winotify`-based notification tool is not in `registry.all_available()` on Linux.
-- Core functionality works without any Windows-specific tool.
+- Script exits with code 0 after running a full conversation session.
 
 ---
 
-### TASK 18.7 — CI setup
+### TASK 18.6 — CI setup
 
-**DESCRIPTION:** Configure automated CI to run tests on every push.
+**DESCRIPTION:** Configure automated testing on every push.
 
 **INPUT:** Git push to main branch.
 
-**OUTPUT:** Lint, type check, and tests run automatically.
+**OUTPUT:** Lint + type check + tests run automatically.
 
 **FILES:**
 - CREATE: `.github/workflows/ci.yml`
 - CREATE: `.pre-commit-config.yaml`
 
 **REQUIREMENTS:**
-- 18.7.1 — CI workflow: checkout, Python setup, install requirements, run `ruff check src/`, run `pytest tests/ --cov=src -x`.
-- 18.7.2 — CI runs on push and pull_request events.
-- 18.7.3 — Pre-commit hooks: ruff format check, import sort.
-- 18.7.4 — CI must not require real Ollama or Google API access.
+- CI runs on Ubuntu latest.
+- Steps: checkout, setup Python 3.11, pip install, ruff lint, pytest (non-integration only).
+- Credential audit runs in CI: `python scripts/credential_audit.py`.
+- Pre-commit hooks: ruff format check, no trailing whitespace.
 
 **SUCCESS CRITERIA:**
-- Push triggers CI. All checks pass on a clean run.
-- Failed test blocks merge (CI returns exit code 1).
+- Push to main triggers CI run.
+- All checks pass on a clean push.
+- A push with a linting error causes CI to fail.
 
 ---
 
-## 📌 Implementation Reference
+### TASK 18.7 — Documentation finalization
 
-### Layer Responsibilities
+**DESCRIPTION:** Update README and STRUCTURE.md to reflect the final implemented system.
 
-| Layer | Only Does | Never Does |
-|-------|-----------|-----------|
-| `src/interfaces/` | Receive input, display output | Classify, route, store |
-| `src/core/context/` | Build InputPacket for current turn | Store across turns |
-| `src/core/decision/` | Classify intent, select model, assign risk | Generate content |
-| `src/core/runtime/` | Drive the execution loop | Implement intelligence |
-| `src/core/agents/` | Multi-step reasoning and planning | Route requests |
-| `src/core/tools/` | Registry, safety, validation, execution bridge | Implement tool logic |
-| `src/skills/` | One specific action | Route, decide, store |
-| `src/models/` | Wrap AI model I/O | Decide, route, store |
-| `src/core/memory/` | Persist and retrieve data | Route or classify |
-| `src/core/identity/` | Build system prompts | Make decisions |
+**INPUT:** Completed implementation.
 
-### Model Selection
+**OUTPUT:** Documentation matches actual behavior.
 
-| Signal | Model |
-|--------|-------|
-| Image in attachments | `llava:7b` |
-| intent == "code" | `qwen2.5-coder:7b` |
-| complexity == "low" AND mode == "fast" | `gemma3:4b` |
-| All other cases | `qwen3:8b` |
+**FILES:**
+- MODIFY: `README.md`
+- MODIFY: `STRUCTURE.md`
 
-### Execution Mode Policy
+**REQUIREMENTS:**
+- Update version badge to reflect actual release.
+- Update Implementation Status table with actual completed phases.
+- Verify every file path mentioned in STRUCTURE.md exists.
+- Verify every tool mentioned in README Section 14 has an entry in `config/skills.yaml`.
 
-| Risk | SAFE | BALANCED | UNRESTRICTED |
-|------|------|----------|-------------|
-| low | confirm | auto | auto |
-| medium | confirm | confirm | auto |
-| high | confirm | blocked* | auto |
-
-*Unblocked by `"confirm: {tool_name}"` override phrase.
-
-### Data Flow Summary
-
-```
-Interface input
-  → assemble_context() → InputPacket
-  → decide() → DecisionOutput
-  → execute_turn() → LLMOutput
-  → [if tool_call] → execute_tool() → ToolResult → re-observe
-  → [if answer] → evaluate() → EvalResult
-  → [if approved] → FinalResponse → Interface output
-```
+**SUCCESS CRITERIA:**
+- No discrepancy between documentation and actual file structure.
+- All listed tools verified to be registered and callable.
