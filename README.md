@@ -40,6 +40,28 @@ Each layer has a single defined responsibility. No layer crosses into another's 
 | Memory | `src/core/memory/` | Persist data across turns | Participate in routing |
 | Identity | `src/core/identity/` | Build system prompts | Route or decide |
 
+### Runtime Authority
+
+**The Runtime is the ONLY authority controlling:**
+- Flow execution direction
+- Retry decisions and limits
+- Model switching
+- Loop termination
+
+**No other module may control these aspects.**
+
+---
+
+### Tool Execution Boundaries
+
+**Tools MUST NOT:**
+- Call any LLM
+- Make routing decisions
+- Access the Runtime loop
+- Modify execution flow
+
+Tools are pure executors. They receive input, produce output, and return.
+
 ---
 
 ## 3. Execution Contract
@@ -132,6 +154,42 @@ FinalResponse {
 
 ---
 
+## 4.1. Single Execution Path (ENFORCED)
+
+**The execution path is deterministic and enforced across ALL modules:**
+
+```
+Observe → Decide → Think → Act → Evaluate
+```
+
+This path MUST be followed by every turn. No module may skip a step. No module may introduce a new path.
+
+**Phase 0 is the Gatekeeper:**
+- Phase 0 must complete successfully before any subsequent phase runs
+- No execution enters Phases 1+ without Phase 0 validation
+
+---
+
+## 4.2. Context System (Simplified)
+
+Context must support basic input types WITHOUT multi-stage over-processing:
+
+| Input Type | Supported | Processing |
+|-----------|-----------|------------|
+| text | Yes | Direct pass-through |
+| files | Yes | Path references only |
+| images | Yes | Path references only |
+| audio | Yes | Path references only |
+
+**Context does NOT:**
+- Store data across turns
+- Perform semantic processing
+- Transform input content
+
+Context is a bundling layer, not a processing layer.
+
+---
+
 ## 4. Runtime Loop
 
 The loop runs for every user turn. It terminates when the evaluator approves the response or when `max_iterations` is reached.
@@ -165,7 +223,10 @@ END turn
 - `max_iterations` reached — returns best available response with exhaustion note
 - Tool returns `success=False` after `max_tool_retries` — returns error message to user
 
-**Fallback:** When all iterations are exhausted, return the last generated text with a note that the answer may be incomplete.
+**Execution Limits (to prevent over-execution):**
+- max_iterations: Maximum loops per turn (prevents infinite loops)
+- max_tool_retries: Maximum retries for tool calls
+- tool_timeout_s: Maximum seconds per tool execution
 
 ---
 
@@ -202,6 +263,39 @@ Append to InputPacket.tool_results
   ↓
 Re-enter observe() step
 ```
+
+---
+
+## 5.1. Tool Validation Layer
+
+Tool execution never happens directly from the LLM. Every tool proposal MUST pass through validation.
+
+### Validation Flow
+
+```
+LLM output
+  ↓
+Tool proposal → DecisionOutput alignment check
+  ↓
+Schema validity check
+  ↓
+Risk level verification
+  ↓
+Availability check
+  ↓
+Execution
+```
+
+### What the Validator Verifies
+
+| Check | Failure Action |
+|-------|----------------|
+| Aligns with DecisionOutput | Reject and retry |
+| Valid JSON schema | Return validation error |
+| Risk level from manifest | Default to "low" |
+| Tool is available | Return ToolResult(success=False) |
+
+**No direct LLM → Tool execution is permitted.**
 
 ---
 
@@ -419,26 +513,43 @@ The mode fragment changes the model's reasoning behavior. The mode is set by `De
 
 The Decision Layer classifies the current turn and selects resources. It does not generate content and does not call a model for reasoning except when classification requires it.
 
+### Decision Boundaries
+
+**The Decision layer MUST NOT:**
+- Execute any tools
+- Generate responses for the user
+- Access external services
+
+The Decision layer ONLY:
+- Selects the appropriate model
+- Selects the appropriate mode
+- Estimates the risk level
+
+### Score-Based Model Selection
+
+Model selection MUST use multiple signals, not hard-coded routing:
+
+| Signal | Weight Factor |
+|--------|-------------|
+| capability | Does the model support the required capability (vision, code, etc.)? |
+| latency | Is the model fast enough for the selected mode? |
+| cost | Is the model within VRAM constraints? |
+| modality | Does the input modality match model capabilities? |
+| context | Does the complexity match the model's strength? |
+
+All model selection follows score-based evaluation. No direct `input == model` mappings are permitted.
+
 ### Classification Rules
 
 | Signal | Decision |
 |--------|----------|
-| Image in attachments | intent=vision, model=llava:7b |
-| Message contains code keywords | intent=code, model=qwen2.5-coder:7b |
-| Message length < 20 chars, no action keywords | intent=chat, mode=fast, model=gemma3:4b |
-| Multi-step goal detected | intent=research, mode=planning, model=qwen3:8b |
-| Default | intent=chat, mode=normal, model=qwen3:8b |
+| Image in attachments | intent=vision |
+| Message contains code keywords | intent=code |
+| Message length < 20 chars, no action keywords | intent=chat, mode=fast |
+| Multi-step goal detected | intent=research, mode=planning |
+| Default | intent=chat, mode=normal |
 
 Fast-path rules run before any LLM call. If a fast-path rule matches, no LLM is invoked for classification.
-
-### Model Selection Rules
-
-```
-image present                          → llava:7b
-intent == "code"                       → qwen2.5-coder:7b
-complexity == "low" AND mode == "fast" → gemma3:4b
-all other cases                        → qwen3:8b
-```
 
 ---
 
@@ -524,6 +635,43 @@ All file paths use `pathlib.Path`. No hardcoded path separators.
 
 ---
 
+## 5.2. Failure Modes
+
+When failures occur, the system MUST detect, handle, and recover. Each failure mode has defined detection, fallback, and retry limits.
+
+### Failure Mode Definitions
+
+| Failure Mode | Detection | Fallback | Retry Limit |
+|-------------|----------|---------|------------|
+| model timeout | No response within tool_timeout_s | Switch to faster model | max_tool_retries |
+| invalid output | Schema validation fails | Return error to LLM | max_tool_retries |
+| tool failure | Tool returns success=False | Return error to user | 0 (no retry for tools) |
+| infinite loop risk | max_iterations reached | Return best available response | N/A |
+
+### Detection and Recovery Rules
+
+**Model Timeout:**
+- Detection: No response within configured timeout
+- Fallback: Retry with next available model (see escalation chain)
+- Retry Limit: Read from runtime.max_tool_retries
+
+**Invalid Output:**
+- Detection: Schema validation fails or required fields missing
+- Fallback: Return error message to LLM with correction instruction
+- Retry Limit: 2 retries maximum
+
+**Tool Failure:**
+- Detection: Tool.execute() returns success=False
+- Fallback: Return ToolResult to user; do not retry the tool
+- Retry Limit: 0 (tools do not retry)
+
+**Infinite Loop Risk:**
+- Detection: Iterations reach max_iterations
+- Fallback: Return last generated response with exhaustion note
+- Retry Limit: N/A
+
+---
+
 ## 17. Configuration Reference
 
 All configuration lives in `config/settings.yaml`. No tunable parameters exist as Python constants.
@@ -540,7 +688,9 @@ All configuration lives in `config/settings.yaml`. No tunable parameters exist a
 
 ---
 
-## 18. Logging
+## 18. Logging (CORE LAYER)
+
+**Logging is NOT optional. It is a CORE runtime layer.**
 
 All log entries use key=value structured format. Every entry includes a timestamp and level.
 
@@ -554,7 +704,18 @@ All log entries use key=value structured format. Every entry includes a timestam
 | `tool.parse_failure` | attempt, error |
 | `eval` | quality, should_retry |
 | `model.swap` | from, to |
+| `model.error` | model, error_type, details |
+| `retry` | attempt, reason, success |
+| `escalation` | from_mode, from_model, to_mode, to_model |
 | `turn.end` | session, quality, total_ms |
+
+**What MUST be logged:**
+- All decisions made
+- All model selections
+- All tool calls
+- All failures and errors
+- All retry attempts
+- All escalation events
 
 Log files: `logs/jarvis.log` — INFO and above, 10 MB rotation, 7-day retention.
 

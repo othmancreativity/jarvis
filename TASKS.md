@@ -25,7 +25,7 @@
 | 2 | Execution Contract Implementation | 6 | 0 |
 | 3 | Runtime Loop | 6 | 0 |
 | 4 | Decision System | 5 | 0 |
-| 5 | Prompt Builder | 4 | 0 |
+| 5 | Prompt Builder | 6 | 0 |
 | 6 | Tool System | 7 | 0 |
 | 7 | Safety Modes | 5 | 0 |
 | 8 | System Control Skills | 8 | 0 |
@@ -968,6 +968,55 @@
 **SUCCESS CRITERIA:**
 - After wiring, the LLM response demonstrates awareness of its identity (does not identify as the raw model).
 - The system prompt contains the correct mode fragment for the current decision mode.
+
+---
+
+### TASK 5.5 — Identity Enforcement Test
+
+**DESCRIPTION:** Verify that ALL model calls include the identity block in their system prompt.
+
+**INPUT:** A model call captured via logging or test hook.
+
+**OUTPUT:** The identity block is present in the system prompt.
+
+**FILES:**
+- CREATE: `tests/test_identity_enforcement.py`
+
+**REQUIREMENTS:**
+- Intercept a model call before it is sent to Ollama
+- Verify that the system prompt contains:
+  - The component notice from jarvis_identity.yaml
+  - The safety rules block
+- The identity block must NOT be removable by the model
+- Test fails if identity is missing
+
+**SUCCESS CRITERIA:**
+- Every LLM call includes the identity block
+- No exception reaches the terminal on any test run
+
+---
+
+### TASK 5.6 — Tool Validation Layer
+
+**DESCRIPTION:** Implement the validation layer that ensures tool proposals align with DecisionOutput.
+
+**INPUT:** Parsed LLMOutput with tool proposal, DecisionOutput.
+
+**OUTPUT:** Validation result - passes or fails with reason.
+
+**FILES:**
+- CREATE: `src/core/tools/validator.py`
+
+**REQUIREMENTS:**
+- Validate tool aligns with what DecisionOutput requires
+- Validate JSON schema for required fields
+- Verify tool is available in registry
+- Return structured validation result
+
+**SUCCESS CRITERIA:**
+- Valid tool proposals pass
+- Invalid proposals return error without executing
+- No tool executes without validation
 
 ---
 
