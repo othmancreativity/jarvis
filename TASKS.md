@@ -1,58 +1,80 @@
-# JARVIS — Execution Plan
+# JARVIS — Execution Engine
 
-## Execution Rules
+## Project Status
 
-**STRICT RULES - No exceptions, no phase skipping:**
-
-1. **No skipping phases** — Phase 0 must be completed before Phase 1
-2. **No adding features outside scope** — Each phase stays within its defined scope
-3. **Each phase must produce a working system** — Must be runnable after each phase
-4. **No breaking architecture** — Data contracts must be maintained across all phases
-5. **Progressive implementation** — Build incrementally, never rewrite previous work
-6. **Test after each task** — Verify success criteria before proceeding
-
----
-
-## Priority System
-
-| Priority | Description | Examples |
-|----------|--------------|----------|
-| **P0** | Core survival | State machine, limits, error handling |
-| **P1** | Core features | Decision, tool execution, memory |
-| **P2** | Expansion | Browser, Google APIs, Agents |
-| **P3** | Advanced | Voice, Vision, GUI |
+```yaml
+project:
+  name: JARVIS
+  version: "1.0"
+  spec_version: "final"
+  last_updated: "2026-04-24"
+  current_phase: 0
+  overall_progress_percent: 0
+  risk_level: "medium"
+  hardware_profile:
+    gpu: "RTX 3050 6GB VRAM"
+    ram: "16 GB"
+    cpu: "Intel Core i5 12th Gen"
+  current_blocker: "none"
+  next_action: "Start Phase 0"
+  validation_status: "not_started"
+```
 
 ---
 
-## Progress Tracking
+## Status Legend
 
-| Phase | Name | Priority | Status |
-|-------|------|----------|--------|
-| 0 | First Working System | P0 | [ ] |
-| 1 | Foundation | P0 | [ ] |
-| 2 | Execution Contract | P0 | [ ] |
-| 3 | Runtime State Machine | P0 | [ ] |
-| 4 | Decision System | P1 | [ ] |
-| 5 | Prompt Builder | P1 | [ ] |
-| 6 | Tool System | P1 | [ ] |
-| 7 | Safety Modes | P1 | [ ] |
-| 8 | System Control Skills | P1 | [ ] |
-| 9 | Runtime Hardening | P0 | [ ] |
-| 10 | Memory (Simplified) | P1 | [ ] |
-| 11 | Debug System | P0 | [ ] |
-| 12 | Browser & Web | P2 | [ ] |
-| 13 | Google APIs | P2 | [ ] |
-| 14 | CLI Interface | P2 | [ ] |
-| 15 | Web UI | P2 | [ ] |
-| 16 | Voice Pipeline | P3 | [ ] |
-| 17 | Vision + Image | P3 | [ ] |
-| 18 | QA + Production | P0 | [ ] |
+| Marker | Status | Description |
+|--------|--------|-------------|
+| `[ ]` | not_started | Task not yet started |
+| `[~]` | in_progress | Task actively being worked on |
+| `[!]` | blocked | Task blocked, needs resolution |
+| `[x]` | done | Task verified complete |
+| `[>]` | needs_review | Task complete, needs verification |
+
+---
+
+## Phase Progress Summary
+
+| ID | Title | Priority | Status | % | Done/Total | Blocker | Next Action | Last Updated |
+|----|-------|----------|--------|---|------------|---------|-------------|--------------|
+| 0 | First Working System | P0 | [ ] | 0% | 0/5 | none | Start TASK 0.1 | - |
+| 1 | Foundation | P0 | [ ] | 0% | 0/9 | none | Start TASK 1.1 | - |
+| 2 | Execution Contract | P0 | [ ] | 0% | 0/6 | none | Start TASK 2.1 | - |
+| 3 | Runtime State Machine | P0 | [ ] | 0% | 0/9 | none | Start TASK 3.1 | - |
+| 4 | Decision System | P1 | [ ] | 0% | 0/5 | none | Start TASK 4.1 | - |
+| 5 | Prompt Builder | P1 | [ ] | 0% | 0/5 | none | Start TASK 5.1 | - |
+| 6 | Tool System | P1 | [ ] | 0% | 0/7 | none | Start TASK 6.1 | - |
+| 7 | Safety Modes | P1 | [ ] | 0% | 0/4 | none | Start TASK 7.1 | - |
+| 8 | System Control Skills | P1 | [ ] | 0% | 0/8 | none | Start TASK 8.1 | - |
+| 9 | Runtime Hardening | P0 | [ ] | 0% | 0/6 | none | Start TASK 9.1 | - |
+| 10 | Memory (Simplified) | P1 | [ ] | 0% | 0/3 | none | Start TASK 10.1 | - |
+| 11 | Debug System | P0 | [ ] | 0% | 0/4 | none | Start TASK 11.1 | - |
+| 12 | Browser & Web | P2 | [ ] | 0% | 0/3 | none | Start TASK 12.1 | - |
+| 13 | Google APIs | P2 | [ ] | 0% | 0/4 | none | Start TASK 13.1 | - |
+| 14 | CLI Interface | P2 | [ ] | 0% | 0/2 | none | Start TASK 14.1 | - |
+| 15 | Web UI | P2 | [ ] | 0% | 0/3 | none | Start TASK 15.1 | - |
+| 16 | Voice Pipeline | P3 | [ ] | 0% | 0/4 | none | Start TASK 16.1 | - |
+| 17 | Vision + Image | P3 | [ ] | 0% | 0/2 | none | Start TASK 17.1 | - |
+| 18 | QA + Production | P0 | [ ] | 0% | 0/5 | none | Start TASK 18.1 | - |
 
 ---
 
 ## Phase 0 — First Working System
 
-> **MANDATORY FIRST - No other phase may be started until Phase 0 is complete and verified**
+```
+phase_id: 0
+title: "First Working System"
+priority: "P0"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 5
+blocker: "none"
+next_action: "Start TASK 0.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
@@ -62,7 +84,7 @@ Create a minimal working system that proves the core pipeline works: text input 
 
 - Text input → LLM call → response output
 - Tool command classification → tool execution
-- Arabic command support
+- Arabic command support equivalent to English
 
 ### Out of Scope
 
@@ -76,44 +98,65 @@ None — this is the starting phase.
 
 ### Tasks
 
-- [ ] TASK 0.1 — Connect to Ollama and get a response
-  - Create `src/models/llm/engine.py`
-  - Implement `chat(message, model)` function
-  - Call Ollama Python client
-  - Return response content as string
-  - **Expected output:** Non-empty string response
-  - **Failure:** Empty response, exception, timeout > 60s
+**TASK 0.1 — Connect to Ollama and get a response**
+- [ ] Status: not_started
+- Create `src/models/llm/engine.py`
+- Implement `chat(message, model)` function
+- Call Ollama Python client
+- Return response content as string
+- **Expected output:** Non-empty string response within 60s
+- **Failure cases:** Empty response, exception reaches terminal, timeout > 60s
+- **Verification method:** `python -c "from src.models.llm.engine import chat; print(chat('hello'))"`
+- **Artifact:** `src/models/llm/engine.py`
 
-- [ ] TASK 0.2 — Classify a command and return structured output
-  - Create `src/core/decision/classifier.py`
-  - Implement `classify(message)` function
-  - Use gemma3:4b with JSON-forcing system prompt
-  - Handle malformed JSON with retry (max 2)
-  - Return safe fallback dict on all failures
-  - **Expected output:** dict with intent, tool_name, tool_args
-  - **Failure:** Invalid dict, wrong intent mapping, exception
+**TASK 0.2 — Classify a command and return structured output**
+- [ ] Status: not_started
+- Create `src/core/decision/classifier.py`
+- Implement `classify(message)` function
+- Use gemma3:4b with JSON-forcing system prompt
+- Handle malformed JSON with retry (max 2)
+- Return safe fallback dict on all failures
+- **Expected output:** dict with intent, tool_name, tool_args
+- **Failure cases:** Invalid dict, wrong intent mapping, exception
+- **Verification method:** `python -c "from src.core.decision.classifier import classify; print(classify('open chrome'))"`
+- **Artifact:** `src/core/decision/classifier.py`
 
-- [ ] TASK 0.3 — Execute an application by name
-  - Create `src/skills/system/apps.py`
-  - Implement `open_app(name)` function
-  - Cross-platform search (PATH, program directories)
-  - Return success/error dict without raising
-  - **Expected output:** {"success": true, "pid": N} or {"success": false, "error": "..."}
-  - **Failure:** Exception reaches terminal, wrong app opened
+**TASK 0.3 — Execute an application by name**
+- [ ] Status: not_started
+- Create `src/skills/system/apps.py`
+- Implement `open_app(name)` function
+- Cross-platform search (PATH, program directories)
+- Return success/error dict without raising
+- **Expected output:** `{"success": true, "pid": N}` or `{"success": false, "error": "..."}`
+- **Failure cases:** Exception reaches terminal, wrong app opened
+- **Verification method:** `python -c "from src.skills.system.apps import open_app; print(open_app('notepad'))"`
+- **Artifact:** `src/skills/system/apps.py`
 
-- [ ] TASK 0.4 — Wire classifier to tool: text input → action
-  - Create `app/jarvis_slice.py`
-  - Implement `run(user_input)` function
-  - Connect: input → classify → tool/LLM → output
-  - Loop on terminal input until "quit"
-  - **Expected output:** Tool executes or LLM response printed
-  - **Failure:** Loop doesn't exit, no response
+**TASK 0.4 — Wire classifier to tool: text input → action**
+- [ ] Status: not_started
+- Create `app/jarvis_slice.py`
+- Implement `run(user_input)` function
+- Connect: input → classify → tool/LLM → output
+- Loop on terminal input until "quit"
+- **Expected output:** Tool executes or response printed
+- **Failure cases:** Loop doesn't exit on "quit", no response
+- **Verification method:** Run and type: "open notepad", "what is AI?", "quit"
+- **Artifact:** `app/jarvis_slice.py`
 
-- [ ] TASK 0.5 — Verify Arabic input
-  - Test Arabic commands produce same behavior as English
-  - Add Arabic examples to classifier if needed
-  - **Expected output:** Same intent as English equivalent
-  - **Failure:** Different intent for Arabic
+**TASK 0.5 — Verify Arabic input**
+- [ ] Status: not_started
+- Test Arabic commands produce same behavior as English
+- Add Arabic examples to classifier if needed
+- **Expected output:** Same intent as English equivalent
+- **Failure cases:** Different intent for Arabic command vs English
+- **Verification method:** Test Arabic equivalent
+
+### Definition of Done
+
+1. "hello" returns non-empty text response.
+2. "open notepad" opens Notepad.
+3. Arabic equivalents produce identical behavior.
+4. "quit" exits cleanly.
 
 ### Validation Steps
 
@@ -121,16 +164,10 @@ None — this is the starting phase.
 python -c "from src.models.llm.engine import chat; print(chat('hello'))"
 python -c "from src.skills.system.apps import open_app; print(open_app('notepad'))"
 python app/jarvis_slice.py
-# Type: "open notepad" → opens Notepad
-# Type: "what is AI?" → text response
-# Type: "quit" → exits
+# Type: "open notepad" → should open Notepad
+# Type: "what is AI?" → response
+# Type: "quit" → exit
 ```
-
-### Failure Conditions
-
-- Any exception reaches the terminal
-- "open notepad" does not work
-- Response is empty
 
 ### Artifacts
 
@@ -139,11 +176,27 @@ python app/jarvis_slice.py
 - `src/skills/system/apps.py`
 - `app/jarvis_slice.py`
 
+### AI Instructions
+
+This phase establishes the minimum viable system. Start with TASK 0.1 (Ollama connection) and proceed sequentially. TASK 0.4 wires everything together.
+
 ---
 
 ## Phase 1 — Foundation
 
-> **End state:** `python app/main.py --interface cli` runs, loads config, initializes logging, prints "Jarvis ready."
+```
+phase_id: 1
+title: "Foundation"
+priority: "P0"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 9
+blocker: "Phase 0 must complete"
+next_action: "Start TASK 1.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
@@ -153,11 +206,11 @@ Establish configuration system, logging infrastructure, and project structure.
 
 - Settings YAML and Pydantic loader
 - Logging setup with Loguru
-- Package skeleton with all directories
-- Model profiles YAML
+- Package skeleton
+- Model profiles
 - Environment variables
 - User profile storage
-- Skills manifest YAML
+- Skills manifest
 - main.py entry point
 
 ### Dependencies
@@ -166,66 +219,19 @@ Establish configuration system, logging infrastructure, and project structure.
 
 ### Tasks
 
-- [ ] TASK 1.1 — Settings YAML and Pydantic loader
-  - Create `config/settings.yaml`
-  - Create `src/core/config.py` with Pydantic models
-  - Implement `get_settings()` cached singleton
-  - Implement `create_directories()` function
-  - **Expected output:** Settings object with all fields accessible
-  - **Failure:** Missing fields cause crash
+**TASK 1.1 — Settings YAML and Pydantic loader**  
+**TASK 1.2 — Logging setup**  
+**TASK 1.3 — Package skeleton**  
+**TASK 1.4 — Model capability profiles**  
+**TASK 1.5 �� LLM engine with VRAM guard**  
+**TASK 1.6 — Environment variables**  
+**TASK 1.7 — User profile**  
+**TASK 1.8 — Skills manifest**  
+**TASK 1.9 — main.py entry point**
 
-- [ ] TASK 1.2 — Logging setup
-  - Create `src/core/logging_setup.py`
-  - Configure Loguru with terminal and file sinks
-  - 10 MB rotation, 7-day retention
-  - Debug sink when debug=True
-  - **Expected output:** Logs appear in terminal and file
-  - **Failure:** No file logs created
+### Definition of Done
 
-- [ ] TASK 1.3 — Package skeleton
-  - Create `__init__.py` in all src/ subdirectories
-  - **Expected output:** All directories importable
-  - **Failure:** ImportError
-
-- [ ] TASK 1.4 — Model capability profiles
-  - Create `config/models.yaml`
-  - Create `src/models/profiles.py`
-  - Implement `get_model_profile(tag)` function
-  - **Expected output:** Dict with vram_gb, etc.
-  - **Failure:** Returns empty dict for unknown
-
-- [ ] TASK 1.5 — LLM engine with VRAM guard
-  - Create `src/models/llm/engine.py` (enhanced)
-  - Track active model
-  - Implement `swap_to(model)`, `get_active_model()`
-  - **Expected output:** Only one model active
-  - **Failure:** Multiple models loaded
-
-- [ ] TASK 1.6 — Environment variables
-  - Create `.env.example`
-  - Create `.env` (gitignored)
-  - Call load_dotenv() in main.py
-  - **Expected output:** Variables accessible via os.environ
-  - **Failure:** .env in git
-
-- [ ] TASK 1.7 — User profile
-  - Create `src/core/memory/user_profile.py`
-  - Implement `load_profile()`, `save_profile()`
-  - **Expected output:** Profile persists across restarts
-  - **Failure:** Profile lost on restart
-
-- [ ] TASK 1.8 — Skills manifest
-  - Create `config/skills.yaml`
-  - Declare all tools with risk_level
-  - **Expected output:** All tools declared
-  - **Failure:** Missing tools at runtime
-
-- [ ] TASK 1.9 — main.py entry point
-  - Create `app/main.py`
-  - Parse --interface and --debug flags
-  - Execute boot flow steps 1-10
-  - **Expected output:** "Jarvis ready" printed
-  - **Failure:** Crash, no ready message
+`python app/main.py --interface cli` runs all boot steps and prints "Jarvis ready".
 
 ### Validation Steps
 
@@ -234,11 +240,6 @@ python app/main.py --interface cli
 # Should see: jarvis starting → directories created → logging init → jarvis ready
 # Ctrl+C should exit without traceback
 ```
-
-### Failure Conditions
-
-- Boot crashes
-- No "Jarvis ready"
 
 ### Artifacts
 
@@ -252,23 +253,31 @@ python app/main.py --interface cli
 - `.env`
 - `app/main.py`
 
+### Human Checkpoint
+
+After TASK 1.9, manually test Ctrl+C exit and verify "Jarvis ready" appears.
+
 ---
 
-## Phase 2 — Execution Contract Implementation
+## Phase 2 — Execution Contract
 
-> **End state:** All five contract types defined as Pydantic models.
+```
+phase_id: 2
+title: "Execution Contract"
+priority: "P0"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 6
+blocker: "Phase 1 must complete"
+next_action: "Start TASK 2.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
-Define strict data contracts that bind all components together.
-
-### Scope
-
-- InputPacket Pydantic model
-- DecisionOutput Pydantic model
-- LLMOutput Pydantic model with parser
-- ToolResult Pydantic model
-- FinalResponse Pydantic model
+Define strict data contracts that bind all components.
 
 ### Dependencies
 
@@ -276,42 +285,16 @@ Define strict data contracts that bind all components together.
 
 ### Tasks
 
-- [ ] TASK 2.1 — Define InputPacket
-  - Create `src/core/context/bundle.py`
-  - Define InputPacket with all fields
-  - **Expected output:** Valid InputPacket instance
-  - **Failure:** Missing fields, wrong types
+**TASK 2.1 — Define InputPacket**  
+**TASK 2.2 — Define DecisionOutput**  
+**TASK 2.3 — Define LLMOutput**  
+**TASK 2.4 — Define ToolResult**  
+**TASK 2.5 — Define FinalResponse**  
+**TASK 2.6 — Contract tests**
 
-- [ ] TASK 2.2 — Define DecisionOutput
-  - Create `src/core/decision/decision.py`
-  - Define DecisionOutput with constrained fields
-  - **Expected output:** Valid DecisionOutput instance
-  - **Failure:** Invalid enum values accepted
+### Definition of Done
 
-- [ ] TASK 2.3 — Define LLMOutput
-  - Create `src/core/runtime/llm_output.py`
-  - Define LLMOutput
-  - Implement `parse_llm_output(raw, requires_tools)`
-  - **Expected output:** Parsed LLMOutput
-  - **Failure:** Invalid JSON not caught
-
-- [ ] TASK 2.4 — Define ToolResult
-  - Create `src/core/tools/result.py`
-  - Define ToolResult
-  - **Expected output:** Valid ToolResult instance
-  - **Failure:** Missing fields
-
-- [ ] TASK 2.5 — Define FinalResponse
-  - Create `src/core/runtime/final_response.py`
-  - Define FinalResponse
-  - **Expected output:** Valid FinalResponse instance
-  - **Failure:** Missing fields
-
-- [ ] TASK 2.6 — Contract validation tests
-  - Create `tests/test_contracts.py`
-  - Test all models raise/accept correctly
-  - **Expected output:** All tests pass
-  - **Failure:** Tests fail
+All five contract types instantiate correctly and reject invalid data.
 
 ### Validation Steps
 
@@ -320,16 +303,14 @@ python -c "
 from src.core.context.bundle import InputPacket
 from src.core.decision.decision import DecisionOutput
 from src.core.runtime.llm_output import LLMOutput
+from src.core.tools.result import ToolResult
+from src.core.runtime.final_response import FinalResponse
+
 p = InputPacket(user_message='hello', session_id='s1')
 d = DecisionOutput(intent='chat', complexity='low', mode='fast', model='gemma3:4b', requires_tools=False, requires_planning=False, confidence=0.9, risk_level='low')
 print('Contracts valid')
 "
 ```
-
-### Failure Conditions
-
-- Contract types fail to instantiate
-- Invalid data not rejected
 
 ### Artifacts
 
@@ -344,18 +325,23 @@ print('Contracts valid')
 
 ## Phase 3 — Runtime State Machine
 
-> **End state:** Runtime operates as explicit state machine with bounded transitions.
+```
+phase_id: 3
+title: "Runtime State Machine"
+priority: "P0"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 9
+blocker: "Phase 2 must complete"
+next_action: "Start TASK 3.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
-Implement the state machine that controls the runtime with hard limits.
-
-### Scope
-
-- State definition (IDLE, DECIDING, EXECUTING_MODEL, etc.)
-- State transitions with validation
-- State logging
-- Hard limits (max_iterations=5, max_tool_depth=3)
+Implement the state machine that controls runtime with hard limits.
 
 ### Dependencies
 
@@ -363,88 +349,30 @@ Implement the state machine that controls the runtime with hard limits.
 
 ### Tasks
 
-- [ ] TASK 3.1 — Define RuntimeState enum
-  - Create `src/core/runtime/state.py`
-  - Define RuntimeState enum with all states
-  - States: IDLE, DECIDING, EXECUTING_MODEL, EXECUTING_TOOL, WAITING_CONFIRMATION, EVALUATING, ERROR, COMPLETED
-  - **Expected output:** Enum with all states
-  - **Failure:** Missing states
+**TASK 3.1 — RuntimeState enum**  
+**TASK 3.2 — State manager**  
+**TASK 3.3 — Hard limits**  
+**TASK 3.4 — Context assembler**  
+**TASK 3.5 — Decision function**  
+**TASK 3.6 — Executor**  
+**TASK 3.7 — Evaluator**  
+**TASK 3.8 — Runtime loop**  
+**TASK 3.9 — EventBus**
 
-- [ ] TASK 3.2 — State manager class
-  - Create `src/core/runtime/state_manager.py`
-  - Implement RuntimeStateManager class
-  - Track current state, iteration, tool_depth
-  - Implement `transition_to(new_state)` with validation
-  - **Expected output:** State transitions logged, invalid transitions rejected
-  - **Failure:** Invalid transitions allowed
+### Definition of Done
 
-- [ ] TASK 3.3 — Hard limits enforcement
-  - Add max_iterations=5 check
-  - Add max_tool_depth=3 check
-  - Add max_retries=2 check
-  - Implement force_exit on limit exceeded
-  - **Expected output:** Loop exits at limit
-  - **Failure:** Infinite loop
-
-- [ ] TASK 3.4 — Context assembler
-  - Create `src/core/context/assembler.py`
-  - Implement `assemble_context(user_message, session_id, attachments)`
-  - **Expected output:** Valid InputPacket
-  - **Failure:** Missing required fields
-
-- [ ] TASK 3.5 — Decision function
-  - Implement `decide(packet: InputPacket) → DecisionOutput`
-  - **Expected output:** Valid DecisionOutput
-  - **Failure:** Invalid decision
-
-- [ ] TASK 3.6 — Executor (think step)
-  - Create `src/core/runtime/executor.py`
-  - Implement `execute_turn(decision, packet) → LLMOutput`
-  - **Expected output:** Valid LLMOutput
-  - **Failure:** No output
-
-- [ ] TASK 3.7 — Evaluator
-  - Create `src/core/runtime/evaluator.py`
-  - Implement `evaluate(output, decision) → EvalResult`
-  - **Expected output:** EvalResult with quality, should_retry
-  - **Failure:** Always returns same value
-
-- [ ] TASK 3.8 — Runtime loop
-  - Create `src/core/runtime/loop.py`
-  - Implement `run_turn(user_input, session_id, attachments)`
-  - Integrate state machine
-  - **Expected output:** FinalResponse returned
-  - **Failure:** No output, infinite loop
-
-- [ ] TASK 3.9 — EventBus
-  - Create `src/core/events.py`
-  - Implement publish-subscribe event system
-  - **Expected output:** Events logged
-  - **Failure:** Events not fired
+`run_turn("hello", "s1")` returns FinalResponse without infinite loop.
 
 ### Validation Steps
 
 ```bash
 python -c "
 from src.core.runtime.loop import run_turn
-from src.core.runtime.state import RuntimeState
 r = run_turn('hello', 'test')
-print(f'Response: {r.text[:50]}')
+print(f'Response: {r.text}')
 print(f'State: COMPLETED')
 "
-# Test limits
-python -c "
-from src.core.runtime.state_manager import RuntimeStateManager
-rm = RuntimeStateManager()
-# Force 5 iterations - should exit
-"
 ```
-
-### Failure Conditions
-
-- State machine doesn't control flow
-- Infinite loop possible
-- No state logging
 
 ### Artifacts
 
@@ -461,18 +389,23 @@ rm = RuntimeStateManager()
 
 ## Phase 4 — Decision System
 
-> **End state:** All intents classified correctly. Model selected per intent.
+```
+phase_id: 4
+title: "Decision System"
+priority: "P1"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 5
+blocker: "Phase 3 must complete"
+next_action: "Start TASK 4.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
 Harden decision system with robust classification.
-
-### Scope
-
-- Robust classifier with JSON parsing
-- Fast-path rules
-- Risk level from manifest
-- Escalation chain
 
 ### Dependencies
 
@@ -480,55 +413,11 @@ Harden decision system with robust classification.
 
 ### Tasks
 
-- [ ] TASK 4.1 — Classifier robust JSON parsing
-  - Modify `src/core/decision/classifier.py`
-  - Extract JSON from any position
-  - Handle markdown code blocks
-  - Retry with correction
-  - Return fallback on failure
-  - **Expected output:** Valid dict for any input
-  - **Failure:** Random dict on bad input
-
-- [ ] TASK 4.2 — Fast-path rules
-  - Modify `src/core/decision/decision.py`
-  - Image → vision intent (no LLM)
-  - Short + no action → fast chat
-  - **Expected output:** Fast return for fast inputs
-  - **Failure:** LLM called unnecessarily
-
-- [ ] TASK 4.3 — Risk level population
-  - Modify `src/core/decision/decision.py`
-  - Load skills.yaml
-  - Populate risk_level from manifest
-  - **Expected output:** risk_level always set
-  - **Failure:** risk_level = None
-
-- [ ] TASK 4.4 — Escalation chain
-  - Create `src/core/runtime/escalation.py`
-  - Define chain: fast → normal → deep
-  - Implement `get_next_escalation()`
-  - **Expected output:** Next mode/model
-  - **Failure:** Wrong escalation
-
-- [ ] TASK 4.5 — Decision tests
-  - Create `tests/test_decision.py`
-  - **Expected output:** Tests pass
-  - **Failure:** Tests fail
-
-### Validation Steps
-
-```bash
-python -c "
-from src.core.decision.decision import decide
-d = decide(assemble_context('open chrome', 's1'))
-print(f'Intent: {d.intent}, Tool: {d.tool_name}')
-"
-```
-
-### Failure Conditions
-
-- Invalid classifier output
-- Missing risk levels
+**TASK 4.1 — Classifier robust JSON parsing**  
+**TASK 4.2 — Fast-path rules**  
+**TASK 4.3 — Risk level population**  
+**TASK 4.4 — Escalation chain**  
+**TASK 4.5 — Decision tests**
 
 ### Artifacts
 
@@ -541,17 +430,23 @@ print(f'Intent: {d.intent}, Tool: {d.tool_name}')
 
 ## Phase 5 — Prompt Builder
 
-> **End state:** Every LLM call receives assembled prompt.
+```
+phase_id: 5
+title: "Prompt Builder"
+priority: "P1"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 5
+blocker: "Phase 4 must complete"
+next_action: "Start TASK 5.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
 Build identity and prompt assembly.
-
-### Scope
-
-- Jarvis identity YAML
-- Mode fragments
-- System prompt builder
 
 ### Dependencies
 
@@ -559,47 +454,11 @@ Build identity and prompt assembly.
 
 ### Tasks
 
-- [ ] TASK 5.1 — Jarvis identity YAML
-  - Create `config/jarvis_identity.yaml`
-  - Add: name, role, component_notice, safety_rules
-  - **Expected output:** Valid YAML
-  - **Failure:** Missing fields
-
-- [ ] TASK 5.2 — Mode fragments
-  - Create `src/core/identity/personality.py`
-  - Define MODE_FRAGMENTS
-  - **Expected output:** All modes defined
-  - **Failure:** Missing modes
-
-- [ ] TASK 5.3 — System prompt builder
-  - Create `src/core/identity/builder.py`
-  - Implement build_system_prompt()
-  - **Expected output:** Complete prompt
-  - **Failure:** Missing blocks
-
-- [ ] TASK 5.4 — Wire into executor
-  - Modify `src/core/runtime/executor.py`
-  - **Expected output:** Prompt sent to LLM
-  - **Failure:** Empty prompt
-
-- [ ] TASK 5.5 — Identity test
-  - Create `tests/test_identity_enforcement.py`
-  - **Expected output:** Tests pass
-  - **Failure:** Identity not verified
-
-### Validation Steps
-
-```bash
-python -c "
-from src.core.identity.builder import build_system_prompt
-p = build_system_prompt('hello', 'fast', [], None, 'gemma3:4b')
-print('Jarvis' in p)
-"
-```
-
-### Failure Conditions
-
-- Identity not in prompt
+**TASK 5.1 — Jarvis identity YAML**  
+**TASK 5.2 — Mode fragments**  
+**TASK 5.3 — System prompt builder**  
+**TASK 5.4 — Wire into executor**  
+**TASK 5.5 — Identity test**
 
 ### Artifacts
 
@@ -613,20 +472,23 @@ print('Jarvis' in p)
 
 ## Phase 6 — Tool System
 
-> **End state:** Tool pipeline: classify → registry → safety → validate → execute.
+```
+phase_id: 6
+title: "Tool System"
+priority: "P1"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 7
+blocker: "Phase 5 must complete"
+next_action: "Start TASK 6.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
 Build complete tool execution pipeline.
-
-### Scope
-
-- BaseTool abstract class
-- Tool registry
-- Safety classifier
-- Mode enforcement
-- Schema validator
-- Tool executor
 
 ### Dependencies
 
@@ -634,68 +496,13 @@ Build complete tool execution pipeline.
 
 ### Tasks
 
-- [ ] TASK 6.1 — BaseTool abstract class
-  - Create `src/core/tools/base.py`
-  - Define BaseTool
-  - **Expected output:** Tool class defined
-  - **Failure:** Not importable
-
-- [ ] TASK 6.2 — Tool registry
-  - Create `src/core/tools/registry.py`
-  - Implement discover()
-  - **Expected output:** Tools registered
-  - **Failure:** No tools found
-
-- [ ] TASK 6.3 — Safety classifier
-  - Create `src/core/tools/safety.py`
-  - Implement classify_safety()
-  - **Expected output:** Risk level returned
-  - **Failure:** Always low
-
-- [ ] TASK 6.4 — Mode enforcement
-  - Create `src/core/tools/mode_enforcer.py`
-  - Implement should_execute()
-  - **Expected output:** Correct allow/confirm/block
-  - **Failure:** Wrong behavior
-
-- [ ] TASK 6.5 — Schema validator
-  - Modify `src/core/tools/validator.py`
-  - Implement validate_args()
-  - **Expected output:** Validation errors caught
-  - **Failure:** Invalid args pass
-
-- [ ] TASK 6.6 — Tool executor
-  - Create `src/core/tools/executor.py`
-  - Implement execute_tool()
-  - Full pipeline
-  - **Expected output:** ToolResult returned
-  - **Failure:** No result
-
-- [ ] TASK 6.7 — Parse retry
-  - Modify `src/core/runtime/llm_output.py`
-  - Retry logic
-  - **Expected output:** Recovery on bad JSON
-  - **Failure:** No recovery
-
-### Validation Steps
-
-```bash
-python -c "
-from src.core.tools.registry import registry
-registry.discover()
-print(f'Tools: {len(registry.all_names())}')
-"
-python -c "
-from src.core.tools.executor import execute_tool
-r = execute_tool('open_app', {'name': 'notepad'})
-print(f'Success: {r.success}')
-"
-```
-
-### Failure Conditions
-
-- Tool not found
-- No safety check
+**TASK 6.1 — BaseTool abstract class**  
+**TASK 6.2 — Tool registry**  
+**TASK 6.3 — Safety classifier**  
+**TASK 6.4 — Mode enforcement**  
+**TASK 6.5 — Schema validator**  
+**TASK 6.6 — Tool executor**  
+**TASK 6.7 — Parse retry**
 
 ### Artifacts
 
@@ -711,17 +518,23 @@ print(f'Success: {r.success}')
 
 ## Phase 7 — Safety Modes
 
-> **End state:** Execution mode configurable. Policy applied.
+```
+phase_id: 7
+title: "Safety Modes"
+priority: "P1"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 4
+blocker: "Phase 6 must complete"
+next_action: "Start TASK 7.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
 Implement three-mode policy.
-
-### Scope
-
-- Execution mode in config
-- Risk levels on tools
-- CLI mode toggle
 
 ### Dependencies
 
@@ -729,44 +542,10 @@ Implement three-mode policy.
 
 ### Tasks
 
-- [ ] TASK 7.1 — Execution mode in config
-  - Modify config
-  - **Expected output:** Mode configurable
-  - **Failure:** Not saved
-
-- [ ] TASK 7.2 — Risk levels on all tools
-  - Modify `config/skills.yaml`
-  - **Expected output:** All tools have risk_level
-  - **Failure:** Missing levels
-
-- [ ] TASK 7.3 — CLI mode toggle
-  - Create `src/interfaces/cli/commands.py`
-  - **Expected output:** /mode command works
-  - **Failure:** No command
-
-- [ ] TASK 7.4 — Safety tests
-  - Create `tests/test_safety.py`
-  - **Expected output:** Tests pass
-  - **Failure:** Tests fail
-
-### Validation Steps
-
-```bash
-python -c "
-from src.core.config import get_settings
-print(get_settings().runtime.execution_mode)
-"
-python -c "
-from src.core.tools.mode_enforcer import should_execute
-from src.core.tools.safety import SafetyResult
-r = should_execute(SafetyResult(level='high', allowed=None), 'balanced')
-print(f'Result: {r}')
-"
-```
-
-### Failure Conditions
-
-- Mode not changeable
+**TASK 7.1 — Execution mode in config**  
+**TASK 7.2 — Risk levels on all tools**  
+**TASK 7.3 — CLI mode toggle**  
+**TASK 7.4 — Safety tests**
 
 ### Artifacts
 
@@ -779,18 +558,23 @@ print(f'Result: {r}')
 
 ## Phase 8 — System Control Skills
 
-> **End state:** OS-level operations work correctly.
+```
+phase_id: 8
+title: "System Control Skills"
+priority: "P1"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 8
+blocker: "Phase 7 must complete"
+next_action: "Start TASK 8.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
 Implement system control tools.
-
-### Scope
-
-- App launcher, system info
-- Clipboard, notifications
-- Screenshot, file ops
-- Code executor, web search
 
 ### Dependencies
 
@@ -798,61 +582,14 @@ Implement system control tools.
 
 ### Tasks
 
-- [ ] TASK 8.1 — App launcher
-  - Modify `src/skills/system/apps.py`
-  - **Expected output:** App opens
-  - **Failure:** Wrong app
-
-- [ ] TASK 8.2 — System info
-  - Create `src/skills/system/sysinfo.py`
-  - **Expected output:** CPU, RAM returned
-  - **Failure:** Empty data
-
-- [ ] TASK 8.3 — Clipboard
-  - Create `src/skills/system/clipboard.py`
-  - **Expected output:** Read/write works
-  - **Failure:** No access
-
-- [ ] TASK 8.4 — Notifications
-  - Create `src/skills/notify/toasts.py`
-  - **Expected output:** Notification shown
-  - **Failure:** No notification
-
-- [ ] TASK 8.5 — Screenshot/OCR
-  - Create `src/skills/screen/capture.py`
-  - **Expected output:** Screenshot and OCR work
-  - **Failure:** No image
-
-- [ ] TASK 8.6 — File ops
-  - Create `src/skills/files/file_ops.py`
-  - **Expected output:** File operations work
-  - **Failure:** Wrong permissions
-
-- [ ] TASK 8.7 — Code executor
-  - Create `src/skills/coder/executor.py`
-  - **Expected output:** Code executes
-  - **Failure:** Dangerous code allowed
-
-- [ ] TASK 8.8 — Web search
-  - Create `src/skills/search/web_search.py`
-  - **Expected output:** Search results
-  - **Failure:** No results
-
-### Validation Steps
-
-```bash
-python -c "
-from src.core.tools.executor import execute_tool
-r = execute_tool('open_app', {'name': 'notepad'})
-print(f'Success: {r.success}')
-r = execute_tool('system_info', {})
-print(f'Data: {r.data}')
-"
-```
-
-### Failure Conditions
-
-- Tools don't work
+**TASK 8.1 — App launcher**  
+**TASK 8.2 — System info**  
+**TASK 8.3 — Clipboard**  
+**TASK 8.4 — Notifications**  
+**TASK 8.5 — Screenshot/OCR**  
+**TASK 8.6 — File ops**  
+**TASK 8.7 — Code executor**  
+**TASK 8.8 — Web search**
 
 ### Artifacts
 
@@ -869,19 +606,23 @@ print(f'Data: {r.data}')
 
 ## Phase 9 — Runtime Hardening
 
-> **End state:** Runtime is resilient to failures.
+```
+phase_id: 9
+title: "Runtime Hardening"
+priority: "P0"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 6
+blocker: "Phase 8 must complete"
+next_action: "Start TASK 9.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
 Add recovery systems and protection.
-
-### Scope
-
-- LLM output recovery
-- Tool permission layer
-- Tool chain control
-- Timeout handling
-- Graceful degradation
 
 ### Dependencies
 
@@ -889,78 +630,57 @@ Add recovery systems and protection.
 
 ### Tasks
 
-- [ ] TASK 9.1 — LLM Output Recovery
-  - Enhance parse in `src/core/runtime/llm_output.py`
-  - JSON extraction from messy text
-  - Auto-repair
-  - Fallback to text
-  - **Expected output:** Recovery on bad JSON
-  - **Failure:** No recovery
+**TASK 9.1 — LLM Output Recovery**
+- [ ] Status: not_started
+- Enhance parse in `src/core/runtime/llm_output.py`
+- JSON extraction from messy text
+- Auto-repair mechanism
+- Fallback to text mode
+- **Expected output:** Recovery from malformed JSON
+- **Failure cases:** No recovery, crashes
+- **Artifact:** `src/core/runtime/llm_output.py`
 
-- [ ] TASK 9.2 — Tool Permission Layer
-  - Create `src/core/tools/permission.py`
-  - Gate 1: Decision consistency
-  - Gate 2: Argument safety (dangerous patterns)
-  - Gate 3: User context
-  - **Expected output:** Bad tools rejected
-  - **Failure:** Dangerous tool runs
+**TASK 9.2 — Tool Permission Layer**
+- [ ] Status: not_started
+- Create `src/core/tools/permission.py`
+- Gate 1: Decision consistency
+- Gate 2: Argument safety
+- Gate 3: User context
+- **Expected output:** Bad tools rejected
+- **Failure cases:** Dangerous tool executes
+- **Artifact:** `src/core/tools/permission.py`
 
-- [ ] TASK 9.3 — Tool Chain Control
-  - Detect tool loops
-  - Max depth = 3
-  - Repeated tool detection
-  - **Expected output:** Loop detected and blocked
-  - **Failure:** Infinite tool loop
+**TASK 9.3 — Tool Chain Control**
+- [ ] Status: not_started
+- Detect tool loops
+- Max depth = 3 enforcement
+- Repeated tool detection
+- **Expected output:** Infinite loop blocked
+- **Failure cases:** Infinite tool loop
+- **Artifact:** `src/core/tools/chain_control.py`
 
-- [ ] TASK 9.4 — Timeout Handling
-  - Add timeouts to config
-  - model_timeout_s = 120
-  - tool_timeout_s = 30
-  - total_turn_timeout_s = 300
-  - **Expected output:** Timeout exits cleanly
-  - **Failure:** Hangs forever
+**TASK 9.4 — Timeout Handling**
+- [ ] Status: not_started
+- Add timeouts to config
+- model_timeout_s = 120
+- tool_timeout_s = 30
+- total_turn_timeout_s = 300
+- **Expected output:** Timeout exits cleanly
+- **Failure cases:** Hangs forever
 
-- [ ] TASK 9.5 — Graceful Degradation
-  - Fallback on model failure
-  - Error responses
-  - Never crash runtime
-  - **Expected output:** Error response returned
-  - **Failure:** Exception reaches user
+**TASK 9.5 — Graceful Degradation**
+- [ ] Status: not_started
+- Fallback on model failure
+- Error responses that never crash runtime
+- **Expected output:** Error response returned
+- **Failure cases:** Exception reaches user
 
-- [ ] TASK 9.6 — State Machine Tests
-  - Create `tests/test_state_machine.py`
-  - Test all transitions
-  - Test limit enforcement
-  - **Expected output:** Tests pass
-  - **Failure:** Tests fail
-
-### Validation Steps
-
-```bash
-# Test bad JSON recovery
-python -c "
-from src.core.runtime.llm_output import parse_llm_output
-r = parse_llm_output('Here is JSON: {"type":"tool_call","tool":"test","args":{}}}', True)
-print(f'Parsed: {r.type}')
-"
-# Test tool loop detection
-python -c "
-from src.core.tools.permission import detect_tool_loop
-result = detect_tool_loop(['test'] * 5)
-print(f'Blocked: {result}')
-"
-# Test timeout
-python -c "
-from src.core.config import get_settings
-print(get_settings().runtime.model_timeout_s)
-"
-```
-
-### Failure Conditions
-
-- Bad JSON crashes
-- Dangerous tools run
-- Infinite loops
+**TASK 9.6 — State Machine Tests**
+- [ ] Status: not_started
+- Create `tests/test_state_machine.py`
+- Test all transitions
+- Test limit enforcement
+- **Expected output:** Tests pass
 
 ### Artifacts
 
@@ -973,17 +693,23 @@ print(get_settings().runtime.model_timeout_s)
 
 ## Phase 10 — Memory (Simplified)
 
-> **End state:** Clear memory roles implemented.
+```
+phase_id: 10
+title: "Memory (Simplified)"
+priority: "P1"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 3
+blocker: "Phase 9 must complete"
+next_action: "Start TASK 10.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
-Simplify memory to avoid overcomplexity.
-
-### Scope
-
-- Simple SQLite only
-- No Redis, no ChromaDB
-- Session history in SQLite
+Simplify memory to avoid overcomplexity. Uses SQLite only. No Redis, no ChromaDB.
 
 ### Dependencies
 
@@ -991,38 +717,9 @@ Simplify memory to avoid overcomplexity.
 
 ### Tasks
 
-- [ ] TASK 10.1 — SQLite Database
-  - Create `src/core/memory/database.py`
-  - Schema: facts, conversation_history
-  - **Expected output:** Tables created
-  - **Failure:** No tables
-
-- [ ] TASK 10.2 — Memory functions
-  - Implement save_message, get_history
-  - Implement remember, recall (simple)
-  - **Expected output:** Data persists
-  - **Failure:** Data lost
-
-- [ ] TASK 10.3 — Auto-save
-  - Modify `src/core/runtime/loop.py`
-  - Save after turn
-  - **Expected output:** Conversations saved
-  - **Failure:** Not saved
-
-### Validation Steps
-
-```bash
-python -c "
-from src.core.m.database import save_message, get_history
-save_message('test', 'user', 'hello')
-h = get_history('test')
-print(f'History: {len(h)}')
-"
-```
-
-### Failure Conditions
-
-- Memory not working
+**TASK 10.1 — SQLite Database**  
+**TASK 10.2 — Memory functions**  
+**TASK 10.3 — Auto-save**
 
 ### Artifacts
 
@@ -1033,17 +730,23 @@ print(f'History: {len(h)}')
 
 ## Phase 11 — Debug System
 
-> **End state:** Fully debuggable runtime.
+```
+phase_id: 11
+title: "Debug System"
+priority: "P0"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 4
+blocker: "Phase 10 must complete"
+next_action: "Start TASK 11.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
 Add debug capabilities.
-
-### Scope
-
-- Debug modes (OFF, BASIC, TRACE, RAW)
-- Trace system
-- Replay capability
 
 ### Dependencies
 
@@ -1051,45 +754,10 @@ Add debug capabilities.
 
 ### Tasks
 
-- [ ] TASK 11.1 — Debug Mode
-  - Create `src/core/debug.py`
-  - Define debug levels
-  - Implement is_debug(), is_trace()
-  - **Expected output:** Debug detection works
-  - **Failure:** Always off
-
-- [ ] TASK 11.2 — Debug Output
-  - Add debug logging
-  - Show decisions, states, tool calls
-  - Show raw LLM when is_raw()
-  - **Expected output:** Debug output when enabled
-  - **Failure:** No output
-
-- [ ] TASK 11.3 — Trace System
-  - Create TurnTrace class
-  - Store full execution
-  - **Expected output:** Can replay
-  - **Failure:** Not stored
-
-- [ ] TASK 11.4 — Replay Command
-  - Add /replay CLI command
-  - Show turn trace
-  - **Expected output:** Replay works
-  - **Failure:** No command
-
-### Validation Steps
-
-```bash
-python app/main.py --interface cli --debug
-# Enable debug mode
-# Should see state transitions
-python app/main.py --interface cli --trace
-# Should see full trace
-```
-
-### Failure Conditions
-
-- Debug doesn't show
+**TASK 11.1 — Debug Mode**  
+**TASK 11.2 — Debug Output**  
+**TASK 11.3 — Trace System**  
+**TASK 11.4 — Replay Command**
 
 ### Artifacts
 
@@ -1098,19 +766,25 @@ python app/main.py --interface cli --trace
 
 ---
 
-## Phase 12 — Browser & Web Skills
+## Phase 12 — Browser & Web
 
-> **End state:** Playwright browser works.
+```
+phase_id: 12
+title: "Browser & Web"
+priority: "P2"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 3
+blocker: "Phase 11 must complete"
+next_action: "Start TASK 12.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
-Implement browser automation.
-
-### Scope
-
-- Playwright core
-- Session persistence
-- File transfer
+Implement browser automation (optional module).
 
 ### Dependencies
 
@@ -1118,34 +792,9 @@ Implement browser automation.
 
 ### Tasks
 
-- [ ] TASK 12.1 — Playwright core
-  - Create `src/skills/browser/browser.py`
-  - **Expected output:** Browser works
-  - **Failure:** Broken
-
-- [ ] TASK 12.2 — Session
-  - Create `src/skills/browser/session.py`
-  - **Expected output:** Session saved
-  - **Failure:** Not saved
-
-- [ ] TASK 12.3 — File transfer
-  - Create `src/skills/browser/transfer.py`
-  - **Expected output:** File transfer works
-  - **Failure:** Cannot transfer
-
-### Validation Steps
-
-```bash
-python -c "
-from src.core.tools.executor import execute_tool
-r = execute_tool('browser_navigate', {'url': 'https://example.com'})
-print(f'Success: {r.success}')
-"
-```
-
-### Failure Conditions
-
-- Browser not working
+**TASK 12.1 — Playwright core**  
+**TASK 12.2 — Session**  
+**TASK 12.3 — File transfer**
 
 ### Artifacts
 
@@ -1157,16 +806,23 @@ print(f'Success: {r.success}')
 
 ## Phase 13 — Google APIs
 
-> **End state:** OAuth + Calendar, Gmail, Drive.
+```
+phase_id: 13
+title: "Google APIs"
+priority: "P2"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 4
+blocker: "Phase 12 must complete"
+next_action: "Start TASK 13.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
-Implement Google integrations.
-
-### Scope
-
-- OAuth
-- Calendar, Gmail, Drive
+Implement Google integrations (optional module).
 
 ### Dependencies
 
@@ -1174,39 +830,10 @@ Implement Google integrations.
 
 ### Tasks
 
-- [ ] TASK 13.1 — OAuth
-  - Create `src/skills/api/google_auth.py`
-  - **Expected output:** OAuth flow works
-  - **Failure:** Cannot authenticate
-
-- [ ] TASK 13.2 — Calendar
-  - Create `src/skills/api/calendar.py`
-  - **Expected output:** CRUD works
-  - **Failure:** Cannot connect
-
-- [ ] TASK 13.3 — Gmail
-  - Create `src/skills/api/gmail.py`
-  - **Expected output:** Send works
-  - **Failure:** Cannot send
-
-- [ ] TASK 13.4 — Drive
-  - Create `src/skills/api/drive.py`
-  - **Expected output:** Upload works
-  - **Failure:** Cannot upload
-
-### Validation Steps
-
-```bash
-python -c "
-from src.core.tools.executor import execute_tool
-r = execute_tool('calendar_list', {})
-print(f'Result: {r.success}')
-"
-```
-
-### Failure Conditions
-
-- API not working
+**TASK 13.1 — OAuth**  
+**TASK 13.2 — Calendar**  
+**TASK 13.3 — Gmail**  
+**TASK 13.4 — Drive**
 
 ### Artifacts
 
@@ -1219,16 +846,23 @@ print(f'Result: {r.success}')
 
 ## Phase 14 — CLI Interface
 
-> **End state:** Rich terminal interface.
+```
+phase_id: 14
+title: "CLI Interface"
+priority: "P2"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 2
+blocker: "Phase 13 must complete"
+next_action: "Start TASK 14.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
-Build CLI.
-
-### Scope
-
-- Rich chat loop
-- Slash commands
+Build CLI (part of core, but enhanced in this phase).
 
 ### Dependencies
 
@@ -1236,26 +870,8 @@ Build CLI.
 
 ### Tasks
 
-- [ ] TASK 14.1 — Rich chat loop
-  - Create `src/interfaces/cli/interface.py`
-  - **Expected output:** Works
-  - **Failure:** Not working
-
-- [ ] TASK 14.2 — Commands
-  - Create `src/interfaces/cli/commands.py`
-  - **Expected output:** Commands work
-  - **Failure:** No commands
-
-### Validation Steps
-
-```bash
-python app/main.py --interface cli
-# Test commands
-```
-
-### Failure Conditions
-
-- CLI crashes
+**TASK 14.1 — Rich chat loop**  
+**TASK 14.2 — Commands**
 
 ### Artifacts
 
@@ -1266,17 +882,23 @@ python app/main.py --interface cli
 
 ## Phase 15 — Web UI
 
-> **End state:** Browser interface.
+```
+phase_id: 15
+title: "Web UI"
+priority: "P2"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 3
+blocker: "Phase 14 must complete"
+next_action: "Start TASK 15.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
-Build Web UI.
-
-### Scope
-
-- FastAPI
-- WebSocket
-- HTML/CSS/JS
+Build Web UI (optional module).
 
 ### Dependencies
 
@@ -1284,31 +906,9 @@ Build Web UI.
 
 ### Tasks
 
-- [ ] TASK 15.1 — FastAPI app
-  - Create `src/interfaces/web/app.py`
-  - **Expected output:** App runs
-  - **Failure:** Not running
-
-- [ ] TASK 15.2 — WebSocket
-  - Create `src/interfaces/web/ws.py`
-  - **Expected output:** Streaming works
-  - **Failure:** No streaming
-
-- [ ] TASK 15.3 — Frontend
-  - Create HTML, CSS, JS
-  - **Expected output:** Works in browser
-  - **Failure:** Broken
-
-### Validation Steps
-
-```bash
-python app/server.py
-# Open browser, test
-```
-
-### Failure Conditions
-
-- Not loading
+**TASK 15.1 — FastAPI app**  
+**TASK 15.2 — WebSocket**  
+**TASK 15.3 — Frontend**
 
 ### Artifacts
 
@@ -1321,11 +921,23 @@ python app/server.py
 
 ## Phase 16 — Voice Pipeline
 
-> **End state:** Wake word → speech → response → TTS.
+```
+phase_id: 16
+title: "Voice Pipeline"
+priority: "P3"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 4
+blocker: "Phase 15 must complete"
+next_action: "Start TASK 16.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
-Add voice.
+Add voice I/O (optional module, requires additional resources).
 
 ### Dependencies
 
@@ -1333,25 +945,10 @@ Add voice.
 
 ### Tasks
 
-- [ ] TASK 16.1 — STT
-  - Create `src/models/speech/stt.py`
-  - **Expected output:** Transcription works
-
-- [ ] TASK 16.2 — TTS
-  - Create `src/models/speech/tts.py`
-  - **Expected output:** Speech works
-
-- [ ] TASK 16.3 — Wake word
-  - Create `src/interfaces/voice/wake_word.py`
-  - **Expected output:** Detects wake word
-
-- [ ] TASK 16.4 — Pipeline
-  - Create `src/interfaces/voice/pipeline.py`
-  - **Expected output:** Full pipeline works
-
-### Failure Conditions
-
-- Not working
+**TASK 16.1 — STT**  
+**TASK 16.2 — TTS**  
+**TASK 16.3 — Wake word**  
+**TASK 16.4 — Pipeline**
 
 ### Artifacts
 
@@ -1362,13 +959,25 @@ Add voice.
 
 ---
 
-## Phase 17 — Vision + Image Generation
+## Phase 17 — Vision + Image
 
-> **End state:** Image understanding and generation.
+```
+phase_id: 17
+title: "Vision + Image"
+priority: "P3"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 2
+blocker: "Phase 16 must complete"
+next_action: "Start TASK 17.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
-Add vision.
+Add vision capabilities (optional module, requires VRAM).
 
 ### Dependencies
 
@@ -1376,17 +985,8 @@ Add vision.
 
 ### Tasks
 
-- [ ] TASK 17.1 — LLaVA
-  - Create `src/models/vision/llava.py`
-  - **Expected output:** Image described
-
-- [ ] TASK 17.2 — Stable Diffusion
-  - Create `src/models/diffusion/sd.py`
-  - **Expected output:** Image generated
-
-### Failure Conditions
-
-- Not working
+**TASK 17.1 — LLaVA**  
+**TASK 17.2 — Stable Diffusion**
 
 ### Artifacts
 
@@ -1397,7 +997,19 @@ Add vision.
 
 ## Phase 18 — QA + Production
 
-> **End state:** Test suite passes. Production-ready.
+```
+phase_id: 18
+title: "QA + Production"
+priority: "P0"
+status: "not_started"
+progress_percent: 0
+done_tasks: 0
+total_tasks: 5
+blocker: "Phase 17 must complete"
+next_action: "Start TASK 18.1"
+last_updated: "-"
+validation_status: "not_started"
+```
 
 ### Objective
 
@@ -1409,44 +1021,11 @@ Finalize for production.
 
 ### Tasks
 
-- [ ] TASK 18.1 — Test suite
-  - Create `tests/test_integration.py`
-  - **Expected output:** All tests pass
-  - **Failure:** Tests fail
-
-- [ ] TASK 18.2 — Security audit
-  - Verify dangerous patterns blocked
-  - Verify confirmation works
-  - **Expected output:** Clean audit
-  - **Failure:** Issues found
-
-- [ ] TASK 18.3 — Error handling
-  - All errors logged
-  - No exceptions to user
-  - **Expected output:** Clean errors
-  - **Failure:** Crashes
-
-- [ ] TASK 18.4 — Integration test
-  - Run full system
-  - **Expected output:** Works end-to-end
-  - **Failure:** Breaks
-
-- [ ] TASK 18.5 — Production ready
-  - Verify all phases
-  - Create VERSION
-  - **Expected output:** Ready
-  - **Failure:** Not ready
-
-### Validation Steps
-
-```bash
-pytest tests/ -v
-# All tests pass
-```
-
-### Failure Conditions
-
-- Test failures
+**TASK 18.1 — Test suite**  
+**TASK 18.2 — Security audit**  
+**TASK 18.3 — Error handling**  
+**TASK 18.4 — Integration test**  
+**TASK 18.5 — Production ready**
 
 ### Artifacts
 
