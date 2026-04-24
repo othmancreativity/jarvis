@@ -1,44 +1,36 @@
-<div align="center">
-
 # 🤖 JARVIS
-### Local AI Assistant — Arabic + English — Free, Unlimited, Private
 
-![Version](https://img.shields.io/badge/version-1.0.0--alpha-blue)
-![Python](https://img.shields.io/badge/python-3.10+-green)
-![License](https://img.shields.io/badge/license-MIT-orange)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightblue)
-![Arabic](https://img.shields.io/badge/language-Arabic%20%2B%20English-red)
-
-</div>
+## Local AI Assistant System — Arabic + English — Free, Unlimited, Private
 
 ---
 
-## 1. Overview
+## 1. System Overview
 
-Jarvis is a fully local AI assistant. It accepts text, voice, or file input in Arabic or English, and produces either a conversational answer or a real system action — opening applications, searching the web, managing files, sending notifications.
+Jarvis is a fully local AI assistant system. It accepts text, voice, or file input in Arabic or English and produces either a conversational answer or a real system action — opening applications, searching the web, managing files, sending notifications.
 
-All processing occurs on the local machine. No cloud connection is required. No data leaves the device.
+**Core Philosophy:**
+- **Local-first:** All processing occurs on the local machine. No cloud connection is required. No data leaves the device.
+- **Modular:** Each layer has a single defined responsibility. No layer crosses into another's scope.
+- **Controllable:** Execution modes determine what actions require confirmation.
 
 ---
 
-## 2. System Architecture
+## 2. Architecture
 
-### Layers
+### Layer Responsibilities
 
-Each layer has a single defined responsibility. No layer crosses into another's scope.
-
-| Layer | Location | Responsibility | Does NOT |
-|-------|----------|----------------|----------|
-| Interface | `src/interfaces/` | Receive input, display output | Classify, route, or store |
-| Context | `src/core/context/` | Bundle this turn's inputs into InputPacket | Store across turns |
-| Decision | `src/core/decision/` | Classify intent, select model and mode | Think or generate content |
-| Runtime | `src/core/runtime/` | Drive the execution loop | Implement intelligence |
-| Agents | `src/core/agents/` | Multi-step reasoning and planning | Route requests |
-| Tools (mgmt) | `src/core/tools/` | Registry, validation, execution bridge | Implement tool logic |
-| Skills (impl) | `src/skills/` | One specific action per file | Decisions or routing |
-| Models | `src/models/` | Wrap AI model I/O | Decisions or memory |
-| Memory | `src/core/memory/` | Persist data across turns | Participate in routing |
-| Identity | `src/core/identity/` | Build system prompts | Route or decide |
+| Layer | Location | Responsibility | Does |
+|-------|----------|--------------|-------|
+| **Interface** | `src/interfaces/` | Receive input, display output | Classify, route, or store |
+| **Context** | `src/core/context/` | Bundle this turn's inputs into InputPacket | Store across turns |
+| **Decision Engine** | `src/core/decision/` | Classify intent, select model and mode | Think or generate content |
+| **Runtime** | `src/core/runtime/` | Drive the execution loop | Implement intelligence |
+| **Agents** | `src/core/agents/` | Multi-step reasoning and planning | Route requests |
+| **Tools** | `src/core/tools/` | Registry, validation, execution bridge | Implement tool logic |
+| **Skills** | `src/skills/` | One specific action per file | Decisions or routing |
+| **Memory** | `src/core/memory/` | Persist data across turns | Participate in routing |
+| **Models** | `src/models/` | Wrap AI model I/O | Decisions or memory |
+| **Identity** | `src/core/identity/` | Build system prompts | Route or decide |
 
 ### Runtime Authority
 
@@ -49,8 +41,6 @@ Each layer has a single defined responsibility. No layer crosses into another's 
 - Loop termination
 
 **No other module may control these aspects.**
-
----
 
 ### Tool Execution Boundaries
 
@@ -64,512 +54,205 @@ Tools are pure executors. They receive input, produce output, and return.
 
 ---
 
-## 3. Execution Contract
+## 3. Execution Flow
 
-This section defines the data shapes exchanged between every stage of the runtime loop. These types are binding. No stage may pass data outside this contract.
-
-### InputPacket
-
-Produced by: `context.assembler.assemble_context()`
-Consumed by: `runtime.loop.run_turn()`
+### Step-by-Step Flow
 
 ```
-InputPacket {
-  user_message     : str              — raw text from user
-  session_id       : str              — unique session identifier
-  attachments      : list[Attachment] — files, images, audio (paths only)
-  memory_snippets  : list[str]        — top-N semantic matches from long-term memory
-  recent_history   : list[Message]    — last N turns from short-term memory
-  user_profile     : UserProfile      — language, style, technical_level
-  tool_results     : list[ToolResult] — results from Act steps this turn
-  turn_number      : int
-}
+User Input → Context → Decision → Model → Tool (optional) → Runtime → Final Response
 ```
 
-### DecisionOutput
+1. **User Input:** Received by Interface layer
+2. **Context:** InputPacket assembled with user message, session data, memory
+3. **Decision:** Intent classified, model and mode selected
+4. **Model:** LLM generates response or tool call
+5. **Tool (optional):** Tool executes if needed, returns result
+6. **Runtime:** Evaluates response, decides to retry or approve
+7. **FinalResponse:** Returned to Interface for display
 
-Produced by: `core.decision.decision.decide()`
-Consumed by: `runtime.executor.execute_turn()`
-
-```
-DecisionOutput {
-  intent           : str   — one of: chat | code | tool_use | search | vision | research | voice
-  complexity       : str   — one of: low | medium | high
-  mode             : str   — one of: fast | normal | deep | planning | research
-  model            : str   — exact Ollama model tag (e.g. "qwen3:8b")
-  requires_tools   : bool
-  requires_planning: bool
-  tool_name        : str | null
-  tool_args        : dict
-  confidence       : float — 0.0 to 1.0
-  risk_level       : str   — one of: low | medium | high
-}
-```
-
-### LLMOutput
-
-Produced by: `runtime.executor.execute_turn()` after calling the model
-Consumed by: `runtime.loop` to branch between direct answer and tool execution
-
-```
-LLMOutput {
-  type     : str   — one of: "answer" | "tool_call"
-  content  : str   — populated when type="answer": the final response text
-  tool     : str   — populated when type="tool_call": tool name
-  args     : dict  — populated when type="tool_call": validated arguments
-}
-```
-
-**Enforcement rule:** When `requires_tools=True` in `DecisionOutput`, the model MUST produce a `tool_call` type response. Any free-text response when a tool is required is a parse failure and triggers a retry. Free-text responses are never accepted as tool calls.
-
-### ToolResult
-
-Produced by: `core.tools.executor.execute_tool()`
-Consumed by: `runtime.loop` as the next observation
-
-```
-ToolResult {
-  tool        : str   — tool name that was called
-  success     : bool
-  data        : dict  — tool-specific result payload
-  error       : str   — empty string when success=True
-  duration_ms : float
-}
-```
-
-### FinalResponse
-
-Produced by: `runtime.loop` when type="answer" and the evaluator approves
-Consumed by: the Interface layer for display
-
-```
-FinalResponse {
-  text       : str   — the response text
-  session_id : str
-  model      : str   — model that produced this response
-  mode       : str   — mode used
-  quality    : float — evaluator score (0.0 to 1.0)
-}
-```
-
----
-
-## 4.1. Single Execution Path (ENFORCED)
-
-**The execution path is deterministic and enforced across ALL modules:**
-
-```
-Observe → Decide → Think → Act → Evaluate
-```
-
-This path MUST be followed by every turn. No module may skip a step. No module may introduce a new path.
-
-**Phase 0 is the Gatekeeper:**
-- Phase 0 must complete successfully before any subsequent phase runs
-- No execution enters Phases 1+ without Phase 0 validation
-
----
-
-## 4.2. Context System (Simplified)
-
-Context must support basic input types WITHOUT multi-stage over-processing:
-
-| Input Type | Supported | Processing |
-|-----------|-----------|------------|
-| text | Yes | Direct pass-through |
-| files | Yes | Path references only |
-| images | Yes | Path references only |
-| audio | Yes | Path references only |
-
-**Context does NOT:**
-- Store data across turns
-- Perform semantic processing
-- Transform input content
-
-Context is a bundling layer, not a processing layer.
-
----
-
-## 4. Runtime Loop
-
-The loop runs for every user turn. It terminates when the evaluator approves the response or when `max_iterations` is reached.
+### Runtime Loop
 
 ```
 START turn
-  input = observe(InputPacket)
+  input = assemble_context(user_input, session_id)
   LOOP (max_iterations = 5):
     decision = decide(input)
-    output   = think(decision, input)
+    output   = execute_turn(decision, input)
     IF output.type == "tool_call":
-      result = act(output)
+      result = execute_tool(output.tool, output.args)
       input.tool_results.append(result)
       CONTINUE loop
     IF output.type == "answer":
       eval = evaluate(output, decision)
       IF eval.should_retry:
-        escalate(decision)
         CONTINUE loop
       ELSE:
         BREAK
   END LOOP
-  IF no approved answer: return fallback response
   save to memory
   return FinalResponse
 END turn
 ```
 
-**Stop conditions:**
-- Evaluator returns `should_retry=False`
-- `max_iterations` reached — returns best available response with exhaustion note
-- Tool returns `success=False` after `max_tool_retries` — returns error message to user
-
-**Execution Limits (to prevent over-execution):**
-- max_iterations: Maximum loops per turn (prevents infinite loops)
-- max_tool_retries: Maximum retries for tool calls
-- tool_timeout_s: Maximum seconds per tool execution
-
 ---
 
-## 5. Tool Execution Flow
+## 4. Data Contracts
 
-Every tool call follows this exact path. No shortcut is allowed.
+All data shapes exchanged between stages are **binding**. No stage may pass data outside this contract.
 
-```
-LLM generates output
-  ↓
-Parse: extract JSON from LLM output text
-  ↓
-Validate: confirm JSON has required fields {type, tool, args}
-  ↓
-IF parse fails → retry LLM call (max 2 retries) → if still fails: return error
-  ↓
-Registry lookup: find tool by name
-  ↓
-IF tool not found → return ToolResult(success=False, error="Tool not found")
-  ↓
-Safety classify: assign risk_level (low | medium | high)
-  ↓
-Apply Execution Mode rules (see Section 9)
-  ↓
-Schema validate: check args against tool's JSON Schema
-  ↓
-IF schema fails → return ToolResult(success=False, error="Invalid args: {details}")
-  ↓
-Execute: call tool.execute(**args)
-  ↓
-Return ToolResult
-  ↓
-Append to InputPacket.tool_results
-  ↓
-Re-enter observe() step
-```
+### InputPacket
 
----
+**Produced by:** `context.assembler.assemble_context()`  
+**Consumed by:** `runtime.loop.run_turn()`
 
-## 5.1. Tool Validation Layer
-
-Tool execution never happens directly from the LLM. Every tool proposal MUST pass through validation.
-
-### Validation Flow
-
-```
-LLM output
-  ↓
-Tool proposal → DecisionOutput alignment check
-  ↓
-Schema validity check
-  ↓
-Risk level verification
-  ↓
-Availability check
-  ↓
-Execution
-```
-
-### What the Validator Verifies
-
-| Check | Failure Action |
-|-------|----------------|
-| Aligns with DecisionOutput | Reject and retry |
-| Valid JSON schema | Return validation error |
-| Risk level from manifest | Default to "low" |
-| Tool is available | Return ToolResult(success=False) |
-
-**No direct LLM → Tool execution is permitted.**
-
----
-
-## 6. Tool JSON Format
-
-### Tool Call: LLM → Runtime
-
-When a tool is needed, the model must output exactly this JSON and nothing else:
-
-```
+```json
 {
-  "type": "tool_call",
-  "tool": "<tool_name>",
-  "args": {
-    "<param>": "<value>"
-  }
+  "user_message": "string",
+  "session_id": "string",
+  "attachments": [],
+  "memory_snippets": [],
+  "recent_history": [],
+  "user_profile": {"language": "string", "style": "string", "technical_level": "string"},
+  "tool_results": [],
+  "turn_number": 0
 }
 ```
 
-**Enforcement rules:**
-- The JSON must be the entire model output when a tool is required. No surrounding text is allowed.
-- `type` must equal the string `"tool_call"` exactly.
-- `tool` must match a registered tool name exactly.
-- `args` must be a JSON object. Empty args must be `{}`, not `null` or omitted.
-- Any output that does not conform when `requires_tools=True` is a parse failure.
+### DecisionOutput
 
-### Tool Result: Runtime → LLM
+**Produced by:** `core.decision.decision.decide()`  
+**Consumed by:** `runtime.executor.execute_turn()`
 
-After tool execution, the runtime injects this into the next message:
-
-```
+```json
 {
-  "type": "tool_result",
-  "tool": "<tool_name>",
-  "success": true | false,
-  "data": { ... },
-  "error": "" | "<error message>"
+  "intent": "chat|code|tool_use|search|vision|research|voice",
+  "complexity": "low|medium|high",
+  "mode": "fast|normal|deep|planning|research",
+  "model": "qwen3:8b",
+  "requires_tools": true,
+  "requires_planning": false,
+  "tool_name": "open_app",
+  "tool_args": {"name": "string"},
+  "confidence": 0.9,
+  "risk_level": "low|medium|high"
 }
 ```
 
-### Parse Failure Handling
+### LLMOutput
 
-When the LLM output cannot be parsed as valid tool call JSON:
+**Produced by:** `runtime.executor.execute_turn()` after calling the model  
+**Consumed by:** `runtime.loop` to branch between direct answer and tool execution
 
-1. Log the failure with the raw text.
-2. Re-send the request with an explicit instruction to output only JSON.
-3. Retry maximum 2 times (from `runtime.max_tool_retries`).
-4. If still failing after all retries: return `ToolResult(success=False, error="Model did not produce valid tool call")`.
-5. Runtime treats this as a tool failure and follows the standard tool failure path.
-
----
-
-## 7. Boot Flow
-
-The following steps execute in order when `python app/main.py` is called. No step may be skipped. No step may run before the one preceding it.
-
+```json
+{
+  "type": "answer|tool_call",
+  "content": "string",
+  "tool": "string",
+  "args": {}
+}
 ```
-Step 1 — Parse arguments
-  Read --interface flag and --debug flag from command line.
 
-Step 2 — Load config
-  Load config/settings.yaml into AppSettings.
-  Load .env variables via load_dotenv().
-  Validate: required keys present, model names non-empty.
+**Enforcement Rule:** When `requires_tools=True` in `DecisionOutput`, the model **MUST** produce a `tool_call` type response. Any free-text response when a tool is required is a **parse failure** and triggers a retry.
 
-Step 3 — Initialize logging
-  Configure Loguru with terminal (colored) and file sinks.
-  File: logs/jarvis.log, 10 MB rotation, 7-day retention.
-  Log: "Jarvis starting, interface={}, version={}".
+### ToolResult
 
-Step 4 — Create directories
-  Ensure all paths from config exist: data/, logs/, data/chroma/,
-  data/sessions/, data/screenshots/, data/generated/, data/downloads/.
+**Produced by:** `core.tools.executor.execute_tool()`  
+**Consumed by:** `runtime.loop` as the next observation
 
-Step 5 — Initialize memory
-  Connect to Redis (short-term). On failure: switch to in-memory dict, log warning.
-  Connect to ChromaDB (long-term). On failure: disable semantic recall, log warning.
-  Connect to SQLite (structured). On failure: crash with clear message. SQLite is required.
+```json
+{
+  "tool": "string",
+  "success": true,
+  "data": {},
+  "error": "",
+  "duration_ms": 0.0
+}
+```
 
-Step 6 — Initialize tool registry
-  Scan src/skills/ for BaseTool subclasses.
-  Register all tools where is_available() returns True.
-  Log count of registered tools.
+### FinalResponse
 
-Step 7 — Validate models
-  For each model in config (default, fast, code, vision):
-    Check if model is present in ollama list output.
-    Log warning if missing. Do not crash — model loads on first use.
+**Produced by:** `runtime.loop` when evaluator approves  
+**Consumed by:** Interface layer for display
 
-Step 8 — Load user profile
-  Read data/user_profile.json.
-  If missing: create with defaults (language=ar, style=balanced).
-
-Step 9 — Start interface
-  Launch the selected interface: cli | web | voice | telegram | gui | all.
-  Each interface starts its own input loop.
-
-Step 10 — Ready
-  Log: "Jarvis ready".
-  Interface displays ready message to user.
+```json
+{
+  "text": "string",
+  "session_id": "string",
+  "model": "qwen3:8b",
+  "mode": "normal",
+  "quality": 0.85
+}
 ```
 
 ---
 
-## 8. System Start Behavior
+## 5. Execution Modes
 
-This section defines what happens when the system receives the first message of a new session.
-
-**Memory state:** Empty. No history. No semantic memories. The InputPacket is assembled with `recent_history=[]` and `memory_snippets=[]`. This is normal and does not cause an error.
-
-**Context state:** Built from the user message and user profile only.
-
-**Identity:** The system prompt is built using the Jarvis identity definition and user profile regardless of memory state. Memory being empty does not change prompt structure.
-
-**Model state:** No model is pre-loaded. The first call to `swap_to(model)` triggers the actual model load. Latency on the first response is expected.
-
-**Behavior:** The system functions identically whether memory is empty or populated. The absence of memory snippets means the model has no prior context — it does not cause an error or degrade functionality.
-
----
-
-## 9. Execution Modes
-
-Every tool execution is governed by an Execution Mode. The mode determines whether confirmation is required before running a tool. The mode does not affect what the LLM generates — only what actions are permitted to run.
+Every tool execution is governed by an Execution Mode. The mode determines whether confirmation is required before running a tool.
 
 ### Mode Definitions
 
 | Mode | Value | Behavior |
 |------|-------|----------|
-| SAFE | `"safe"` | Every tool call requires explicit user confirmation before execution |
-| BALANCED | `"balanced"` | Low-risk tools auto-execute; medium-risk require confirmation; high-risk are blocked |
-| UNRESTRICTED | `"unrestricted"` | All tools execute without confirmation |
+| **SAFE** | `safe` | Every tool call requires explicit user confirmation before execution |
+| **BALANCED** | `balanced` | Low-risk tools auto-execute; medium-risk require confirmation; high-risk are blocked |
+| **UNRESTRICTED** | `unrestricted` | All tools execute without confirmation |
 
 **Default mode:** `BALANCED`
 
-The active mode is stored in `config/settings.yaml` under `runtime.execution_mode`. It can be changed at runtime via the `/mode safe|balanced|unrestricted` CLI command or the equivalent Web UI control.
+The active mode is stored in `config/settings.yaml` under `runtime.execution_mode`.
 
 ### Risk Classification
 
-Every tool has a fixed `risk_level` defined in `config/skills.yaml`. The classification governs behavior per mode:
-
-| Risk Level | Examples | SAFE | BALANCED | UNRESTRICTED |
-|------------|---------|------|----------|--------------|
-| `low` | web_search, read_file, system_info, take_screenshot | Requires confirmation | Auto-executes | Auto-executes |
-| `medium` | open_app, execute_python, run_shell, send_notification | Requires confirmation | Requires confirmation | Auto-executes |
-| `high` | delete_file, kill_process, send_email, send_message | Requires confirmation | Blocked — requires explicit approval phrase | Auto-executes |
+| Risk Level | SAFE | BALANCED | UNRESTRICTED |
+|------------|------|----------|--------------|
+| **low** | Requires confirmation | Auto-executes | Auto-executes |
+| **medium** | Requires confirmation | Requires confirmation | Auto-executes |
+| **high** | Requires confirmation | Blocked | Auto-executes |
 
 **Blocked behavior for `high` in BALANCED:** The tool does not execute. The runtime returns a message explaining that this action requires either switching to UNRESTRICTED mode or typing the explicit approval phrase: `"confirm: {tool_name}"`.
 
-**Explicit approval phrase:** When the user types `"confirm: {tool_name}"` as their next message, the high-risk tool is treated as medium-risk for that one call only and proceeds to the confirmation prompt.
+### Explicit Approval Phrase
 
-### Connection to Runtime
-
-The Decision Layer sets `risk_level` on `DecisionOutput`. The Tool Executor reads the current mode from config and applies the rules above before calling `tool.execute()`.
+When the user types `"confirm: {tool_name}"` as their next message, the high-risk tool is treated as medium-risk for that one call only.
 
 ---
 
-## 10. Prompt System
+## 6. Tools System
 
-Every model call receives a system prompt built by the Prompt Builder. The prompt is not static — it is assembled from components in a fixed order at runtime.
+### Tool Structure
 
-### Assembly Order
+Every tool is a `BaseTool` subclass with:
+- `name`: Unique identifier
+- `description`: Human-readable description
+- `category`: Grouping (system, files, browser, search, api, coder, etc.)
+- `risk_level`: low | medium | high
+- `requires_confirmation`: bool
+- `platform`: list of supported platforms
+
+### Registry
+
+Tools are auto-discovered from `src/skills/` directory and registered at startup.
+
+### Execution Pipeline
 
 ```
-Block 1 — Identity
-  Who Jarvis is, its role, the component notice stating the model
-  is a component of Jarvis — not the underlying LLM.
-
-Block 2 — Safety rules
-  What Jarvis must never do (credentials, destructive actions,
-  uncertainty disclosure, privacy).
-
-Block 3 — User profile
-  User's language, style preference, technical level.
-
-Block 4 — Mode fragment
-  How to respond based on the current thinking mode.
-
-Block 5 — Task context
-  What the user is trying to accomplish this turn.
-
-Block 6 — Tool list (conditional)
-  Available tools — included only when requires_tools=True.
-  Lists tool names and descriptions only. No schema details.
-
-Block 7 — Handoff note (conditional)
-  Present only when the model was just swapped.
-  States what the previous model was and why the swap occurred.
+LLM output → Parse → Validate schema → Safety check → Mode enforcement → Execute → Return ToolResult
 ```
 
-Blocks 1 through 5 are always present. Blocks 6 and 7 are conditional.
+### Parse Failure Handling
 
-### Prompt Builder Functions
-
-The Prompt Builder exposes three primary functions:
-
-- `build_system_prompt(task_context, mode, tools, previous_model, current_model)` — assembles all blocks in order and returns a complete string.
-- `inject_identity(prompt_parts)` — adds blocks 1 and 2 from `config/jarvis_identity.yaml`.
-- `inject_mode(prompt_parts, mode)` — adds block 4 by looking up the mode fragment.
-
-### Thinking Mode Fragments
-
-The mode fragment changes the model's reasoning behavior. The mode is set by `DecisionOutput.mode`.
-
-| Mode | Effect on response |
-|------|--------------------|
-| `fast` | Concise, one to three sentences, no elaboration |
-| `normal` | Complete and well-structured |
-| `deep` | Step-by-step reasoning with self-verification |
-| `planning` | Decompose into numbered steps before acting |
-| `research` | Multi-source, cite each claim, summarize at end |
+When the LLM output cannot be parsed as valid tool call JSON:
+1. Log the failure with raw text
+2. Re-send request with explicit JSON instruction
+3. Retry maximum 2 times
+4. If still failing: return `ToolResult(success=False, error="Model did not produce valid tool call")`
 
 ---
 
-## 11. Decision System
+## 7. Model Strategy
 
-The Decision Layer classifies the current turn and selects resources. It does not generate content and does not call a model for reasoning except when classification requires it.
-
-### Decision Boundaries
-
-**The Decision layer MUST NOT:**
-- Execute any tools
-- Generate responses for the user
-- Access external services
-
-The Decision layer ONLY:
-- Selects the appropriate model
-- Selects the appropriate mode
-- Estimates the risk level
-
-### Score-Based Model Selection
-
-Model selection MUST use multiple signals, not hard-coded routing:
-
-| Signal | Weight Factor |
-|--------|-------------|
-| capability | Does the model support the required capability (vision, code, etc.)? |
-| latency | Is the model fast enough for the selected mode? |
-| cost | Is the model within VRAM constraints? |
-| modality | Does the input modality match model capabilities? |
-| context | Does the complexity match the model's strength? |
-
-All model selection follows score-based evaluation. No direct `input == model` mappings are permitted.
-
-### Classification Rules
-
-| Signal | Decision |
-|--------|----------|
-| Image in attachments | intent=vision |
-| Message contains code keywords | intent=code |
-| Message length < 20 chars, no action keywords | intent=chat, mode=fast |
-| Multi-step goal detected | intent=research, mode=planning |
-| Default | intent=chat, mode=normal |
-
-Fast-path rules run before any LLM call. If a fast-path rule matches, no LLM is invoked for classification.
-
----
-
-## 12. Memory System
-
-| Store | Backend | Scope | Contents |
-|-------|---------|-------|----------|
-| Short-term | Redis (in-memory fallback) | Current session | Last 50 messages |
-| Long-term | ChromaDB | Cross-session | Facts, outcomes, preferences |
-| Structured | SQLite | Permanent | Conversations, tasks, feedback |
-| Profile | JSON file | Permanent | User preferences |
-
-Memory injection into InputPacket per turn:
-- Short-term: last 10 messages from current session
-- Long-term: top 3 semantically similar snippets for the current message
-- Profile: always injected into every turn
-
----
-
-## 13. Models
+### Model Selection
 
 | Ollama Tag | Role | VRAM | Use Case |
 |-----------|------|------|----------|
@@ -578,121 +261,39 @@ Memory injection into InputPacket per turn:
 | `qwen2.5-coder:7b` | Code specialist | 4.7 GB | Code generation, debugging |
 | `llava:7b` | Vision | 4.5 GB | Image understanding, OCR |
 
-**VRAM rule:** One model loaded at a time. Before loading a new model, unload the current one. Two models must never be loaded simultaneously on a 6 GB GPU.
+### VRAM Rule
+
+**One model loaded at a time.** Before loading a new model, unload the current one. Two models must never be loaded simultaneously on a 6 GB GPU.
+
+### Fallback Logic
+
+On model failure:
+1. Retry with the same model (max 2 times)
+2. If still failing: switch to fallback model (gemma3:4b)
+3. If fallback fails: return error message to user
 
 ---
 
-## 14. Skills
+## 8. Error Handling
 
-All tool implementations live in `src/skills/`. Each file implements one or more `BaseTool` subclasses. Skills are grouped by category:
-
-| Category | Location | Examples |
-|----------|----------|---------|
-| system | `src/skills/system/` | open_app, close_app, system_info, clipboard |
-| files | `src/skills/files/` | read_file, write_file, delete_file, search_files |
-| browser | `src/skills/browser/` | navigate, click, fill, download, upload |
-| search | `src/skills/search/` | web_search, fetch_page |
-| api | `src/skills/api/` | calendar, gmail, drive, contacts, youtube |
-| screen | `src/skills/screen/` | take_screenshot, read_screen_text, describe_screen |
-| coder | `src/skills/coder/` | execute_python, run_shell |
-| notify | `src/skills/notify/` | send_notification |
-| social | `src/skills/social/` | whatsapp_send, whatsapp_read |
-| media | `src/skills/media/` | play_pause, set_volume |
-| network | `src/skills/network/` | check_connection, get_ip |
-| pdf | `src/skills/pdf/` | pdf_read_text, pdf_summarize |
-| office | `src/skills/office/` | docx_read, xlsx_read, docx_write |
-
----
-
-## 15. Cross-Platform Support
-
-| Action | Windows | Linux | macOS |
-|--------|---------|-------|-------|
-| Kill process | taskkill /IM | pkill | kill -9 |
-| Open app | ShellExecute | subprocess | open -a |
-| Notifications | winotify | notify-send | osascript |
-| Volume | pycaw | pactl/amixer | osascript |
-| Clipboard | pyperclip + win32clipboard | pyperclip + xclip | pyperclip |
-| Hotkeys | keyboard lib | pynput | pynput |
-| Auto-start | Registry Run key | ~/.config/autostart/ | ~/Library/LaunchAgents/ |
-
-All file paths use `pathlib.Path`. No hardcoded path separators.
-
----
-
-## 16. Error Handling
-
-| Error Class | Cause | Action |
-|-------------|-------|--------|
+| Error | Cause | Action |
+|-------|-------|--------|
 | `model_error` | Ollama unreachable or OOM | Retry with smaller model |
-| `tool_not_found` | Tool name not in registry | Return error to LLM; LLM explains |
-| `parse_failure` | LLM output not valid tool call JSON | Retry with explicit JSON instruction (max 2) |
-| `validation_error` | Args fail JSON Schema | Return error; LLM can retry with corrected args |
-| `safety_blocked` | risk=high in BALANCED mode | Explain to user; require explicit approval phrase |
-| `user_declined` | User rejected confirmation | Return message: "Action cancelled" |
-| `tool_timeout` | Execution exceeded time limit | Return ToolResult with error; continue turn |
-| `vram_oom` | GPU out of memory | Unload all; load smallest available model; retry |
+| `tool_not_found` | Tool name not in registry | Return error to LLM |
+| `parse_failure` | LLM output not valid JSON | Retry with JSON instruction (max 2) |
+| `validation_error` | Args fail JSON Schema | Return error; LLM can retry |
+| `safety_blocked` | risk=high in BALANCED | Explain; require approval phrase |
+| `user_declined` | User rejected confirmation | Return "Action cancelled" |
+| `tool_timeout` | Execution exceeded time limit | Return error; continue turn |
+| `vram_oom` | GPU out of memory | Unload all; load smallest; retry |
 
 ---
 
-## 5.2. Failure Modes
+## 9. Logging System
 
-When failures occur, the system MUST detect, handle, and recover. Each failure mode has defined detection, fallback, and retry limits.
+Logging is a **CORE** runtime layer. Structured logs use key=value format.
 
-### Failure Mode Definitions
-
-| Failure Mode | Detection | Fallback | Retry Limit |
-|-------------|----------|---------|------------|
-| model timeout | No response within tool_timeout_s | Switch to faster model | max_tool_retries |
-| invalid output | Schema validation fails | Return error to LLM | max_tool_retries |
-| tool failure | Tool returns success=False | Return error to user | 0 (no retry for tools) |
-| infinite loop risk | max_iterations reached | Return best available response | N/A |
-
-### Detection and Recovery Rules
-
-**Model Timeout:**
-- Detection: No response within configured timeout
-- Fallback: Retry with next available model (see escalation chain)
-- Retry Limit: Read from runtime.max_tool_retries
-
-**Invalid Output:**
-- Detection: Schema validation fails or required fields missing
-- Fallback: Return error message to LLM with correction instruction
-- Retry Limit: 2 retries maximum
-
-**Tool Failure:**
-- Detection: Tool.execute() returns success=False
-- Fallback: Return ToolResult to user; do not retry the tool
-- Retry Limit: 0 (tools do not retry)
-
-**Infinite Loop Risk:**
-- Detection: Iterations reach max_iterations
-- Fallback: Return last generated response with exhaustion note
-- Retry Limit: N/A
-
----
-
-## 17. Configuration Reference
-
-All configuration lives in `config/settings.yaml`. No tunable parameters exist as Python constants.
-
-| Section | Purpose |
-|---------|---------|
-| `jarvis` | name, language list, wake_word |
-| `models` | default, fast, code, vision model tags |
-| `hardware` | gpu_vram_limit_gb, max_concurrent_models |
-| `interfaces` | web_host, web_port |
-| `paths` | data, logs, chroma, sqlite |
-| `hotkeys` | open_cli, start_voice |
-| `runtime` | max_iterations, max_tool_retries, tool_timeout_s, execution_mode |
-
----
-
-## 18. Logging (CORE LAYER)
-
-**Logging is NOT optional. It is a CORE runtime layer.**
-
-All log entries use key=value structured format. Every entry includes a timestamp and level.
+### Event Types
 
 | Event | Fields |
 |-------|--------|
@@ -709,21 +310,96 @@ All log entries use key=value structured format. Every entry includes a timestam
 | `escalation` | from_mode, from_model, to_mode, to_model |
 | `turn.end` | session, quality, total_ms |
 
-**What MUST be logged:**
-- All decisions made
-- All model selections
-- All tool calls
-- All failures and errors
-- All retry attempts
-- All escalation events
+### Log File
 
-Log files: `logs/jarvis.log` — INFO and above, 10 MB rotation, 7-day retention.
+`logs/jarvis.log` — INFO and above, 10 MB rotation, 7-day retention.
 
 ---
 
-## 19. Quick Start
+## 10. Security Model
 
-```
+### File Restrictions
+
+- All paths must be under user's home directory or configured `data/` directory
+- Paths outside these roots are rejected at the tool level
+
+### Dangerous Command Blocking
+
+Blocked patterns (any tool argument containing these is blocked regardless of risk level):
+- `rm -rf`
+- `format c:`
+- `del /s /q`
+- `:(){:|:&};:`
+- `shutdown /`
+- `mkfs`
+- `dd if=`
+
+### Confirmation Phrases
+
+- `"confirm: {tool_name}"` — grants one-time execution for high-risk tools
+
+### Secrets Protection
+
+- `.env` file contains all secrets
+- File is gitignored
+- No secrets logged or exposed in responses
+
+---
+
+## 11. Local vs External Modules
+
+### Core (Local - Always Active)
+
+| Module | Description |
+|--------|-------------|
+| Interface | CLI, Web UI, Voice |
+| Context | InputPacket assembly |
+| Decision | Intent classification |
+| Runtime | Execution loop |
+| Agents | Multi-step reasoning |
+| Tools | Registry, validation |
+| Skills | Local tool implementations |
+| Memory | Redis, ChromaDB, SQLite |
+| Models | Ollama wrapper |
+| Identity | Prompt building |
+
+### External (Optional Modules)
+
+| Module | Description | Enable |
+|--------|-------------|--------|
+| Telegram | Telegram bot interface | Optional |
+| Google APIs | Calendar, Gmail, Drive | Optional |
+| Browser | Playwright automation | Optional |
+| Voice | STT/TTS pipeline | Optional |
+
+---
+
+## 12. Implementation Mapping
+
+### Phase → Architecture
+
+| Phase | Component | Files Created |
+|-------|-----------|---------------|
+| 0 | Core | engine.py, classifier.py, apps.py, jarvis_slice.py |
+| 1 | Config, Logging | config.py, logging_setup.py |
+| 2 | Contracts | InputPacket, DecisionOutput, LLMOutput, ToolResult, FinalResponse |
+| 3 | Runtime Loop | assembler.py, decision.py, executor.py, evaluator.py, loop.py |
+| 4 | Decision System | Classifier hardening, fast-path, risk levels |
+| 5 | Identity | identity.yaml, prompt builder |
+| 6 | Tool System | BaseTool, registry, safety, executor |
+| 7 | Safety Modes | Execution mode enforcement |
+| 8 | System Skills | App, system info, clipboard, notifications, file ops |
+| 9 | Browser | Playwright automation |
+| 10 | Google APIs | OAuth + Calendar, Gmail, Drive |
+| 11 | Memory | Short-term, long-term, SQLite |
+| 12 | Agents | Thinker, Planner, Researcher |
+| 13-17 | Interfaces | CLI, Web, Voice, Telegram, GUI |
+
+---
+
+## 13. Quick Start
+
+```bash
 # Install dependencies
 pip install -r requirements.txt
 playwright install chromium
@@ -744,7 +420,7 @@ python app/main.py --interface cli
 
 ---
 
-## 20. Tech Stack
+## 14. Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -755,16 +431,12 @@ python app/main.py --interface cli
 | SQL | SQLite |
 | STT | OpenAI Whisper |
 | TTS | Piper TTS |
-| Wake Word | openWakeWord |
-| Image Gen | Diffusers (SD 1.5) |
 | Browser | Playwright |
 | Terminal UI | Rich |
-| Desktop GUI | PyQt6 |
-| Telegram | python-telegram-bot |
-| Google APIs | google-api-python-client |
 | Config | PyYAML + Pydantic |
 | Logging | Loguru |
-| Windows-specific | pywin32, pycaw, pystray, winotify |
-| Cross-platform | pyperclip, pynput, keyboard, mss, pytesseract |
-| Security | cryptography (Fernet) |
-| Testing | pytest + pytest-asyncio + pytest-cov |
+| Testing | pytest |
+
+---
+
+*Version 1.0.0-alpha*
