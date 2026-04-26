@@ -691,346 +691,95 @@ Add recovery systems and protection.
 
 ---
 
-## Phase 10 — Memory (Simplified)
+## Execution Gaps — Lock Phase
 
 ```
-phase_id: 10
-title: "Memory (Simplified)"
-priority: "P1"
-status: "not_started"
-progress_percent: 0
-done_tasks: 0
-total_tasks: 3
-blocker: "Phase 9 must complete"
-next_action: "Start TASK 10.1"
-last_updated: "-"
-validation_status: "not_started"
-```
-
-### Objective
-
-Simplify memory to avoid overcomplexity. Uses SQLite only. No Redis, no ChromaDB.
-
-### Dependencies
-
-- Phase 3 (completed)
-
-### Tasks
-
-**TASK 10.1 — SQLite Database**  
-**TASK 10.2 — Memory functions**  
-**TASK 10.3 — Auto-save**
-
-### Artifacts
-
-- `src/core/memory/database.py`
-- `src/core/runtime/loop.py`
-
----
-
-## Phase 11 — Debug System
-
-```
-phase_id: 11
-title: "Debug System"
+phase_id: gap
+title: "Execution Gaps Lock"
 priority: "P0"
-status: "not_started"
-progress_percent: 0
-done_tasks: 0
-total_tasks: 4
-blocker: "Phase 10 must complete"
-next_action: "Start TASK 11.1"
-last_updated: "-"
-validation_status: "not_started"
-```
-
-### Objective
-
-Add debug capabilities.
-
-### Dependencies
-
-- Phase 9 (completed)
-
-### Tasks
-
-**TASK 11.1 — Debug Mode**  
-**TASK 11.2 — Debug Output**  
-**TASK 11.3 — Trace System**  
-**TASK 11.4 — Replay Command**
-
-### Artifacts
-
-- `src/core/debug.py`
-- `src/interfaces/cli/commands.py`
-
----
-
-## Phase 12 — Browser & Web
-
-```
-phase_id: 12
-title: "Browser & Web"
-priority: "P2"
-status: "not_started"
-progress_percent: 0
-done_tasks: 0
-total_tasks: 3
-blocker: "Phase 11 must complete"
-next_action: "Start TASK 12.1"
-last_updated: "-"
-validation_status: "not_started"
-```
-
-### Objective
-
-Implement browser automation (optional module).
-
-### Dependencies
-
-- Phase 11 (completed)
-
-### Tasks
-
-**TASK 12.1 — Playwright core**  
-**TASK 12.2 — Session**  
-**TASK 12.3 — File transfer**
-
-### Artifacts
-
-- `src/skills/browser/browser.py`
-- `src/skills/browser/session.py`
-- `src/skills/browser/transfer.py`
-
----
-
-## Phase 13 — Google APIs
-
-```
-phase_id: 13
-title: "Google APIs"
-priority: "P2"
-status: "not_started"
-progress_percent: 0
-done_tasks: 0
-total_tasks: 4
-blocker: "Phase 12 must complete"
-next_action: "Start TASK 13.1"
-last_updated: "-"
-validation_status: "not_started"
-```
-
-### Objective
-
-Implement Google integrations (optional module).
-
-### Dependencies
-
-- Phase 12 (completed)
-
-### Tasks
-
-**TASK 13.1 — OAuth**  
-**TASK 13.2 — Calendar**  
-**TASK 13.3 — Gmail**  
-**TASK 13.4 — Drive**
-
-### Artifacts
-
-- `src/skills/api/google_auth.py`
-- `src/skills/api/calendar.py`
-- `src/skills/api/gmail.py`
-- `src/skills/api/drive.py`
-
----
-
-## Phase 14 — CLI Interface
-
-```
-phase_id: 14
-title: "CLI Interface"
-priority: "P2"
-status: "not_started"
-progress_percent: 0
-done_tasks: 0
-total_tasks: 2
-blocker: "Phase 13 must complete"
-next_action: "Start TASK 14.1"
-last_updated: "-"
-validation_status: "not_started"
-```
-
-### Objective
-
-Build CLI (part of core, but enhanced in this phase).
-
-### Dependencies
-
-- Phase 11 (completed)
-
-### Tasks
-
-**TASK 14.1 — Rich chat loop**  
-**TASK 14.2 — Commands**
-
-### Artifacts
-
-- `src/interfaces/cli/interface.py`
-- `src/interfaces/cli/commands.py`
-
----
-
-## Phase 15 — Web UI
-
-```
-phase_id: 15
-title: "Web UI"
-priority: "P2"
-status: "not_started"
-progress_percent: 0
-done_tasks: 0
-total_tasks: 3
-blocker: "Phase 14 must complete"
-next_action: "Start TASK 15.1"
-last_updated: "-"
-validation_status: "not_started"
-```
-
-### Objective
-
-Build Web UI (optional module).
-
-### Dependencies
-
-- Phase 14 (completed)
-
-### Tasks
-
-**TASK 15.1 — FastAPI app**  
-**TASK 15.2 — WebSocket**  
-**TASK 15.3 — Frontend**
-
-### Artifacts
-
-- `src/interfaces/web/app.py`
-- `src/interfaces/web/ws.py`
-- `src/interfaces/web/templates/`
-- `src/interfaces/web/static/`
-
----
-
-## Phase 16 — Voice Pipeline
-
-```
-phase_id: 16
-title: "Voice Pipeline"
-priority: "P3"
-status: "not_started"
-progress_percent: 0
-done_tasks: 0
-total_tasks: 4
-blocker: "Phase 15 must complete"
-next_action: "Start TASK 16.1"
-last_updated: "-"
-validation_status: "not_started"
-```
-
-### Objective
-
-Add voice I/O (optional module, requires additional resources).
-
-### Dependencies
-
-- Phase 15 (completed)
-
-### Tasks
-
-**TASK 16.1 — STT**  
-**TASK 16.2 — TTS**  
-**TASK 16.3 — Wake word**  
-**TASK 16.4 — Pipeline**
-
-### Artifacts
-
-- `src/models/speech/stt.py`
-- `src/models/speech/tts.py`
-- `src/interfaces/voice/wake_word.py`
-- `src/interfaces/voice/pipeline.py`
-
----
-
-## Phase 17 — Vision + Image
-
-```
-phase_id: 17
-title: "Vision + Image"
-priority: "P3"
-status: "not_started"
-progress_percent: 0
-done_tasks: 0
-total_tasks: 2
-blocker: "Phase 16 must complete"
-next_action: "Start TASK 17.1"
-last_updated: "-"
-validation_status: "not_started"
-```
-
-### Objective
-
-Add vision capabilities (optional module, requires VRAM).
-
-### Dependencies
-
-- Phase 16 (completed)
-
-### Tasks
-
-**TASK 17.1 — LLaVA**  
-**TASK 17.2 — Stable Diffusion**
-
-### Artifacts
-
-- `src/models/vision/llava.py`
-- `src/models/diffusion/sd.py`
-
----
-
-## Phase 18 — QA + Production
-
-```
-phase_id: 18
-title: "QA + Production"
-priority: "P0"
-status: "not_started"
+status: "in_progress"
 progress_percent: 0
 done_tasks: 0
 total_tasks: 5
-blocker: "Phase 17 must complete"
-next_action: "Start TASK 18.1"
-last_updated: "-"
+blocker: "none"
+next_action: "Start execution gap fixes"
+last_updated: "2026-04-26"
 validation_status: "not_started"
 ```
 
 ### Objective
 
-Finalize for production.
-
-### Dependencies
-
-- Phase 17 (completed)
+Fix execution gaps to ensure stable, deterministic, fully controlled behavior.
 
 ### Tasks
 
-**TASK 18.1 — Test suite**  
-**TASK 18.2 — Security audit**  
-**TASK 18.3 — Error handling**  
-**TASK 18.4 — Integration test**  
-**TASK 18.5 — Production ready**
+**TASK VALIDATOR — Tool Validator**
+- [ ] Status: not_started
+- Create `src/core/tools/validator.py`
+- Validate DecisionOutput alignment
+- Validate schema validity
+- Validate risk level
+- Validate tool availability
+- **Expected output:** Approved tool or rejection with reason
+- **Artifact:** `src/core/tools/validator.py`
 
-### Artifacts
+**TASK LOGGING — Logging System**
+- [ ] Status: not_started
+- Create `src/core/logging.py`
+- Log decision results
+- Log selected model
+- Log tool calls
+- Log failures
+- Log retries
+- Log escalations
+- **Expected output:** All runtime events logged
+- **Artifact:** `src/core/logging.py`
 
-- `tests/test_integration.py`
-- `VERSION`
+**TASK FAILURE_H — Failure Handling**
+- [ ] Status: not_started
+- Create `src/core/failure.py`
+- Model timeout handling
+- Invalid output handling
+- Tool failure handling
+- Loop detection with fallback
+- **Expected output:** All failure modes handled
+- **Artifact:** `src/core/failure.py`
+
+**TASK IDENTITY — Identity Verification**
+- [ ] Status: not_started
+- Verify ALL model calls include identity block
+- Verify prompt has Jarvis identity
+- Verify mode enforcement
+- **Expected output:** Every LLM call has identity
+- **Artifact:** `src/core/identity/verify.py`
+
+**TASK EXEC_LIMITS — Execution Limits**
+- [ ] Status: not_started
+- Add max_iterations enforcement
+- Add max_tool_calls enforcement
+- Add step timeout enforcement
+- **Expected output:** Limits enforced at runtime
+- **Artifact:** `src/core/runtime/limits.py`
+
+### Definition of Done
+
+1. No hardcoded routing
+2. No direct tool execution
+3. All actions validated
+4. All steps logged
+5. All failures handled
+6. System deterministic
+
+### Validation Steps
+
+```bash
+# Verify no hardcoded model routing in decision
+# Verify all tool calls go through validator
+# Verify logging outputs events
+# Verify failure modes handle all cases
+# Verify identity block in prompts
+# Verify execution limits stop loops
+```
 
 ---
 

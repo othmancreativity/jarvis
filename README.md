@@ -35,13 +35,50 @@ JARVIS is NOT a cloud service. It does NOT require internet connectivity for cor
 |-------|----------|----------------|------------------|-------------------|
 | **Interface** | `src/interfaces/` | Input/Output | Display output, receive input | Make decisions, route requests |
 | **Context** | `src/core/context/` | Bundle InputPacket | Assemble data for current turn | Store across turns |
-| **Decision** | `src/core/decision/` | Intent classification | Select intent, model, mode | Generate content |
-| **Runtime** | `src/core/runtime/` | State machine, loop control | Control execution flow | Implement tool logic |
+| **Decision** | `src/core/decision/` | Intent classification, model selection | Select intent, model, mode, estimate risk | Execute tools, generate responses |
+| **Runtime** | `src/core/runtime/` | State machine, loop control, execution authority | Control flow, retries, switching | Implement tool logic |
 | **Tools** | `src/core/tools/` | Registry, safety, execution | Validate and execute tools | Call LLM or make routing |
 | **Skills** | `src/skills/` | Tool implementations | Execute specific actions | Make routing decisions |
 | **Memory** | `src/core/memory/` | Data persistence | Store/retrieve data | Control runtime |
 | **Models** | `src/models/` | LLM wrapper | Call local Ollama | Make decisions |
 | **Identity** | `src/core/identity/` | Prompt building | Build system prompts | Execute tools |
+
+### Logging (Core Layer)
+
+Logging is a mandatory runtime layer. Every log entry MUST include:
+- `timestamp`
+- `level`
+- `event`
+- `session_id`
+- `turn_id`
+- `phase`
+- `data` (key=value pairs)
+
+### Decision Boundaries
+
+Decision MUST:
+- Select model (score-based using capability, latency, cost, modality, context)
+- Select mode
+- Estimate risk
+
+Decision MUST NOT:
+- Execute tools
+- Generate responses
+
+### Execution Path Enforcement
+
+Single enforced path: Observe → Decide → Think → Act → Evaluate
+
+No phase may proceed before Phase 0 is validated.
+
+### Tool Boundaries
+
+Tools MUST:
+- Execute only (validates and runs approved tools)
+
+Tools MUST NOT:
+- Call LLM
+- Make decisions
 
 ### Runtime Authority
 
@@ -100,10 +137,12 @@ Any state → ERROR → IDLE (safe exit)
 | Limit | Value | Purpose |
 |-------|-------|---------|
 | `max_iterations` | 5 | Maximum retry loops per turn |
+| `max_tool_calls` | 3 | Maximum tool calls per turn |
 | `max_tool_depth` | 3 | Maximum nested tool calls |
 | `max_retries` | 2 | Model call retries per attempt |
 | `tool_timeout_s` | 30 | Tool execution timeout (seconds) |
 | `model_timeout_s` | 120 | LLM call timeout (seconds) |
+| `step_timeout_s` | 60 | Timeout per execution step |
 | `total_turn_timeout_s` | 300 | Maximum turn time (seconds) |
 
 ### Execution Loop Pseudocode
@@ -408,63 +447,53 @@ Every log entry includes:
 
 ---
 
-## 9. Failure Handling
+## 9. Failure Modes
 
-### Model Failure
+### Model Timeout
 
 **Detection:** No response within model_timeout_s.
 
-**Handling:**
+**Fallback:**
 1. Retry once with the same model.
-2. If still failing: swap to fallback model (gemma3:4b).
-3. If fallback also fails: return error response.
+2. Swap to fallback model (gemma3:4b).
+3. Return error response.
 
-**Runtime never crashes.**
+**Retry Limit:** 2
 
-### Parse Failure
+### Invalid Output
 
-**Detection:** Invalid JSON when tool is required.
+**Detection:** DecisionOutput has invalid fields OR LLMOutput fails JSON parsing.
 
-**Handling:**
-1. Retry with correction prompt (up to max_retries).
-2. If all retries exhausted: return answer without tool.
-3. Log: parse.failure, raw_output.
+**Fallback:**
+1. Force to defaults (intent=chat, mode=normal, model=default).
+2. Retry with correction prompt (up to max_retries).
+3. Return answer without tool.
+
+**Retry Limit:** 2
 
 ### Tool Failure
 
 **Detection:** ToolResult.success == false.
 
-**Handling:**
-- Log the failure.
-- Add error context to input.
-- Allow continuation with a different tool.
-- DO NOT retry the same tool (prevents infinite loops).
+**Fallback:**
+1. Log the failure.
+2. Add error context to input.
+3. Allow continuation with a different tool.
 
-### Timeout
+**Retry Limit:** 0 (DO NOT retry same tool)
 
-**Detection:** Elapsed > total_turn_timeout_s.
+### Loop Detection
 
-**Handling:**
-- Complete current step if possible.
-- Append "(partial)" to response.
-- Return best-effort response.
+**Detection:** Same tool called 3+ times OR repeated pattern in tool history.
 
-### Invalid Decision
+**Fallback:**
+1. Block execution.
+2. Return warning response.
+3. Log loop_detected event.
 
-**Detection:** DecisionOutput has invalid fields.
+**Retry Limit:** 0
 
-**Handling:**
-- Force to defaults (intent=chat, mode=normal, model=default).
-- Log decision.invalid.
-
-### Memory Failure
-
-**Detection:** SQLite connection fails.
-
-**Handling:**
-- Continue without persistence.
-- Log warning.
-- Return valid response.
+### Runtime never crashes.
 
 ---
 
