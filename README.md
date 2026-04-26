@@ -88,6 +88,72 @@ Before using DecisionOutput, Runtime MUST verify:
 - Scoring factors used
 - Validation status
 
+### Tiered Fallback System
+
+**Fallback Tier 1:** qwen2.5:7b (primary fallback)
+- Use for: reasoning, planning, complex responses
+
+**Fallback Tier 2:** gemma3:4b (ultimate fallback)
+- Use for: simple responses, complete failure
+
+**Runtime MUST:**
+- Attempt Tier 1 before Tier 2
+- Tier 2 ONLY used if Tier 1 fails
+
+### Decision Retry Strategy
+
+**max_decision_retries = 3**
+
+Each retry MUST:
+- Adjust scoring weights slightly OR
+- Reduce constraints
+
+**After retries exhausted:**
+- Trigger fallback system
+
+### Tool Failure Escalation
+
+**Level 1:** Retry tool (1st failure)
+**Level 2:** Re-plan (Decision re-run with 2nd failure)
+**Level 3:** Fallback response (3rd failure)
+
+### Loop Protection
+
+**max_iterations_per_request = 5**
+**max_same_action_repeats = 3**
+
+If exceeded → force exit with safe response
+
+### Mode Degradation
+
+**Progression:** deep → normal → fast
+
+If failure persists → reduce mode complexity step-by-step
+
+### Response Quality Guard
+
+Before returning response, validate:
+- Completeness (answer is not truncated)
+- Coherence (logical consistency)
+- Relevance (addresses input)
+
+If validation fails → retry with stronger model
+
+### Cold Start Behavior
+
+If no memory available:
+- Skip memory weighting
+- Rely on input + default weights
+
+### Degradation Flag
+
+Trigger when:
+- Fallback activated
+- Retries exceeded
+- Weak model used
+
+Log: `system_state: degraded`
+
 ### Execution Path Enforcement
 
 Single enforced path: Observe → Decide → Think → Act → Evaluate

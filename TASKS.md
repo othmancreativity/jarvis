@@ -700,7 +700,7 @@ priority: "P0"
 status: "in_progress"
 progress_percent: 0
 done_tasks: 0
-total_tasks: 7
+total_tasks: 12
 blocker: "none"
 next_action: "Start execution gap fixes"
 last_updated: "2026-04-26"
@@ -778,6 +778,41 @@ Fix execution gaps to ensure stable, deterministic, fully controlled behavior.
 - Verify decision.fail_safe triggers after 3 failures
 - **Expected output:** No decision without scoring proof
 - **Artifact:** `src/core/runtime/validate_decision.py`
+
+**TASK FALLBACK — Tiered Fallback System**
+- [ ] Status: not_started
+- Implement Tier 1: qwen2.5:7b fallback
+- Implement Tier 2: gemma3:4b fallback
+- Verify Tier 1 attempted before Tier 2
+- Verify fallback chain works
+- **Expected output:** Strong fallback chain
+- **Artifact:** `src/core/runtime/fallback.py`
+
+**TASK RETRY — Decision Retry Logic**
+- [ ] Status: not_started
+- Implement max_decision_retries = 3
+- Implement weight adjustment per retry
+- Verify fallback triggered after retries
+- **Expected output:** Controlled retries
+- **Artifact:** `src/core/runtime/retry.py`
+
+**TASK RESPONSE_Q — Response Quality Guard**
+- [ ] Status: not_started
+- Validate completeness
+- Validate coherence
+- Validate relevance
+- Retry with stronger model on failure
+- **Expected output:** Quality enforced
+- **Artifact:** `src/core/runtime/response_guard.py`
+
+**TASK DEGRADE — Degradation Flag**
+- [ ] Status: not_started
+- Track fallback activation
+- Track retries exceeded
+- Track weak model used
+- Log system_state: degraded
+- **Expected output:** Degradation visible and logged
+- **Artifact:** `src/core/runtime/degradation.py`
 
 ### Definition of Done
 
