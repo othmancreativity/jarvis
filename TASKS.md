@@ -700,7 +700,7 @@ priority: "P0"
 status: "in_progress"
 progress_percent: 0
 done_tasks: 0
-total_tasks: 5
+total_tasks: 7
 blocker: "none"
 next_action: "Start execution gap fixes"
 last_updated: "2026-04-26"
@@ -760,6 +760,24 @@ Fix execution gaps to ensure stable, deterministic, fully controlled behavior.
 - Add step timeout enforcement
 - **Expected output:** Limits enforced at runtime
 - **Artifact:** `src/core/runtime/limits.py`
+
+**TASK DECISION_V — Decision Validation**
+- [ ] Status: not_started
+- Verify Decision output changes when inputs slightly vary
+- Test with varying complexity, modality, cost constraints
+- Verify multiple models can win based on input
+- Verify scoring is explained in logs
+- **Expected output:** Model choice varies with input characteristics
+- **Artifact:** `tests/test_decision_dynamic.py`
+
+**TASK DECISION_E — Decision Enforcement**
+- [ ] Status: not_started
+- Verify every DecisionOutput includes scoring metadata
+- Verify candidate list exists
+- Verify invalid decisions are rejected
+- Verify decision.fail_safe triggers after 3 failures
+- **Expected output:** No decision without scoring proof
+- **Artifact:** `src/core/runtime/validate_decision.py`
 
 ### Definition of Done
 

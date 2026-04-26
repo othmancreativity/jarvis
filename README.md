@@ -57,13 +57,36 @@ Logging is a mandatory runtime layer. Every log entry MUST include:
 ### Decision Boundaries
 
 Decision MUST:
-- Select model (score-based using capability, latency, cost, modality, context)
+- Select model using dynamic weighted scoring (capability, latency, cost, modality)
 - Select mode
 - Estimate risk
 
 Decision MUST NOT:
 - Execute tools
 - Generate responses
+- Use hard-coded priority tables
+- Apply implicit bias without scoring basis
+
+### Runtime Decision Validation
+
+Before using DecisionOutput, Runtime MUST verify:
+- Scoring was applied (score_breakdown exists)
+- Multiple candidates were evaluated (candidate list exists)
+- Final score exists
+
+**Reject Invalid Decisions:**
+- If DecisionOutput lacks score_breakdown → reject and re-run decision
+- If DecisionOutput lacks candidate list → reject and re-run decision
+
+**Decision Fail-safe:**
+- If Decision repeatedly fails validation (3 attempts) → fallback to safe default
+- Safe default model: gemma3:4b
+
+**Logging:**
+- All model scores (from candidate list)
+- Selected model
+- Scoring factors used
+- Validation status
 
 ### Execution Path Enforcement
 
@@ -376,15 +399,46 @@ rm -rf /, format c:, del /s /q, :(){:|:&};:, shutdown, reboot, mkfs, dd if=, cur
 2. **No concurrent model calls.**
 3. **Automatic downgrade** when VRAM < 1GB available.
 
-### Model Selection Priority
+### Model Selection (Dynamic Scoring)
 
-| Use Case | Preferred | Fallback | Notes |
-|---------|-----------|----------|-------|
-| Fast classification (<20 chars) | gemma3:4b | None | Use fast-path |
-| General chat | qwen3:8b | gemma3:4b | Swap needed |
-| Complex reasoning | qwen3:8b | gemma3:4b | May retry |
-| Code | qwen2.5-coder:7b | qwen3:8b | Requires swap |
-| Vision | llava:7b | Error | Requires swap (optional) |
+Model selection MUST use weighted scoring:
+
+```
+score(model) = Σ (weight_factor * normalized_value)
+```
+
+**Normalization:**
+- capability: 0.0-1.0 (reasoning_tier mapped)
+- latency: 0.0-1.0 (fast=1.0, medium=0.6, slow=0.3)
+- cost: 0.0-1.0 (VRAM estimate normalized)
+- modality_relevance: 0.0-1.0 (vision_required vs input type)
+
+**Weights (from config/models.yaml):**
+- fit_complexity: 1.0
+- fit_mode: 1.0
+- cost_penalty: 0.35
+- quality_need: 1.2
+- memory_bias: 0.25
+
+**Variability Margin:**
+Small margin (±0.05) where multiple models are valid prevents deterministic lock.
+
+**Tie-Break Logic:**
+When scores within margin:
+1. Lower cost wins
+2. Lower latency wins
+3. Recent success rate wins
+
+**Decision Logging:**
+Log MUST include:
+- All candidate scores
+- Selected model
+- Reason for selection
+
+**Forbidden:**
+- Single factor permanently dominating score
+- Hard-coded routing to any model
+- Implicit bias without scoring basis
 
 ### Optional Heavier Modules
 
