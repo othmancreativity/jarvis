@@ -34,14 +34,14 @@ JARVIS is NOT a cloud service. It does NOT require internet connectivity for cor
 | Layer | Location | Responsibility | Allowed Behavior | Forbidden Behavior |
 |-------|----------|----------------|------------------|-------------------|
 | **Interface** | `src/interfaces/` | Input/Output | Display output, receive input | Make decisions, route requests |
-| **Context** | `src/core/context/` | Bundle InputPacket | Assemble data for current turn | Store across turns |
+| **Context** | `src/core/context/` | Context handling, InputPacket assembly | Assemble data for current turn, manage short/long-term context | Execute actions, make decisions |
 | **Decision** | `src/core/decision/` | Intent classification, model selection | Select intent, model, mode, estimate risk | Execute tools, generate responses |
 | **Runtime** | `src/core/runtime/` | State machine, loop control, execution authority | Control flow, retries, switching | Implement tool logic |
-| **Tools** | `src/core/tools/` | Registry, safety, execution | Validate and execute tools | Call LLM or make routing |
-| **Skills** | `src/skills/` | Tool implementations | Execute specific actions | Make routing decisions |
-| **Memory** | `src/core/memory/` | Data persistence | Store/retrieve data | Control runtime |
-| **Models** | `src/models/` | LLM wrapper | Call local Ollama | Make decisions |
-| **Identity** | `src/core/identity/` | Prompt building | Build system prompts | Execute tools |
+| **Capabilities** | `src/capabilities/` | ALL executable actions | System control, file ops, web automation, vision/audio actions | Decision logic, model selection |
+| **Models** | `src/models/` | LLM/speech/vision model adapters | Call local Ollama, wrap models | Make decisions, routing |
+| **Memory** | `src/memory/` | Data storage and retrieval | Store/retrieve short/long-term data | Control runtime |
+| **Services** | `src/services/` | External system connectors | Telegram, Google APIs, third-party integrations | Core logic, decision making |
+| **Safety** | `src/core/safety/` | Safety enforcement | Permission checks, risk validation | Execute tools |
 
 ### Logging (Core Layer)
 
@@ -177,12 +177,12 @@ Single enforced path: Observe → Decide → Think → Act → Evaluate
 
 No phase may proceed before Phase 0 is validated.
 
-### Tool Boundaries
+### Capability Boundaries
 
-Tools MUST:
-- Execute only (validates and runs approved tools)
+Capabilities MUST:
+- Execute only (validates and runs approved capabilities)
 
-Tools MUST NOT:
+Capabilities MUST NOT:
 - Call LLM
 - Make decisions
 
@@ -380,7 +380,7 @@ run_turn(user_input, session_id):
 ### ToolResult
 
 **Purpose:** Result from tool execution.  
-**Produced by:** `tools.executor.execute_tool()`  
+**Produced by:** `capabilities.executor.execute()`  
 **Consumed by:** `runtime.loop`
 
 ```json
@@ -638,55 +638,54 @@ Every log entry includes:
 
 ### Core (Always Active)
 
-| Module | Description |
-|--------|-------------|
-| Interface | CLI chat |
-| Context | InputPacket assembly |
-| Decision | Intent classification |
-| Runtime | State machine, loop |
-| Tools | Registry, validation |
-| Skills | Local tool implementations |
-| Memory | SQLite persistence |
-| Models | Ollama wrapper |
-| Identity | Prompt building |
+| Module | Description | Location |
+|--------|-------------|----------|
+| Interface | CLI chat | `src/interfaces/cli/` |
+| Context | InputPacket assembly | `src/core/context/` |
+| Decision | Intent classification | `src/core/decision/` |
+| Runtime | State machine, loop | `src/core/runtime/` |
+| Capabilities | Action implementations | `src/capabilities/` |
+| Models | Ollama wrapper | `src/models/` |
+| Memory | SQLite persistence | `src/memory/` |
+| Safety | Permission, mode enforcement | `src/core/safety/` |
 
 ### Optional (Must Enable)
 
-| Module | Description | Requires |
-|--------|-------------|----------|
-| Web UI | Browser interface | FastAPI |
-| Telegram | Telegram bot | Bot token |
-| Google APIs | Calendar, Gmail, Drive | OAuth credentials |
-| Browser | Playwright automation | Playwright |
-| Voice | STT/TTS pipeline | Whisper, Piper |
-| Vision | Image understanding | llava:7b |
-| Image Gen | Stable Diffusion | GPU memory |
+| Module | Description | Requires | Location |
+|--------|-------------|----------|----------|
+| Web UI | Browser interface | FastAPI | `src/interfaces/web/` |
+| Telegram | Telegram bot | Bot token | `src/services/telegram/` |
+| Google APIs | Calendar, Gmail, Drive | OAuth credentials | `src/services/google/` |
+| Web Automation | Playwright automation | Playwright | `src/capabilities/web_automation/` |
+| Voice | STT/TTS pipeline | Whisper, Piper | `src/capabilities/voice/` |
+| Vision | Image understanding | llava:7b | `src/capabilities/vision/` |
+| Image Gen | Stable Diffusion | GPU memory | `src/capabilities/vision/` |
 
 ---
 
 ## 11. Implementation Mapping
 
-| Phase | Description | Files Created |
-|-------|--------------|---------------|
-| 0 | First Working System | engine.py, classifier.py, apps.py, jarvis_slice.py |
-| 1 | Foundation | config.py, logging_setup.py, main.py |
-| 2 | Execution Contract | bundle.py, decision.py, llm_output.py, result.py |
-| 3 | Runtime State Machine | loop.py, state.py, state_manager.py |
-| 4 | Decision System | classifier.py, decision.py |
-| 5 | Prompt Builder | builder.py, identity.yaml |
-| 6 | Tool System | base.py, registry.py, executor.py |
-| 7 | Safety Modes | mode_enforcer.py, config |
-| 8 | System Skills | apps.py, sysinfo.py, clipboard.py, etc. |
-| 9 | Runtime Hardening | permission.py, recovery.py |
-| 10 | Memory (Simplified) | database.py |
-| 11 | Debug System | debug.py |
-| 12 | Browser & Web | browser.py, session.py |
-| 13 | Google APIs | google_auth.py, calendar.py, etc. |
-| 14 | CLI Interface | interface.py |
-| 15 | Web UI | app.py, ws.py |
-| 16 | Voice Pipeline | stt.py, tts.py, wake_word.py |
-| 17 | Vision + Image | llava.py, sd.py |
-| 18 | QA + Production | tests/, VERSION |
+| Phase | Description | Files Created | Location |
+|-------|--------------|---------------|----------|
+| 0 | First Working System | engine.py, classifier.py, apps.py, jarvis_slice.py | `src/models/llm/`, `src/core/decision/`, `src/capabilities/system/`, `app/` |
+| 1 | Foundation | config.py, logging_setup.py, main.py | `src/core/`, `app/` |
+| 2 | Execution Contract | bundle.py, decision.py, llm_output.py, result.py | `src/core/context/`, `src/core/decision/`, `src/core/runtime/`, `src/capabilities/` |
+| 3 | Runtime State Machine | loop.py, state.py, state_manager.py | `src/core/runtime/`, `src/core/events.py` |
+| 4 | Decision System | classifier.py, decision.py, fast_path.py, risk.py | `src/core/decision/` |
+| 5 | Prompt Builder | builder.py, identity.yaml, mode_fragments.yaml | `src/core/context/`, `config/` |
+| 6 | Capability System | base.py, registry.py, executor.py, validator.py | `src/capabilities/`, `src/core/safety/` |
+| 7 | Safety Modes | mode_enforcer.py, permission.py, chain_control.py | `src/core/safety/`, `config/` |
+| 8 | System Control Capabilities | apps.py, sysinfo.py, clipboard.py, etc. | `src/capabilities/system/`, `src/capabilities/notify/`, etc. |
+| 9 | Runtime Hardening | permission.py, degradation.py, limits.py | `src/core/runtime/`, `src/core/safety/` |
+| 10 | Memory (Simplified) | database.py, retriever.py | `src/memory/` |
+| 11 | Debug System | logger.py, replay.py, trace.py | `src/core/debug/` |
+| 12 | Web Automation & Browser | browser.py, session.py | `src/capabilities/web_automation/` |
+| 13 | Google APIs | auth.py, calendar.py, gmail.py, drive.py | `src/services/google/` |
+| 14 | CLI Interface | chat.py, formatting.py | `src/interfaces/cli/` |
+| 15 | Web UI | app.py, static/index.html | `src/interfaces/web/` |
+| 16 | Voice Pipeline | stt.py, tts.py, wake_word.py | `src/capabilities/voice/` |
+| 17 | Vision + Image | vision.py, image_gen.py | `src/capabilities/vision/` |
+| 18 | QA + Production | tests/, VERSION, RELEASE_NOTES.md | `tests/`, root |
 
 ---
 
