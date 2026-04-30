@@ -12,75 +12,39 @@
 
 ```
 jarvis/
-├── app/                          # Application entry points
-│   ├── main.py                   # Main CLI/Web entry point
-│   └── jarvis_slice.py           # Phase 0 minimal working system (legacy proof)
-├── config/                       # All configuration files
-│   ├── settings.yaml             # Runtime settings (gitignored)
-│   ├── settings.example.yaml     # Template with all defaults
-│   ├── capabilities.yaml         # Capability manifest with risk levels
-│   ├── models.yaml               # Model profiles and scoring weights
-│   ├── jarvis_identity.yaml      # Jarvis identity and personality
-│   ├── mode_fragments.yaml       # Prompt fragments per execution mode
-│   └── production.yaml           # Production-ready configuration
+│
+├── app/
+├── config/
 ├── src/
-│   ├── core/                     # System orchestration and execution control
-│   │   ├── context/              # InputPacket assembly, prompt building
-│   │   ├── decision/             # Intent classification, model selection, scoring
-│   │   ├── runtime/              # State machine, loop control, limits, timeouts
-│   │   ├── safety/               # Structured validation, permission enforcement
-│   │   ├── sandbox/              # Safe tool execution environment
-│   │   ├── observability/        # Metrics, tracing, replay, failure analysis
-│   │   └── events.py             # EventBus for loose coupling
-│   ├── capabilities/             # ALL executable actions (and ONLY actions)
-│   │   ├── base.py               # Abstract BaseCapability class
-│   │   ├── registry.py           # Capability registry and discovery
-│   │   ├── executor.py           # Capability execution pipeline
-│   │   ├── validator.py          # Schema validation for capability arguments
-│   │   ├── result.py             # ToolResult dataclass
-│   │   ├── system/               # System control: apps, sysinfo, clipboard
-│   │   ├── files/                # File operations
-│   │   ├── notify/               # Notifications
-│   │   ├── screen/               # Screenshot, OCR
-│   │   ├── coder/                # Code execution
-│   │   ├── search/               # Web search
-│   │   ├── web_automation/       # Playwright browser automation
-│   │   ├── voice/                # STT, TTS, wake word
-│   │   └── vision/               # Image understanding, image generation
-│   ├── interfaces/               # User interaction layer
-│   │   ├── cli/                  # CLI interface
-│   │   └── web/                  # Web UI (FastAPI + WebSocket)
-│   ├── services/                 # External system connectors
-│   │   ├── telegram/             # Telegram bot
-│   │   └── google/               # Google APIs (Calendar, Gmail, Drive)
-│   ├── models/                   # Model adapters and management
-│   │   ├── manager.py            # Model Manager: VRAM, lifecycle, concurrency
-│   │   ├── profiles.py           # Model capability profiles
-│   │   ├── llm/                  # LLM adapters (Ollama)
-│   │   ├── speech/               # Speech model adapters
-│   │   └── vision_models/        # Vision model adapters
-│   └── memory/                   # Memory Engine: retrieval, scoring, TTL, indexing
-│       ├── database.py           # SQLite persistence
-│       ├── retriever.py          # Context retrieval with relevance scoring
-│       ├── scorer.py             # Memory relevance scoring
-│       ├── ttl.py                # Time-to-live and decay management
-│       ├── indexer.py            # Keyword indexing
-│       └── user_profile.py       # User profile storage
-├── tests/                        # All test files
-│   ├── test_contracts.py
-│   ├── test_state_machine.py
-│   ├── test_decision.py
-│   ├── test_decision_dynamic.py
-│   ├── test_safety.py
-│   ├── test_memory.py
-│   ├── test_capabilities.py
-│   ├── test_integration.py
-│   ├── test_performance.py
-│   ├── test_arabic.py
-│   ├── test_observability.py
-│   └── test_sandbox.py
-├── STRUCTURE.md
+│   ├── capabilities/
+│   │   ├── api/
+│   │   ├── files/
+│   │   ├── notify/
+│   │   ├── screen/
+│   │   ├── search/
+│   │   ├── system/
+│   │   ├── vision/
+│   │   ├── voice/
+│   │   └── web/
+│   ├── core/
+│   │   ├── context/
+│   │   ├── decision/
+│   │   └── runtime/
+│   ├── interfaces/
+│   │   ├── cli/
+│   │   ├── gui/
+│   │   └── web ui/
+│   ├── memory/
+│   ├── models/
+│   │   ├── llm/
+│   │   ├── speech/
+│   │   └── vision/
+│   └── services/
+│       ├── google/
+│       ├── integrations/
+│       └── telegram/
 ├── README.md
+├── STRUCTURE.md
 └── TASKS.md
 ```
 
@@ -102,7 +66,7 @@ jarvis/
 - Tool implementations.
 - External API clients.
 - UI logic.
-- Model loading/unloading logic (belongs in `models/manager.py`).
+- Model loading/unloading logic (belongs in `models/`).
 
 ### capabilities/
 
@@ -116,6 +80,7 @@ jarvis/
 - Code execution (sandboxed).
 - Web search.
 - Notifications.
+- API-based integrations.
 
 **Must NOT contain:**
 - Decision logic.
@@ -130,6 +95,7 @@ jarvis/
 
 **Owns:**
 - CLI interface (chat loop, formatting, special commands).
+- GUI interface (desktop application).
 - Web UI (FastAPI backend, WebSocket, frontend).
 
 **Must NOT contain:**
@@ -191,7 +157,7 @@ jarvis/
 - No duplicate semantic names across the project.
 - No vague folders (`utils`, `misc`, `helpers`, `brain`, `common`).
 - Consistent naming: `snake_case` for files and directories, `PascalCase` for classes.
-- Clear distinction between similar concepts: `web_ui` (interface) vs `web_automation` (capability).
+- Clear distinction between similar concepts: `web_ui` (interface) vs `web` (capability).
 - Files must match their class name: `state_manager.py` contains `StateManager`.
 
 ## 5. CAPABILITY SYSTEM RULES
