@@ -65,8 +65,9 @@ Every interaction follows a clear, auditable process:
 
 1. **Observe** — JARVIS gathers your input, recent conversation history, and relevant context from memory.
 2. **Decide** — It determines your intent, selects the best approach, and identifies any actions needed.
-3. **Act** — It executes approved actions through its capability system, with safety checks at every step.
-4. **Evaluate** — It verifies the result, and if something went wrong, adapts and tries a different approach.
+3. **Think** — It constructs the optimal model prompt, selects the best model via weighted scoring, and plans multi-step execution if needed.
+4. **Act** — It executes approved actions through its capability system, with safety checks at every step.
+5. **Evaluate** — It verifies the result, and if something went wrong, adapts and tries a different approach.
 
 This cycle is deterministic and fully logged. You can always see what JARVIS decided, why it decided it, and what happened next.
 
@@ -182,4 +183,14 @@ The end goal is simple: a local AI that makes your computer work for you, not th
 
 ---
 
-**JARVIS v2.0** — Local-first. Deterministic. Under your control.
+**JARVIS v3.0** — Local-first. Deterministic. Contract-enforced. Under your control.
+
+---
+
+## Spec Authority
+
+- **Single source of truth:** `TASKS.md` is the authoritative execution plan (spec_version: v3.0).
+- **Structure definition:** `STRUCTURE.md` defines the canonical directory layout and layer boundaries.
+- **User-facing docs:** `README.md` describes behavior, capabilities, and usage.
+- **Version discipline:** `project_version: 3.0.0`, `spec_version: v3.0`, `structure_version: 1`. Breaking changes require major version bump.
+- All three files must align. Drift is a spec violation.

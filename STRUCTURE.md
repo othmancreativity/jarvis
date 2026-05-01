@@ -18,6 +18,7 @@ jarvis/
 ├── src/
 │   ├── capabilities/
 │   │   ├── api/
+│   │   ├── coder/
 │   │   ├── files/
 │   │   ├── notify/
 │   │   ├── screen/
@@ -29,11 +30,14 @@ jarvis/
 │   ├── core/
 │   │   ├── context/
 │   │   ├── decision/
-│   │   └── runtime/
+│   │   ├── observability/
+│   │   ├── runtime/
+│   │   ├── safety/
+│   │   └── sandbox/
 │   ├── interfaces/
 │   │   ├── cli/
 │   │   ├── gui/
-│   │   └── web ui/
+│   │   └── web_ui/
 │   ├── memory/
 │   ├── models/
 │   │   ├── llm/
@@ -45,7 +49,8 @@ jarvis/
 │       └── telegram/
 ├── README.md
 ├── STRUCTURE.md
-└── TASKS.md
+├── TASKS.md
+└── VERSION
 ```
 
 ## 3. LAYER DEFINITIONS (CRITICAL)
@@ -58,9 +63,9 @@ jarvis/
 - Runtime state machine and loop control.
 - Decision system (intent classification, model selection, scoring).
 - Context handling (InputPacket assembly, prompt building).
-- Safety enforcement (structured validation, permission checks).
-- Execution sandbox (safe tool execution environment).
-- Observability (metrics, tracing, replay).
+- Safety enforcement (`safety/` — structured validation, permission checks, command allow/deny).
+- Execution sandbox (`sandbox/` — safe tool execution environment, resource limits).
+- Observability (`observability/` — metrics, tracing, replay, EventBus).
 
 **Must NOT contain:**
 - Tool implementations.
@@ -228,3 +233,12 @@ No layer calls another layer directly. All calls are routed through the Runtime 
 - Any prompt-based safety approval? → FAIL
 - Any infinite retry paths? → FAIL
 - Any folder named `utils`, `misc`, `helpers`, `brain`, `common`? → FAIL
+
+---
+
+## 11. SPEC ALIGNMENT (v3.0)
+
+- **Single source of truth:** `TASKS.md` is the authoritative execution plan. `STRUCTURE.md` defines the canonical directory layout and layer boundaries. `README.md` describes user-facing behavior.
+- **Version discipline:** All three files share `spec_version: "v3.0"` and `project_version: "3.0.0"`. Breaking changes require major version bump.
+- **No drift:** STRUCTURE.md directory tree must match TASKS.md canonical structure exactly. Any structural change requires updating both files.
+- **Migration rule:** Legacy structure (v1.0/v2.0) is archived. All new work targets v3.0 contracts.
