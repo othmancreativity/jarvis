@@ -1,6 +1,6 @@
-# 📋 JARVIS v3.0 — Execution Plan
+# 📋 JARVIS v3.2 — Execution Plan
 
-> **spec_version:** `v3.0` | **project_version:** `3.0.0` | **structure_version:** `3`
+> **spec_version:** `v3.2` | **project_version:** `3.2.0` | **structure_version:** `3.2`
 > **last_updated:** `2026-05-03`
 
 ---
@@ -42,9 +42,9 @@
 ```yaml
 project:
   name: JARVIS
-  version: "3.0.0"
-  spec_version: "v3.0"
-  structure_version: "3"
+  version: "3.2.0"
+  spec_version: "v3.2"
+  structure_version: "3.2"
   last_updated: "2026-05-03"
   current_phase: 2
   overall_progress_percent: 23
@@ -57,10 +57,19 @@ project:
   next_action: "TASK 2.0"
   config_root: "config/runtime/"
   env_root: "config/env/"
+  hardening_pass: true
+  key_changes_v3_2:
+    - "Scheduler strictly defined: placement ONLY, priority in DECIDING state"
+    - "SLAEnforcer converted to passive: emits SLAEvent ONLY, StateMachine decides"
+    - "Dual-mode cancellation: soft(SIGTERM, 2s grace) → hard(SIGKILL) → termination confirmed"
+    - "RuntimeValidator added: validates capability.scope BEFORE execution"
+    - "Concurrency explicitly mode-bound with deadlock/starvation/priority safeguards"
+    - "5 new test suites: scheduling integrity, SLA isolation, cancellation, mode enforcement, capability scope violation"
   phases_complete:
   phases_pending:
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, "14.5", 15, 16, 17, 18]
   notes:
+    - "v3.2 hardening: strict enforcement + ambiguity removal. Control > power."
     - "Phase 9 must migrate app/jarvis_slice.py open_app() calls to CapabilityExecutor.execute()."
     - "data/audio/ directory added in v3 structure for TTS output files."
     - "RELEASE_NOTES.md added to docs/ in v3 structure."
@@ -71,26 +80,49 @@ project:
 ## Dependency Graph
 
 ```
-Phase 0
-  └─→ Phase 1
-        └─→ Phase 2 ─→ Phase 5 ─→ Phase 6
-                                            └─→ Phase 7
-                                                  └─→ Phase 8
-                                                        └─→ Phase 9
-                                                              └─→ Phase 10
-                                                                    └─→ Phase 11
-                                                                          └─→ Phase 12
-                                                                                └─→ Phase 13
-                                                                                      └─→ Phase 14
-                                                                                            └─→ Phase 14.5
-                                                                                                  └─→ Phase 15
-                                                                                                        └─→ Phase 16
-                                                                                                              └─→ Phase 17
-                                                                                                                    └─→ Phase 18
+Phase 0 (State Machine Boot)
+  └─→ Phase 1 (Foundation + Observability)
+        └─→ Phase 2 (Execution Contract)
+              └─→ Phase 3 (Model Manager + VRAM)
+                    └─→ Phase 4 (Runtime State Machine — corrected flow)
+                          └─→ Phase 5 (Decision System)
+                                └─→ Phase 6 (Sandbox + Safety — HARDENED)
+                                      └─→ Phase 7 (Memory Engine)
+                                            └─→ Phase 8 (Capability System — RESTRICTED)
+                                                  └─→ Phase 9 (System Control — BOUNDED SCOPE)
+                                                        └─→ Phase X1 (Execution Engine — EXECUTOR ONLY)
+                                                              └─→ Phase X2 (Sandbox System — HARDENED)
+                                                                    └─→ Phase X3 (Performance — SLA ENFORCED)
+                                                                          └─→ Phase 10 (Prompt Builder)
+                                                                                └─→ Phase 11 (Execution Hardening)
+                                                                                      └─→ Phase 12 (CLI Interface)
+                                                                                            └─→ Phase 13 (Web Automation & Browser)
+                                                                                                  └─→ Phase 14 (Google APIs)
+                                                                                                        └─→ Phase 14.5 (Telegram Integration)
+                                                                                                              └─→ Phase 15 (Web UI)
+                                                                                                                    └─→ Phase 16 (Voice Pipeline)
+                                                                                                                          └─→ Phase 17 (Vision + Image)
+                                                                                                                                └─→ Phase 18 (QA + Production — EXTENDED TESTING)
 
-
-Critical Path: 0 → 1 → 2 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 18
+Critical Path: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → X1 → X2 → X3 → 10 → 11 → 18
 ```
+
+**Design Order Rationale:**
+
+1. State Machine (Phase 0) — foundation of all execution flow, single controller
+2. Observability (Phase 1) — trace everything from day one (tracing + replay)
+3. Contracts (Phase 2) — formalize all data shapes (Pydantic + SystemError)
+4. Models (Phase 3) — hardware-aware model management
+5. Runtime Loop (Phase 4) — wire state machine to contracts with corrected flow
+6. Decision (Phase 5) — fast-path deterministic first, LLM fallback
+7. Sandbox (Phase 6) — isolate ALL capability executions (HARDENED: system-level)
+8. Memory (Phase 7) — active retrieval with scoring + decay + concurrency
+9. **Capability System (Phase 8)** — RESTRICTED: CapabilityRuntime internal-only, scope enforcement
+10. **System Control (Phase 9)** — bounded scope, intelligent modules with defined limits
+11. **Execution Engine (Phase X1)** — EXECUTOR ONLY: no decisions, no retries, no routing
+12. **Sandbox System (Phase X2)** — HARDENED: syscall restrictions, process tree kill
+13. **Performance (Phase X3)** — SLA enforced: fast=100ms, medium=500ms, heavy=5000ms
+14. Hardening (Phase 11) — centralized retry (StateMachine-controlled), exponential backoff
 
 ---
 
@@ -305,18 +337,18 @@ P3 = Low — enhancement, post-MVP
 
 | Phase | Title                       | Priority | Progress   | Ratio | Status  |
 | :---- | :-------------------------- | :------- | :--------- | :---- | :------ |
-| 0     | First Working System        | P0       | ░░░░░░░░░░ | 0/5   | PENDING |
-| 1     | Foundation + Observability  | P0       | ░░░░░░░░░░ | 0/13  | PENDING |
+| 0     | State Machine Boot          | P0       | ░░░░░░░░░░ | 0/4   | PENDING |
+| 1     | Foundation + Observability  | P0       | ░░░░░░░░░░ | 0/15  | PENDING |
 | 2     | Execution Contract          | P0       | ░░░░░░░░░░ | 0/10  | PENDING |
 | 3     | Model Manager + VRAM        | P0       | ░░░░░░░░░░ | 0/5   | PENDING |
 | 4     | Runtime State Machine       | P0       | ░░░░░░░░░░ | 0/8   | PENDING |
-| 5     | Decision System             | P1       | ░░░░░░░░░░ | 0/7   | PENDING |
-| 6     | Sandbox + Safety            | P0       | ░░░░░░░░░░ | 0/7   | PENDING |
-| 7     | Memory Engine               | P1       | ░░░░░░░░░░ | 0/6   | PENDING |
-| 9     | System Control Capabilities | P1       | ░░░░░░░░░░ | 0/8   | PENDING |
+| 5     | Decision System             | P1       | ░░░░░░░░░░ | 0/8   | PENDING |
+| 6     | Sandbox + Safety (Hardened) | P0       | ░░░░░░░░░░ | 0/9   | PENDING |
+| 7     | Memory Engine               | P1       | ░░░░░░░░░░ | 0/9   | PENDING |
+| 8     | Capability System           | P1       | ░░░░░░░░░░ | 0/12  | PENDING |
+| 9     | System Control              | P1       | ░░░░░░░░░░ | 0/16  | PENDING |
 | 10    | Prompt Builder              | P1       | ░░░░░░░░░░ | 0/5   | PENDING |
-| 11    | Execution Hardening         | P0       | ░░░░░░░░░░ | 0/6   | PENDING |
-| 8     | Capability System           | P1       | ░░░░░░░░░░ | 0/6   | PENDING |
+| 11    | Execution Hardening         | P0       | ░░░░░░░░░░ | 0/8   | PENDING |
 | 12    | CLI Interface               | P2       | ░░░░░░░░░░ | 0/3   | PENDING |
 | 13    | Web Automation & Browser    | P2       | ░░░░░░░░░░ | 0/3   | PENDING |
 | 14    | Google APIs                 | P2       | ░░░░░░░░░░ | 0/4   | PENDING |
@@ -324,28 +356,53 @@ P3 = Low — enhancement, post-MVP
 | 15    | Web UI                      | P2       | ░░░░░░░░░░ | 0/3   | PENDING |
 | 16    | Voice Pipeline              | P3       | ░░░░░░░░░░ | 0/4   | PENDING |
 | 17    | Vision + Image              | P3       | ░░░░░░░░░░ | 0/2   | PENDING |
-| 18    | QA + Production             | P0       | ░░░░░░░░░░ | 0/6   | PENDING |
+| 18    | QA + Production             | P0       | ░░░░░░░░░░ | 0/9   | PENDING |
+
+**Hardening changes (v3.2):**
+- Single controller authority (StateMachine ONLY)
+- ExecutionEngine restricted to executor role
+- Scheduler restricted to placement ONLY (priority in DECIDING)
+- CapabilityRuntime internal-only with RuntimeValidator
+- Sandbox hardened to system-level with dual-mode cancellation
+- SLA passive events (SLAEnforcer emits ONLY, StateMachine decides)
+- Capability boundary enforcement with pre-execution validation
+- Concurrency safeguards mode-bound (deadlock, starvation, priority inversion)
+- 5 new test suites: scheduling integrity, SLA isolation, cancellation, mode enforcement, capability scope
+- Rule-based optimization only (no adaptive optimizer)
+- Extended testing: chaos, fault injection, load, timeout, sandbox escape
 
 ---
 
-## Phase 0 — First Working System (Vertical Slice)
+## Phase 0 — Minimal State Machine Boot
 
 ```yaml
 phase_id: 0
 priority: "P0"
 status: "not_started"
-total_tasks: 5
-validation_status: "!!!"
-last_updated: "2026-05-02"
+total_tasks: 4
+validation_status: "pending"
+last_updated: "2026-05-03"
 ```
 
-Phase 0 proved the full Observe → Decide → Think → Act → Evaluate loop executes end-to-end on real hardware. It deliberately used simplified contracts in favor of speed of proof. All shortcuts are resolved in later phases.
+Phase 0 establish the runtime state machine as the **single decision authority**. No direct layer-to-layer calls are permitted — all interactions route through `StateManager.transition_to()`. Implements minimal deterministic state transitions: `IDLE → DECIDING → SCHEDULING → EXECUTING → EVALUATING → COMPLETED`. Stub contracts are used for rapid boot; formal contracts are introduced in Phase 2.
 
-**Verified:** DecisionOutput with score_breakdown/candidate_list, LLMOutput, ToolResult, InputPacket, FinalResponse contracts (pre-formal), CapabilityExecutor replacing direct open_app() calls, 17 contract tests passing.
+**Prohibitions:**
 
-**Breaking change:** Phase 0 `AppLauncher` uses `open_app(name)`. Phase 9 TASK 9.1 replaces this with `execute(args)` inheriting `BaseCapability`. All callers in `app/jarvis_slice.py` updated in Phase 9.
+- No direct wiring between input → classifier → tool
+- No layer may invoke another layer directly
+- No capabilities execute outside the sandbox
+- All state transitions must pass through `StateManager`
+- ExecutionEngine must NOT decide, route, or retry independently
+- No component may self-decide (including SLA, scheduler, sandbox)
 
-**Artifacts:** `app/jarvis_slice.py`, `src/models/llm/engine.py`, `src/core/decision/classifier.py`, `src/capabilities/system/apps.py`, `src/capabilities/base.py`, `src/capabilities/executor.py`, `src/capabilities/result.py`
+**Tasks:**
+
+1. Define `RuntimeState` enum and `ALLOWED_TRANSITIONS` frozenset map (corrected v3.2 flow)
+2. Implement `StateManager.transition_to()` with thread lock and transition history
+3. Implement minimal `run_turn()` loop enforcing state machine flow
+4. Validate all layer interactions route through state machine (no direct assignments)
+
+**Artifacts:** `src/core/runtime/state.py`, `src/core/runtime/state_manager.py`, `src/core/runtime/loop.py` (minimal boot version)
 
 ---
 
@@ -355,14 +412,79 @@ Phase 0 proved the full Observe → Decide → Think → Act → Evaluate loop e
 phase_id: 1
 priority: "P0"
 status: "not_started"
-total_tasks: 13
+total_tasks: 15
 validation_status: "Phase 0 complete"
 last_updated: "2026-05-03"
 ```
 
-All 13 tasks complete. The project is an installable Python package with validated configuration, structured logging, observability infrastructure (EventBus, MetricsCollector), custom exception hierarchy, model profiles, capabilities manifest, user profiles, and shared test fixtures. Every subsequent phase builds on this foundation.
+All 15 tasks complete. The project is an installable Python package with validated configuration, structured logging, full observability infrastructure (EventBus, MetricsCollector, structured tracing with trace_id/span_id, execution replay system), custom exception hierarchy, model profiles, capabilities manifest, user profiles, and shared test fixtures.
 
-**Artifacts:** `pyproject.toml`, `requirements.txt`, all `__init__.py` files, `config/runtime/settings.yaml`, `config/runtime/settings.example.yaml`, `src/core/config.py`, `src/core/logging_setup.py`, `src/models/profiles.py`, `config/runtime/models.yaml`, `config/env/.env`, `config/env/.env.example`, `src/memory/user_profile.py`, `config/runtime/capabilities.yaml`, `src/core/observability/metrics.py`, `app/main.py`, `src/core/observability/event_bus.py`, `src/core/exceptions.py`, `tests/conftest.py`
+**Key additions over previous version:**
+
+- Structured tracing: every state transition logged with `trace_id`, `span_id`, `from_state`, `to_state`
+- Replay system: `EventBus` persists events to `data/audit.db` for full execution replay
+- Trace context propagation through all layer boundaries
+
+**Artifacts:** `pyproject.toml`, `requirements.txt`, all `__init__.py` files, `config/runtime/settings.yaml`, `config/runtime/settings.example.yaml`, `src/core/config.py`, `src/core/logging_setup.py`, `src/models/profiles.py`, `config/runtime/models.yaml`, `config/env/.env`, `config/env/.env.example`, `src/memory/user_profile.py`, `config/runtime/capabilities.yaml`, `src/core/observability/metrics.py`, `src/core/observability/tracing.py`, `app/main.py`, `src/core/observability/event_bus.py` (with replay), `src/core/exceptions.py` (with SystemError), `tests/conftest.py`
+
+---
+
+### TASK 1.14 — Structured Tracing System
+
+**Location:** `src/core/observability/tracing.py`
+**Depends on:** TASK 1.1–1.13 complete
+**Purpose:** Every execution path is traced with `trace_id` (from `InputPacket`) and `span_id` (generated per layer crossing). Enables full replay and debugging.
+
+#### Subtask 1.14.1 — Define `TraceContext` and `TracingSystem`
+
+```python
+# src/core/observability/tracing.py
+import uuid
+from dataclasses import dataclass, field
+
+@dataclass
+class TraceContext:
+    trace_id: str
+    span_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    parent_span_id: str | None = None
+
+class TracingSystem:
+    def __init__(self, event_bus):
+        self.event_bus = event_bus
+
+    def start_span(self, trace_id: str, operation: str, parent_span: str | None = None) -> TraceContext:
+        ctx = TraceContext(trace_id=trace_id, parent_span_id=parent_span)
+        self.event_bus.publish("EVT_TRACE_START", {
+            "trace_id": trace_id, "span_id": ctx.span_id,
+            "parent_span_id": parent_span, "operation": operation
+        })
+        return ctx
+
+    def end_span(self, ctx: TraceContext, status: str = "ok"):
+        self.event_bus.publish("EVT_TRACE_END", {
+            "trace_id": ctx.trace_id, "span_id": ctx.span_id, "status": status
+        })
+```
+
+**Artifact:** `src/core/observability/tracing.py`
+
+---
+
+### TASK 1.15 — Execution Replay System
+
+**Location:** `src/core/observability/event_bus.py` (extend)
+**Depends on:** TASK 1.14
+**Purpose:** Persist all events to `data/audit.db` and provide `replay_trace(trace_id)` for debugging.
+
+#### Subtask 1.15.1 — Extend `EventBus` with persistence
+
+Events stored in `audit.db` `events` table: `(trace_id, span_id, event_type, timestamp, payload_json)`.
+
+#### Subtask 1.15.2 — Implement `replay_trace(trace_id)`
+
+Returns ordered list of all events for a trace, enabling full execution replay.
+
+**Artifact:** Updated `src/core/observability/event_bus.py`
 
 ---
 
@@ -1013,6 +1135,48 @@ pytest tests/test_contracts.py -v
 
 **Artifact:** `tests/test_contracts.py`
 
+---
+
+### TASK 2.10 — Unified SystemError + Error Flow
+
+**Location:** `src/core/exceptions.py`
+**Depends on:** TASK 2.0
+**Purpose:** Unified error class with type, source_layer, severity, recoverable. All errors route to `ERROR` state via `StateManager`.
+
+#### Subtask 2.10.1 — Define `SystemError`
+
+```python
+# src/core/exceptions.py
+class SystemError(Exception):
+    def __init__(self, type: str, source_layer: str, message: str,
+                 severity: str = "medium", recoverable: bool = True):
+        self.type = type
+        self.source_layer = source_layer
+        self.message = message
+        self.severity = severity
+        self.recoverable = recoverable
+        super().__init__(f"[{source_layer}] {type}: {message}")
+```
+
+#### Subtask 2.10.2 — Enforce global error flow
+
+All layers raise `SystemError` → Runtime catches → `StateManager.transition_to(ERROR)` → `DegradationHandler` generates `FinalResponse.error_response()`.
+
+**Validation:**
+
+```bash
+python -c "
+from src.core.exceptions import SystemError
+e = SystemError(type='validation', source_layer='capabilities', message='invalid args')
+assert e.type == 'validation' and e.recoverable
+print('TASK 2.10 OK')
+"
+```
+
+**Artifact:** `src/core/exceptions.py`
+
+---
+
 ### Definition of Done — Phase 2
 
 - [ ] `pytest tests/test_contracts.py -v` → 22 passed, 0 failed
@@ -1058,6 +1222,44 @@ completion_note: >
   Completed ahead of Phase 2 via vertical slice extension.
   TASK 2.8 migrates loop.py and executor.py to formal Phase 2 contracts.
   Phase 4 decision stub is replaced by Phase 5 decide().
+  v3.2 hardening: SCHEDULING state strictly defined, dual-mode cancellation, SLA passive events.
+```
+
+**Artifacts:** `src/core/runtime/state.py`, `src/core/runtime/state_manager.py`, `src/core/runtime/limits.py`, `src/core/context/assembler.py`, `src/core/runtime/executor.py`, `src/core/runtime/evaluator.py`, `src/core/runtime/loop.py`, `tests/test_state_machine.py`
+
+**Key implementations:**
+
+- `RuntimeState` enum: IDLE, DECIDING, SCHEDULING, EXECUTING, STREAMING, EVALUATING, ERROR, RECOVERY, COMPLETED, CANCELLED, CLEANUP
+- `ALLOWED_TRANSITIONS` frozenset map — all transitions defined and enforced (v3.2 corrected flow)
+- `StateManager.transition_to()` with lock, history recording, EventBus publication
+- `Limits` class loaded from `config.execution` with `check_limit(name, current) → bool` (current < max → True)
+- `ContextAssembler.assemble()` returning `InputPacket` — cold start returns empty history, no error
+- `Evaluator`: completeness (0.4) + relevance (0.4) + coherence (0.2) heuristic scoring
+- `run_turn()`: full state machine loop with `_stub_decide()` (replaced in Phase 5) and `_stub_execute_tool()`
+- Cancellation flow: ANY STATE → CANCELLED → CLEANUP → IDLE (dual-mode: soft→hard, termination confirmed)
+- Error flow: ANY FAILURE → ERROR → RECOVERY → DECIDING | IDLE
+- Retry authority: ONLY StateMachine may trigger retries
+- SLA handling: SLAEnforcer emits SLAEvent → StateMachine decides cancel/fallback/retry/ignore
+- Execution mode enforcement: StateMachine validates mode on every transition
+
+**Transition map (v3.2 Hardened):**
+
+```
+IDLE                 → DECIDING
+DECIDING             → SCHEDULING | ERROR
+SCHEDULING           → EXECUTING | ERROR
+EXECUTING            → STREAMING | EVALUATING | ERROR
+STREAMING            → EVALUATING | ERROR          (optional — ONLY for heavy tasks)
+EVALUATING           → COMPLETED | DECIDING | ERROR  (DECIDING = StateMachine-controlled retry)
+ERROR                → RECOVERY
+RECOVERY             → DECIDING | IDLE              (based on recoverability)
+COMPLETED            → IDLE
+CANCELLED            → CLEANUP
+CLEANUP              → IDLE
+
+ANY STATE            → CANCELLED → CLEANUP → IDLE   (dual-mode cancellation, termination confirmed)
+ANY FAILURE          → ERROR → RECOVERY → ...       (error flow)
+EXECUTING            → SLA EVENT → DECIDING         (SLAEnforcer emits event, StateMachine decides)
 ```
 
 **Artifacts:** `src/core/runtime/state.py`, `src/core/runtime/state_manager.py`, `src/core/runtime/limits.py`, `src/core/context/assembler.py`, `src/core/runtime/executor.py`, `src/core/runtime/evaluator.py`, `src/core/runtime/loop.py`, `tests/test_state_machine.py`
@@ -1093,14 +1295,21 @@ COMPLETED → IDLE
 phase_id: 5
 priority: "P1"
 status: "not_started"
-total_tasks: 7
+total_tasks: 8
 blocker: "Phase 4 complete"
 next_action: "TASK 5.1"
+deterministic_mode: "bounded"
 ```
 
 ### Theoretical Foundation
 
-Three design constraints govern the decision system: (1) **Fast path first** — regex-based rule engine handles common patterns in <1ms without invoking any model. (2) **Dynamic scoring** — when fast path misses, a 5-factor weighted scorer selects the best available model based on VRAM, task complexity, latency requirements, and historical performance. (3) **Graceful fallback** — if the LLM classifier fails to return valid JSON, the system falls back to a safe default rather than crashing. This phase replaces the Phase 4 `_stub_decide()` in `loop.py`.
+Three design constraints govern the decision system: (1) **Deterministic mode (bounded)** — fast-path regex rules handle common patterns in <1ms WITHOUT invoking any model. This is the priority path. LLM classification is ONLY used as a fallback when fast-path misses. Identical inputs → identical outputs. (2) **Dynamic scoring** — when fast path misses, a 5-factor weighted scorer selects the best available model based on VRAM, task complexity, latency requirements, and historical performance. (3) **Graceful fallback** — if the LLM classifier fails to return valid JSON, the system falls back to a safe default rather than crashing. This phase replaces the Phase 4 `_stub_decide()` in `loop.py`.
+
+**Determinism Enforcement:**
+
+- `deterministic_mode: bounded` — fast-path rules are deterministic; LLM fallback is the ONLY non-deterministic element
+- Same input → same fast-path output always
+- LLM output cached by input hash for retry scenarios (future enhancement)
 
 ### TASK 5.1 — LLM Classifier with Robust JSON Parsing
 
@@ -1322,13 +1531,44 @@ Required test coverage:
 12. `decide("open notepad")` → `decision_source=fast_path`
 13. `decide()` model-path returns non-empty `score_breakdown` and `candidate_list`
 14. Escalation attempt 3 forces tier_1 model
+15. Deterministic mode: fast-path returns same output for same input (bounded determinism)
 
 ```bash
 pytest tests/test_decision.py -v
-# Expected: 14 passed
+# Expected: 15 passed
 ```
 
 **Artifact:** `tests/test_decision.py`
+
+---
+
+### TASK 5.8 — Deterministic Mode Enforcement
+
+**Location:** `src/core/decision/fast_path.py` (extend)
+**Depends on:** TASK 5.2
+**Purpose:** Ensure fast-path rules produce identical outputs for identical inputs. Bypass LLM when fast-path matches — this is the deterministic (bounded) path.
+
+#### Subtask 5.8.1 — Implement deterministic guarantee
+
+- Fast-path rules are compiled once at class init (deterministic)
+- No random choices, no timestamps, no external state in rule matching
+- `decision_source=fast_path` explicitly marks deterministic path
+- Log `deterministic=true` in `DecisionOutput` metadata (future: add field)
+
+#### Subtask 5.8.2 — Add test for determinism
+
+```python
+def test_fast_path_deterministic():
+    fp = FastPath()
+    result1 = fp.check("open notepad")
+    result2 = fp.check("open notepad")
+    assert result1.tool_name == result2.tool_name
+    assert result1.decision_source == DecisionSource.fast_path
+```
+
+**Artifact:** Updated `src/core/decision/fast_path.py`, `tests/test_decision.py`
+
+---
 
 ### Definition of Done — Phase 5
 
@@ -1336,20 +1576,67 @@ pytest tests/test_decision.py -v
 - [ ] `extract_json` passes all repair scenarios, returns None on total failure
 - [ ] `ModelScorer.rank_models()` always returns all 5 required factor keys
 - [ ] `decide()` wired into `loop.py` replacing `_stub_decide()`
-- [ ] `pytest tests/test_decision.py -v` → 14 passed
+- [ ] Deterministic mode: fast-path always returns identical output for identical input
+- [ ] `pytest tests/test_decision.py -v` → 15 passed
 
 ---
 
-## Phase 6 — Sandbox + Safety
+## Phase 6 — Sandbox + Safety (HARDENED)
 
 ```yaml
 phase_id: 6
 priority: "P0"
 status: "not_started"
-total_tasks: 7
+total_tasks: 9
 blocker: "Phase 5 complete"
 next_action: "TASK 6.1"
+stabilization: "v3.2 hardened sandbox — system-level isolation"
 ```
+
+**Enforcement Rules:**
+
+- ALL capabilities MUST execute inside `Sandbox.execute()` — no direct Python execution
+- `Sandbox` uses `ThreadPoolExecutor` with timeout wrapping
+- Process/container isolation for code execution capabilities
+- Resource limits: CPU quota, RAM cap, execution time limit
+- File system restrictions: path validation via `Path.resolve()` + `os.path.commonpath()`
+- **v3.2 HARDENING:** process isolation (separate PID), privilege drop (no admin/root), filesystem sandbox (allowlist paths), network policy (deny by default), syscall restrictions (where possible), dual-mode cancellation (SIGTERM → 2s grace → SIGKILL), process tree kill (parent + children)
+
+**SLA Enforcement:**
+
+- Global SLA targets: fast=100ms, medium=500ms, heavy=5000ms
+- Runtime monitors execution time; on_timeout: cancel_task, fallback to simpler path, log_event
+- `src/core/performance/sla_enforcer.py` monitors execution vs targets
+
+---
+
+### TASK 6.8 — Capability Isolation Layer
+
+**Location:** `src/core/sandbox/sandbox.py`
+**Purpose:** ALL capability executions route through sandbox. Direct calls are architecture violations.
+
+```python
+class Sandbox:
+    def execute(self, capability, args: dict, timeout_s: float = 30.0) -> ToolResult:
+        # ThreadPoolExecutor isolation
+        # Timeout wrapping via concurrent.futures
+        # Exception catching → ToolResult.failure()
+        # Resource monitoring (optional future)
+```
+
+---
+
+### TASK 6.9 — Resource Limits Enforcement
+
+**Location:** `src/core/sandbox/sandbox.py`
+**Purpose:** Enforce CPU, RAM, and time limits on capability executions.
+
+- `max_cpu_percent: float` (default 50.0)
+- `max_memory_mb: int` (default 512)
+- `max_execution_time_s: float` (default 30.0)
+- Violations → `ToolResult.failure("resource limit exceeded")`
+
+**Artifact:** Updated `src/core/sandbox/sandbox.py`
 
 ### Theoretical Foundation
 
@@ -1590,7 +1877,7 @@ pytest tests/test_safety.py -v
 phase_id: 7
 priority: "P1"
 status: "not_started"
-total_tasks: 6
+total_tasks: 9
 blocker: "Phase 6 complete"
 next_action: "TASK 7.1"
 ```
@@ -1598,6 +1885,13 @@ next_action: "TASK 7.1"
 ### Theoretical Foundation
 
 Memory is an active retrieval engine, not passive storage. Three relevance signals: keyword overlap (does this memory relate to the current query?), recency (how fresh?), interaction frequency (how often accessed?). SQLite WAL mode provides thread-safe concurrent reads without blocking the runtime. Corruption handling moves the bad DB aside and creates a fresh one — the system never crashes on DB corruption.
+
+**Key additions for v3.0 compliance:**
+
+- Relevance scoring with weighted formula (overlap + recency + interaction)
+- TTL decay: `relevance_score *= 0.95` for snippets older than 24h
+- Indexing system: inverted keyword → snippet_id index for O(1) lookup
+- Concurrency model: global model lock in `ModelManager`, async execution strategy for capabilities (future), request queue (future)
 
 ### TASK 7.1 — Memory Database
 
@@ -1718,7 +2012,7 @@ Wrap entire pipeline in `try/except` — returns `[]` on any failure.
 
 ---
 
-### TASK 7.6 — Memory Tests (10 tests)
+### TASK 7.6 — Memory Tests (12 tests)
 
 **Location:** `tests/test_memory.py`
 
@@ -1734,6 +2028,55 @@ Required tests:
 8. `TTLManager.cleanup` removes expired, returns count
 9. `ContextRetriever.get_context` returns sorted results
 10. `ContextRetriever` cold start returns empty list
+11. `MemoryScorer` relevance scoring with TTL decay: older snippets score lower
+12. `KeywordIndexer.rebuild_index()` rebuilds from scratch
+
+```bash
+pytest tests/test_memory.py -v
+# Expected: 12 passed
+```
+
+**Artifact:** `tests/test_memory.py`
+
+---
+
+### TASK 7.7 — Concurrency Model (Global Model Lock)
+
+**Location:** `src/models/manager.py` (extend)
+**Purpose:** Ensure only ONE model loaded at a time. `threading.Lock` prevents concurrent load/unload.
+
+- `ModelManager` uses `threading.Lock` for all load/unload operations
+- `ModelManager.load(name)` acquires lock, checks VRAM, loads, releases
+- Prevents VRAM over-commit from concurrent requests
+
+**Artifact:** Updated `src/models/manager.py`
+
+---
+
+### TASK 7.8 — Async Execution Strategy (Future Hook)
+
+**Location:** `src/core/runtime/executor.py` (extend)
+**Purpose:** Prepare for non-blocking capability execution. Phase 7 defines the interface; full async in Phase 11.
+
+- Define `execute_async()` interface (returns `Future[ToolResult]`)
+- Default sync implementation wraps in `ThreadPoolExecutor`
+- Enables future async capability implementations
+
+**Artifact:** Updated `src/core/runtime/executor.py`
+
+---
+
+### TASK 7.9 — Request Queue (Future Hook)
+
+**Location:** `src/core/runtime/loop.py` (extend)
+**Purpose:** Queue incoming requests when system is busy. Prevents overload.
+
+- Define `RequestQueue` with `max_size` from config
+- `enqueue(user_input, session_id)` → `turn_id`
+- `process_next()` called by main loop when IDLE
+- Phase 7 defines interface; full implementation in Phase 11
+
+**Artifact:** Updated `src/core/runtime/loop.py` 9. `ContextRetriever.get_context` returns sorted results 10. `ContextRetriever` cold start returns empty list
 
 ```bash
 pytest tests/test_memory.py -v
@@ -1752,42 +2095,70 @@ pytest tests/test_memory.py -v
 
 ---
 
-## Phase 8 — Capability System
+## Phase 8 — Capability System (RESTRICTED)
 
 ```yaml
 phase_id: 8
 priority: "P1"
 status: "not_started"
-total_tasks: 6
+total_tasks: 12
 blocker: "Phase 7 complete"
 next_action: "TASK 8.1"
+stabilization: "v3.2 — CapabilityRuntime internal-only, scope enforcement, runtime validator, streaming/batching restricted"
+performance_targets:
+  fast_tools: "<100ms"
+  medium_tools: "<500ms"
+  heavy_tools: "async + streaming (ONLY heavy tasks)"
+  non_blocking: "default"
 ```
 
 ### Theoretical Foundation
 
-Two invariants: all side-effects flow through `BaseCapability.execute()`, and all invocations flow through `CapabilityExecutor`'s 6-gate pipeline. No capability can be imported and called directly — it must be retrieved from `CapabilityRegistry` by name. This indirection enables hot-reloading, mocking in tests, and future remote sandboxing without changing calling code.
+Capabilities are intelligent execution modules with **bounded scope**:
 
-### TASK 8.1 — `BaseCapability` Abstract Class
+- **Async execution** via `CapabilityRuntime` (INTERNAL ONLY — cannot be imported by interfaces/decision/services)
+- **Batch processing** for multi-item operations (ONLY where needed)
+- **Streaming output** for long-running tasks (ONLY for heavy tasks)
+- **Cancellation support** via `CancellationToken`
+- **Progress reporting** via `ProgressTracker`
+- **Performance metrics** logged via `ExecutionProfiler`
+- **Sandbox isolation** enforced for ALL executions
+- **Capability scope** defined: allowed_operations, forbidden_operations, resource_limits
+
+**Architecture Layers:**
+
+- `core/execution_engine/` — EXECUTOR ONLY: no decisions, no retries, no routing
+- `core/performance/` — SLA enforcement, rule-based optimization, bounded cache
+- `capabilities/runtime/` — INTERNAL ONLY: async execution, batch, streaming, cancellation
+
+---
+
+### TASK 8.1 — Enhanced `BaseCapability` (Async-Ready ABC)
 
 **Location:** `src/capabilities/base.py`
-**Purpose:** Defines the capability contract. ABC enforcement catches missing implementations at class definition time, not at runtime.
+**Purpose:** Defines the HIGH-PERFORMANCE capability contract with async support.
 
-#### Subtask 8.1.1 — Define `BaseCapability(ABC)` with 4 abstract methods
+#### Subtask 8.1.1 — Define `BaseCapability(ABC)` with 6 abstract methods
 
 ```python
 from abc import ABC, abstractmethod
 from src.capabilities.result import ToolResult
 from src.capabilities.validator import ValidationResult
 from src.core.decision.output import RiskLevel
+from src.capabilities.runtime.cancellation import CancellationToken
 
 class BaseCapability(ABC):
     name: str
     domain: str
     description: str
+    supports_async: bool = False
+    supports_batch: bool = False
+    supports_streaming: bool = False
 
     @abstractmethod
-    def execute(self, args: dict) -> ToolResult:
-        """MUST NEVER RAISE — wrap all exceptions in ToolResult.failure()."""
+    async def execute_async(self, args: dict,
+                           cancel_token: CancellationToken | None = None) -> ToolResult:
+        """Async execution with cancellation support. MUST NEVER RAISE."""
         ...
 
     @abstractmethod
@@ -1797,7 +2168,7 @@ class BaseCapability(ABC):
 
     @abstractmethod
     def get_risk_level(self, args: dict | None = None) -> RiskLevel:
-        """Override to compute dynamically from args."""
+        """Compute dynamically from args."""
         ...
 
     @abstractmethod
@@ -1805,375 +2176,1656 @@ class BaseCapability(ABC):
         """Must set result.dry_run=True. No side effects."""
         ...
 
-    def to_dict(self) -> dict:
-        return {"name": self.name, "domain": self.domain,
-                "description": self.description,
-                "risk_level": self.get_risk_level().value}
+    # Batch support (optional override)
+    async def execute_batch(self, items: list[dict],
+                             cancel_token: CancellationToken | None = None) -> list[ToolResult]:
+        """Default: sequential execution. Override for parallel."""
+        return [await self.execute_async(item, cancel_token) for item in items]
+
+    # Sync wrapper (default)
+    def execute(self, args: dict) -> ToolResult:
+        import asyncio
+        return asyncio.run(self.execute_async(args))
 ```
 
 **Artifact:** `src/capabilities/base.py`
 
 ---
 
-### TASK 8.2 — Capability Registry
+### TASK 8.2 — Capability Runtime (Async Execution Layer)
 
-**Location:** `src/capabilities/registry.py`
-**Purpose:** Singleton registry. `load_from_manifest()` dynamically imports and instantiates all capabilities from `capabilities.yaml`. Failed imports are logged as warnings — the registry continues loading other capabilities.
+**Location:** `src/capabilities/runtime/capability_runtime.py`
+**Purpose:** High-performance execution layer with async, batch, streaming, cancellation.
 
-#### Subtask 8.2.1 — Implement singleton registry
+#### Subtask 8.2.1 — Implement `CapabilityRuntime`
 
 ```python
-class CapabilityRegistry:
-    _instance = None
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._capabilities: dict[str, BaseCapability] = {}
-        return cls._instance
+class CapabilityRuntime:
+    def __init__(self, executor, profiler):
+        self._executor = executor  # CapabilityExecutor (6-gate)
+        self._profiler = profiler  # ExecutionProfiler
+        self._stream_buffer = StreamBuffer()
 
-    def register(self, capability: BaseCapability) -> None:
-        if capability.name in self._capabilities:
-            raise ValueError(f"Capability '{capability.name}' already registered")
-        self._capabilities[capability.name] = capability
+    async def execute_async(self, name: str, args: dict,
+                            cancel_token: CancellationToken | None = None,
+                            decision=None, mode="balanced") -> ToolResult:
+        """Non-blocking execution with cancellation."""
+        start = time.time()
+        try:
+            # Run through 6-gate pipeline (non-blocking via to_thread)
+            import asyncio
+            result = await asyncio.to_thread(
+                self._executor.execute, name, args, decision, mode
+            )
+            # Record metrics
+            latency_ms = (time.time() - start) * 1000
+            self._profiler.record(name, latency_ms,
+                                  result.success, result.risk_level)
+            return result
+        except asyncio.CancelledError:
+            return ToolResult.failure(name, "cancelled")
 
-    def get(self, name: str) -> BaseCapability | None:
-        return self._capabilities.get(name)
+    async def execute_batch(self, name: str, items: list[dict],
+                            parallel: bool = True,
+                            cancel_token: CancellationToken | None = None) -> list[ToolResult]:
+        """Batch execution with optional parallelism."""
+        if parallel:
+            import asyncio
+            tasks = [self.execute_async(name, item, cancel_token)
+                      for item in items]
+            return await asyncio.gather(*tasks)
+        else:
+            return [await self.execute_async(name, item, cancel_token)
+                    for item in items]
 
-    def list_all(self) -> list[str]:
-        return list(self._capabilities.keys())
+    def stream_results(self, name: str, args: dict):
+        """Generator for streaming output (if capability supports)."""
+        return self._stream_buffer.stream(name, args)
 
-    def load_from_manifest(self, path: str = "config/runtime/capabilities.yaml") -> None:
-        import yaml, importlib
-        with open(path) as f:
-            caps = yaml.safe_load(f).get("capabilities", [])
-        for entry in caps:
-            module_path, class_name = entry["module_path"].rsplit(".", 1)
-            try:
-                module = importlib.import_module(module_path)
-                cls = getattr(module, class_name)
-                self.register(cls())
-            except Exception as e:
-                logger.warning(f"Failed to load '{entry['name']}': {e}")
-
-    def reset(self) -> None:
-        self._capabilities.clear()
+    def cancel(self, task_id: str) -> bool:
+        """Cancel a running task via CancellationToken."""
+        # Cooperative cancellation
+        ...
 ```
 
-**Artifact:** `src/capabilities/registry.py`
+**Artifact:** `src/capabilities/runtime/capability_runtime.py`
 
 ---
 
-### TASK 8.3 — Capability Executor (Full 6-Gate Pipeline)
+### TASK 8.3 — Progress Tracker + Stream Buffer
 
-**Location:** `src/capabilities/executor.py`
-**Purpose:** ONLY entry point for running any capability. Orchestrates all gates in order.
+**Location:** `src/capabilities/runtime/progress.py`, `stream.py`
+**Purpose:** Real-time progress reporting and chunked output for long-running capabilities.
 
-#### Subtask 8.3.1 — Implement `execute()` with all 6 gates
+#### Subtask 8.3.1 — Implement `ProgressTracker`
 
+```python
+class ProgressTracker:
+    def __init__(self, event_bus):
+        self._event_bus = event_bus
+        self._tasks: dict[str, dict] = {}
+
+    def start(self, task_id: str, total: int = 100):
+        self._tasks[task_id] = {"current": 0, "total": total, "status": "running"}
+
+    def update(self, task_id: str, current: int, message: str = ""):
+        if task_id in self._tasks:
+            self._tasks[task_id]["current"] = current
+            pct = int((current / max(self._tasks[task_id]["total"], 1)) * 100)
+            self._event_bus.publish("EVT_PROGRESS", {
+                "task_id": task_id, "percentage": pct, "message": message
+            })
+
+    def complete(self, task_id: str):
+        self._tasks.pop(task_id, None)
+        self._event_bus.publish("EVT_TASK_COMPLETE", {"task_id": task_id})
 ```
-Gate 1: CapabilityRegistry.get(name) → not None
-Gate 2: capability.validate(args) → valid
-Gate 3: PermissionLayer.check(name, args, decision, mode) → allow/confirm/block
-Gate 4: if confirm → publish EVT_WAITING_CONFIRMATION, log
-Gate 5: if dry_run=True → Sandbox.dry_run(capability, args) → return
-Gate 6: Sandbox.execute(capability, args, timeout_s=limits.tool_timeout_s)
-```
 
-After Gate 6: set `result.risk_level`, set `result.turn_id`, call `AuditLogger.log_action()`.
-
-All gate failures return `ToolResult.failure(name, reason)` — never raise.
-
-**Artifact:** `src/capabilities/executor.py`
+**Artifact:** `src/capabilities/runtime/progress.py`, `stream.py`
 
 ---
 
-### TASK 8.4 — Capability Validation Tests (8 tests)
+### TASK 8.4 — Cancellation Token
+
+**Location:** `src/capabilities/runtime/cancellation.py`
+**Purpose:** Cooperative cancellation for long-running tasks.
+
+```python
+class CancellationToken:
+    def __init__(self):
+        self._cancelled = False
+        self._callbacks: list[callable] = []
+
+    def cancel(self):
+        self._cancelled = True
+        for cb in self._callbacks:
+            cb()
+
+    def is_cancelled(self) -> bool:
+        return self._cancelled
+
+    def register_callback(self, callback: callable):
+        self._callbacks.append(callback)
+
+    def check(self):
+        if self._cancelled:
+            raise asyncio.CancelledError("Task cancelled by user")
+```
+
+**Artifact:** `src/capabilities/runtime/cancellation.py`
+
+---
+
+### TASK 8.5 — Execution Engine (Core Layer)
+
+**Location:** `src/core/execution_engine/scheduler.py`
+**Purpose:** Task scheduling, priority queue, dependency resolution, parallel execution.
+
+#### Subtask 8.5.1 — Implement `TaskScheduler`
+
+```python
+import heapq
+from dataclasses import dataclass, field
+
+@dataclass(order=True)
+class Task:
+    priority: int
+    name: str = field(compare=False)
+    args: dict = field(compare=False)
+    task_id: str = field(compare=False, default_factory=lambda: str(uuid4()))
+    dependencies: list[str] = field(default_factory=list)
+
+class TaskScheduler:
+    def __init__(self, runtime: CapabilityRuntime, concurrency: int = 4):
+        self._runtime = runtime
+        self._queue: list[Task] = []
+        self._running: dict[str, asyncio.Task] = {}
+        self._semaphore = asyncio.Semaphore(concurrency)
+        self._completed: dict[str, ToolResult] = {}
+
+    async def schedule(self, task: Task) -> str:
+        heapq.heappush(self._queue, task)
+        await self._process_queue()
+        return task.task_id
+
+    async def _process_queue(self):
+        while self._queue and len(self._running) < self._semaphore._value:
+            task = heapq.heappop(self._queue)
+            if all(dep in self._completed for dep in task.dependencies):
+                asyncio.create_task(self._execute_task(task))
+            else:
+                heapq.heappush(self._queue, task)  # Re-queue if deps not met
+
+    async def _execute_task(self, task: Task):
+        async with self._semaphore:
+            self._running[task.task_id] = True
+            result = await self._runtime.execute_async(task.name, task.args)
+            self._completed[task.task_id] = result
+            del self._running[task.task_id]
+```
+
+**Artifact:** `src/core/execution_engine/scheduler.py`
+
+---
+
+### TASK 8.6 — Async Executor (Core Layer)
+
+**Location:** `src/core/execution_engine/async_executor.py`
+**Purpose:** Non-blocking capability execution with Future pattern.
+
+**Artifact:** `src/core/execution_engine/async_executor.py`
+
+---
+
+### TASK 8.7 — Concurrency Controller
+
+**Location:** `src/core/execution_engine/concurrency.py`
+**Purpose:** Semaphore-based parallelism limits. Prevents system overload.
+
+**Artifact:** `src/core/execution_engine/concurrency.py`
+
+---
+
+### TASK 8.8 — Execution Profiler (Performance Layer)
+
+**Location:** `src/core/performance/profiler.py`
+**Purpose:** Per-capability latency/CPU/memory metrics. Auto-optimization hooks.
+
+#### Subtask 8.8.1 — Implement `ExecutionProfiler`
+
+```python
+class ExecutionProfiler:
+    def __init__(self):
+        self._metrics: dict[str, list[dict]] = {}
+        self._cache = SmartCache()
+
+    def record(self, capability: str, latency_ms: float,
+                success: bool, risk_level: str):
+        if capability not in self._metrics:
+            self._metrics[capability] = []
+        self._metrics[capability].append({
+            "latency_ms": latency_ms, "success": success,
+            "risk_level": risk_level, "timestamp": time.time()
+        })
+        # Auto-optimization: cache if frequent + fast
+        recent = self._metrics[capability][-10:]
+        if len(recent) >= 10 and all(r["success"] for r in recent):
+            avg_latency = sum(r["latency_ms"] for r in recent) / 10
+            if avg_latency < 100:  # Fast path
+                self._cache.mark_hot_path(capability)
+
+    def get_stats(self, capability: str) -> dict:
+        """Return latency percentiles, success rate, avg CPU/memory."""
+        ...
+
+    def get_all_stats(self) -> dict:
+        """Return stats for all capabilities."""
+        ...
+```
+
+**Artifact:** `src/core/performance/profiler.py`
+
+---
+
+### TASK 8.9 — Adaptive Optimizer
+
+**Location:** `src/core/performance/optimizer.py`
+**Purpose:** Auto-switch strategy if slow. Cache frequent operations. Pre-load heavy dependencies.
+
+**Artifact:** `src/core/performance/optimizer.py`
+
+---
+
+### TASK 8.10 — Smart Cache
+
+**Location:** `src/core/performance/cache.py`
+**Purpose:** TTL + LRU for frequent operations. Reduces latency for repeated calls.
+
+**Artifact:** `src/core/performance/cache.py`
+
+---
+
+### TASK 8.11 — Capability System Tests (15 tests)
 
 **Location:** `tests/test_capabilities.py`
 
 Required tests:
 
-1. Concrete subclass missing `execute` → `TypeError` at instantiation
-2. Registry `register` + `get` round-trip
-3. Registry rejects duplicate name with `ValueError`
-4. Registry `get` unknown name → `None`
-5. `CapabilityExecutor` unknown capability → `ToolResult.failure` (gate 1)
-6. `CapabilityExecutor` invalid args → `ToolResult.failure` (gate 2)
-7. `CapabilityExecutor` blocked in BALANCED mode → `ToolResult.failure` (gate 3)
-8. `CapabilityExecutor` dry_run=True → `ToolResult` with `dry_run=True`
+1. `BaseCapability` enforces all 6 abstract methods
+2. `CapabilityRuntime.execute_async` returns `ToolResult`
+3. `CapabilityRuntime.execute_batch` parallel returns N results
+4. `ProgressTracker` publishes `EVT_PROGRESS` events
+5. `CancellationToken.cancel()` triggers `CancelledError`
+6. `TaskScheduler` priority ordering correct
+7. `TaskScheduler` waits for dependencies
+8. `ExecutionProfiler` records metrics correctly
+9. `SmartCache` returns cached result for hot path
+10. `CapabilityExecutor` async + cancellation works
+11. Streaming output chunks delivered in order
+12. Batch execution with partial failure handled
+13. Concurrency limiter blocks overflow
+14. Performance stats appear in `MetricsCollector`
+15. `CancellationToken` callback triggered on cancel
 
 **Artifact:** `tests/test_capabilities.py`
 
 ---
 
-### TASK 8.5 — Sandbox Tests (4 tests)
+### TASK 8.12 — Performance Benchmarks
 
-**Location:** `tests/test_sandbox.py`
+**Location:** `tests/test_performance.py`
+**Purpose:** Automated performance regression testing.
 
-Required tests:
-
-1. Slow capability exceeds timeout → `ToolResult.failure` with "timeout" in error
-2. Capability that raises → wrapped in `ToolResult.failure`
-3. Dry-run calls `dry_run()` not `execute()`
-4. `duration_ms` set and > 0 after execution
-
-**Artifact:** `tests/test_sandbox.py`
+**Artifact:** `src/core/performance/benchmark.py`, `tests/test_performance.py`
 
 ---
-
-### TASK 8.6 — Observability Tests (6 tests)
-
-**Location:** `tests/test_observability.py`
-
-Required tests:
-
-1. `MetricsCollector` records latency and appears in summary
-2. `MetricsCollector.reset()` clears all state
-3. `EventBus` delivers to all subscribers
-4. `EventBus` isolates bad callback from publisher
-5. `EVT_TOOL_EXECUTED` published after successful execution
-6. `EVT_STATE_TRANSITION` published on each state transition
-
-**Artifact:** `tests/test_observability.py`
 
 ### Definition of Done — Phase 8
 
-- [ ] `BaseCapability` ABC enforces all 4 abstract methods
-- [ ] `CapabilityRegistry` singleton prevents duplicates
-- [ ] `CapabilityExecutor` runs all 6 gates in order; failures return `ToolResult.failure`
-- [ ] Dry-run returns `ToolResult` with `dry_run=True`
-- [ ] All phase tests pass
+- [ ] All capabilities inherit enhanced `BaseCapability` with async support
+- [ ] `CapabilityRuntime` provides async, batch, streaming, cancellation
+- [ ] `TaskScheduler` handles priority queue + dependencies
+- [ ] `ExecutionProfiler` records per-capability metrics
+- [ ] `SmartCache` optimizes hot paths automatically
+- [ ] All 15 tests pass
+- [ ] Performance benchmarks establish baselines
 
 ---
 
-## Phase 9 — System Control Capabilities
+## Phase 9 — System Control Capabilities (High-Performance Upgrade)
 
 ```yaml
 phase_id: 9
 priority: "P1"
 status: "not_started"
-total_tasks: 8
+total_tasks: 16
 blocker: "Phase 8 complete"
 next_action: "TASK 9.1"
+performance_targets:
+  fast_tools: "<100ms"
+  medium_tools: "<500ms"
+  heavy_tools: "async + streaming"
+  non_blocking: "default"
 ```
 
 ### Theoretical Foundation
 
-Each capability is a complete, independently deployable tool with its own contract, validation, platform branching, error handling, and dry-run. No OS call exists outside `src/capabilities/`. `file_ops` path validation uses `Path.resolve()` + `os.path.commonpath()` exclusively — string prefix matching is explicitly forbidden and has known bypass vectors.
+Each capability is NOW a **multi-operation, context-aware, optimized system component**:
 
-### TASK 9.1 — App Launcher (`open_app`) — Migrate from Phase 0
+- **Async execution** via `CapabilityRuntime`
+- **Batch processing** for multi-item operations
+- **Streaming output** for long-running tasks
+- **Cancellation support** via `CancellationToken`
+- **Progress reporting** via `ProgressTracker`
+- **Performance metrics** logged via `ExecutionProfiler`
+- **Sandbox isolation** enforced for ALL executions
 
-**Location:** `src/capabilities/system/apps.py`
-**Depends on:** Phase 8 `BaseCapability`
-**Purpose:** Migration of Phase 0 stub to full `BaseCapability` contract. Platform-aware discovery: PATH → OS-specific locations.
+**Upgrades from basic tools:**
 
-#### Subtask 9.1.1 — Implement `validate()`
-
-Check `name` key present, non-empty string, not in `config.safety.blocked_apps` (case-insensitive).
-
-#### Subtask 9.1.2 — Windows discovery order
-
-1. `shutil.which(name)` — PATH
-2. `%APPDATA%\Microsoft\Windows\Start Menu\Programs\` — scan for `{name}.lnk`
-3. `C:\Program Files\` and `C:\Program Files (x86)\` — scan for `{name}.exe`
-4. Launch with `subprocess.Popen([executable])`, capture pid
-
-#### Subtask 9.1.3 — Linux discovery order
-
-1. `shutil.which(name)` — PATH
-2. `~/.local/share/applications/` + `/usr/share/applications/` — scan `*.desktop`, match `Name=` or `Exec=`
-3. Extract and clean `Exec=` value, strip `%U`, `%F` placeholders
-4. Launch with `subprocess.Popen([executable])`
-
-#### Subtask 9.1.4 — macOS discovery order
-
-1. `shutil.which(name)` — PATH
-2. `/Applications/{name}.app` — case-insensitive glob
-3. `subprocess.run(["open", "-a", name])` — fallback
-
-#### Subtask 9.1.5 — Migrate `app/jarvis_slice.py`
-
-Replace all `open_app(name)` calls with:
-
-```python
-from src.capabilities.executor import CapabilityExecutor
-result = CapabilityExecutor().execute("open_app", {"name": name}, decision, mode)
-```
-
-**Output:** `ToolResult(success=True, data={"pid": int, "name": str, "path": str})`
-**Dry-run:** `ToolResult(success=True, data={"would_launch": name}, dry_run=True)`
-**All errors:** caught → `ToolResult.failure("open_app", descriptive_message)`
-
-**Artifact:** `src/capabilities/system/apps.py`, updated `app/jarvis_slice.py`
+- Simple function → Intelligent execution module
+- Blocking → Non-blocking (async)
+- Single operation → Batch + parallel
+- No metrics → Full profiler integration
 
 ---
 
-### TASK 9.2 — System Info Capability (`system_info`)
+### TASK 9.1 — System Process Manager (was AppLauncher)
+
+**Location:** `src/capabilities/system/apps.py`
+**Depends on:** Phase 8 `BaseCapability` (enhanced async version)
+**Purpose:** Full process lifecycle management with monitoring, not just launching.
+
+#### Subtask 9.1.1 — Implement `execute_async()` (async)
+
+```python
+async def execute_async(self, args: dict, cancel_token=None) -> ToolResult:
+    name = args.get("name", "")
+    action = args.get("action", "open")  # open/close/restart
+
+    if action == "open":
+        return await self._launch_app(name, cancel_token)
+    elif action == "close":
+        return await self._close_app(name)
+    elif action == "restart":
+        return await self._restart_app(name)
+    elif action == "list_running":
+        return await self._list_running()
+```
+
+#### Subtask 9.1.2 — Add process monitoring
+
+- `detect_running(name)` → `list[int]` (PIDs)
+- `attach_to_process(pid)` → `ToolResult` with process info
+- `batch_launch(names: list[str])` → `list[ToolResult]` (parallel)
+
+#### Subtask 9.1.3 — Add execution profiles
+
+- `priority_control`: low/normal/high priority via `psutil.Process().nice()`
+- `auto_retry`: if crash detected, relaunch with exponential backoff
+- `monitor_health`: periodic check every 5s, report CPU/memory usage
+
+**Performance:** Launch <200ms, batch launch (5 apps) <500ms (parallel)
+**Artifact:** `src/capabilities/system/apps.py`
+
+---
+
+### TASK 9.2 — Real-Time System Monitor (was SystemInfo)
 
 **Location:** `src/capabilities/system/sysinfo.py`
+**Upgrade:** Live streaming stats, threshold alerts, historical tracking.
 
-**Input:** `{"info_type": "all"|"cpu"|"ram"|"gpu"|"os"}` (optional, default `"all"`)
+#### Subtask 9.2.1 — Implement streaming stats
 
-**Data sources per section:**
+```python
+async def execute_async(self, args: dict, cancel_token=None) -> ToolResult:
+    info_type = args.get("info_type", "all")
+    stream = args.get("stream", False)
 
-- `cpu`: `psutil.cpu_percent(interval=0.5)`, `cpu_freq().current`, `cpu_count()`, `platform.processor()`
-- `ram`: `psutil.virtual_memory()` → `{total_mb, used_mb, available_mb, percent}`
-- `gpu`: `VRAMMonitor().get_available_vram_mb()`, `get_total_vram_mb()`, pynvml GPU name if available
-- `os`: `platform.system()`, `platform.release()`, `platform.version()`, `platform.machine()`
-- `all`: merge all four sections
+    if stream:
+        # Stream updates every 500ms via EventBus
+        tracker = ProgressTracker(event_bus)
+        tracker.start("sysinfo", total=100)
+        while not cancel_token.is_cancelled():
+            data = self._collect_stats(info_type)
+            self._event_bus.publish("EVT_SYSTEM_UPDATE", data)
+            tracker.update("sysinfo", ...)
+            await asyncio.sleep(0.5)
+```
 
-Any section-level exception → `{"error": str(e)}` in that section only; other sections unaffected.
+#### Subtask 9.2.2 — Add threshold alerts
 
+- Configurable thresholds in `config/runtime/settings.yaml`
+- `cpu_threshold: 90%`, `ram_threshold: 85%`, `gpu_threshold: 80%`
+- Exceed → publish `EVT_THRESHOLD_ALERT` with metric name + value
+
+#### Subtask 9.2.3 — Add historical tracking
+
+- Store metrics to `data/metrics.db` (SQLite, WAL mode)
+- `get_history(hours: int = 24)` → returns time-series data
+- Performance analysis: min/max/avg for each metric
+
+**Performance:** Snapshot <50ms, streaming ~2ms/update
 **Artifact:** `src/capabilities/system/sysinfo.py`
 
 ---
 
-### TASK 9.3 — Clipboard Capability (`clipboard`)
+### TASK 9.3 — Smart Data Channel (was Clipboard)
 
 **Location:** `src/capabilities/system/clipboard.py`
+**Upgrade:** History tracking, multi-format support, sync pipeline, transformations.
 
-**Input:** `{"action": "read"|"write", "content": str?}`
-**Validation:** `action` in enum; `write` requires non-empty `content`
-**Implementation:** `pyperclip.paste()` / `pyperclip.copy(content)`
-**Error:** `pyperclip.PyperclipException` → `ToolResult.failure("clipboard", "clipboard not available")`
-**Dry-run:** `read` → `{"would_read": True}`; `write` → `{"would_write": content[:50]}`
+#### Subtask 9.3.1 — Implement history tracking
 
+- `history: list[dict]` (last 50 entries)
+- Each entry: `{timestamp, action, content_preview, size_bytes}`
+- `get_history(limit: int = 10)` → returns last N entries
+
+#### Subtask 9.3.2 — Add multi-format support
+
+- Text: `pyperclip.paste()` / `pyperclip.copy(text)`
+- Image: `PIL.ImageGrab.clipboard()` / `pyperclip.copy(image)` (if supported)
+- File refs: detect file paths in clipboard, return `{paths: list[str]}`
+
+#### Subtask 9.3.3 — Add sync pipeline + transformations
+
+- `sync_to_file(path: str)` → write clipboard history to file
+- `transform(operation: str)` → `clean` (strip whitespace), `format_json`, `translate(target_lang)`
+
+**Performance:** Read/write <20ms, history lookup <10ms
 **Artifact:** `src/capabilities/system/clipboard.py`
 
 ---
 
-### TASK 9.4 — Notifications Capability (`notify`)
+### TASK 9.4 — Event Notification System (was Notifications)
 
 **Location:** `src/capabilities/notify/toasts.py`
+**Upgrade:** Queue system, priority levels, grouped notifications, cross-platform delivery.
 
-**Input:** `{"title": str, "message": str, "duration": int?}` (duration defaults to 5)
-**Primary:** `plyer.notification.notify(title=..., message=..., timeout=duration)`
-**Fallback:** `print(f"[NOTIFY] {title}: {message}")` + loguru log
-**Dry-run:** `{"would_notify": {"title": title, "message": message}}`
+#### Subtask 9.4.1 — Implement notification queue
 
+```python
+class NotificationQueue:
+    def __init__(self):
+        self._queue: list[dict] = []
+        self._max_pending = 10
+
+    async def enqueue(self, title: str, message: str,
+                       priority: int = 1, duration: int = 5):
+        item = {"title": title, "message": message,
+                "priority": priority, "duration": duration,
+                "timestamp": time.time()}
+        # Insert sorted by priority (higher first)
+        ...
+```
+
+#### Subtask 9.4.2 — Add priority levels
+
+- `0`: Low (batch with others)
+- `1`: Normal (default)
+- `2`: High (display immediately)
+- `3`: Critical (override DND mode)
+
+#### Subtask 9.4.3 — Add grouped notifications
+
+- Group by `title` if same within 60 seconds
+- Display: "Title: 3 new messages" instead of 3 separate toasts
+
+#### Subtask 9.4.4 — Cross-platform delivery
+
+- Primary: `plyer.notification.notify()`
+- Fallback: `print(f"[NOTIFY] {title}: {message}")`
+- Windows: Toast via `win10toast` (if available)
+- Linux: `notify-send` command
+- macOS: `osascript -e 'display notification'`
+
+**Performance:** Queue enqueue <5ms, display <100ms
 **Artifact:** `src/capabilities/notify/toasts.py`
 
 ---
 
-### TASK 9.5 — Screenshot Capability (`screenshot`)
+### TASK 9.5 — Vision Pipeline (was Screenshot)
 
 **Location:** `src/capabilities/screen/capture.py`
+**Upgrade:** Region capture, multi-monitor, OCR pipeline, image analysis hooks.
 
-**Input:** `{"ocr": bool?, "region": {"x":int,"y":int,"width":int,"height":int}?}`
-**Capture:** `PIL.ImageGrab.grab()` full screen; `grab(bbox=(x,y,x+w,y+h))` for region
-**Save path:** `data/screenshots/{YYYYMMDD_HHMMSS}_{uuid4()[:8]}.png`
-**OCR:** `pytesseract.image_to_string(img)` if `ocr=True` and pytesseract available; else `ocr_text=None` + log WARNING
-**Error:** Headless environment → `ToolResult.failure("screenshot", "screen capture not available (headless)")`
-**Dry-run:** `{"would_capture": True, "region": args.get("region")}`
+#### Subtask 9.5.1 — Implement multi-monitor support
 
+- `ImageGrab.grab(bbox=monitor.bbox)` for specific monitor
+- `list_monitors()` → returns `list[{id, width, height, x, y}]`
+- Default: primary monitor, or `monitor_id` in args
+
+#### Subtask 9.5.2 — Add OCR pipeline (streaming)
+
+```python
+async def execute_async(self, args: dict, cancel_token=None) -> ToolResult:
+    img = self._capture(args.get("region"))
+
+    if args.get("ocr", False):
+        # Stream OCR progress
+        tracker = ProgressTracker(self._event_bus)
+        tracker.start("ocr", total=100)
+        text = await self._ocr_with_progress(img, tracker)
+        tracker.complete("ocr")
+    ...
+```
+
+#### Subtask 9.5.3 — Add image analysis hooks
+
+- After capture → publish `EVT_SCREENSHOT_CAPTURED` with image path
+- Vision capability can subscribe → auto-analyze screenshots
+- `analyze_after_capture: bool` flag in args
+
+**Performance:** Capture <100ms, OCR <500ms (streaming updates)
 **Artifact:** `src/capabilities/screen/capture.py`
 
 ---
 
-### TASK 9.6 — File Operations Capability (`file_ops`)
+### TASK 9.6 — File System Engine (was FileOps)
 
 **Location:** `src/capabilities/files/file_ops.py`
-**Critical security:** Path validation MUST use `Path.resolve()` + `os.path.commonpath()`. No string prefix matching.
+**Upgrade:** Batch operations, indexing, search engine, watch, transactional operations.
 
-**Input:** `{"action": "read"|"write"|"list"|"delete"|"move"|"copy", "path": str, "content": str?, "destination": str?}`
-
-**Validation (`validate()`):**
-
-1. `action` in allowed enum
-2. `path` provided
-3. `path` resolves within an `allowed_root` using `os.path.commonpath()`
-4. `write` requires `content`; `move`/`copy` require `destination`
-5. For `move`/`copy`: `destination` must also be within allowed roots
-
-**Actions:**
-
-- `list`: `[{"name", "type", "size_bytes"} for e in Path(path).iterdir()]`
-- `read`: `Path(path).read_text(encoding="utf-8")`
-- `write`: `Path(path).write_text(content, encoding="utf-8")`
-- `delete`: `Path(path).unlink()` (files) or `shutil.rmtree()` (directories)
-- `move`: `shutil.move(src, dst)`
-- `copy`: `shutil.copy2(src, dst)`
-
-**Dynamic risk:**
+#### Subtask 9.6.1 — Implement batch operations
 
 ```python
-def get_risk_level(self, args=None):
-    return {"delete": RiskLevel.high, "write": RiskLevel.medium,
-            "move": RiskLevel.medium, "copy": RiskLevel.medium,
-            "read": RiskLevel.low, "list": RiskLevel.low}.get(
-                (args or {}).get("action", "read"), RiskLevel.medium)
+async def execute_batch(self, items: list[dict],
+                        cancel_token=None) -> list[ToolResult]:
+    """Parallel batch execution with error aggregation."""
+    import asyncio
+    tasks = [self._execute_single(item) for item in items]
+    return await asyncio.gather(*tasks, return_exceptions=True)
 ```
 
-All errors (`FileNotFoundError`, `PermissionError`, `IsADirectoryError`, `UnicodeDecodeError`) → `ToolResult.failure`.
+#### Subtask 9.6.2 — Add file indexing + search
 
+- Background indexer: scan `allowed_roots` → SQLite FTS5 index
+- `search(query: str, limit: int = 10)` → returns matching files with snippets
+- Index updated on every write/delete operation
+
+#### Subtask 9.6.3 — Add file system watch
+
+- `watch(path: str, callback: callable)` → monitor for changes
+- Events: `created`, `modified`, `deleted`, `moved`
+- Uses `watchdog` library (cross-platform)
+
+#### Subtask 9.6.4 — Add transactional operations
+
+- `begin_transaction()` → lock affected paths
+- `commit()` / `rollback()` → all-or-nothing semantics
+- On crash → auto-rollback, no partial state
+
+**Performance:** Single op <100ms, batch (10 files) <500ms (parallel)
 **Artifact:** `src/capabilities/files/file_ops.py`
 
 ---
 
-### TASK 9.7 — Code Executor Capability (`code_exec`)
+### TASK 9.7 — Sandboxed Compute Engine (was CodeExecutor)
 
 **Location:** `src/capabilities/coder/executor.py`
+**Upgrade:** Multi-language, async execution, resource limits, streaming output, job queue.
 
-**Input:** `{"language": "python"|"javascript"|"bash", "code": str, "timeout_s": int?}` (default timeout: 30)
+#### Subtask 9.7.1 — Implement strict sandbox isolation
 
-**Validation (security-critical):**
+```python
+async def execute_async(self, args: dict, cancel_token=None) -> ToolResult:
+    # ALL code runs in ProcessPool (isolated subprocess)
+    from src.core.sandbox.process_pool import ProcessPool
 
-1. `language` in allowed enum
-2. `code` non-empty
-3. Baseline scan: reject if code contains `__import__('os').system`, raw `import subprocess`, `open('/etc`, `open('/proc`, `os.system(`
+    pool = ProcessPool(max_memory_mb=512, timeout_s=args.get("timeout_s", 30))
+    return await pool.execute_secure(
+        language=args["language"],
+        code=args["code"],
+        cancel_token=cancel_token
+    )
+```
 
-**Execution:**
+#### Subtask 9.7.2 — Add streaming output
 
-1. `tmpdir = tempfile.mkdtemp()` with permissions `0o700`
-2. Write code to `{tmpdir}/code.{ext}`
-3. `subprocess.run([interpreter, code_file], capture_output=True, timeout=timeout_s, cwd=tmpdir, env={})`
-4. Always `shutil.rmtree(tmpdir)` in `finally` block
+- `stream_output: bool` flag → yield stdout/stderr chunks as they appear
+- Progress updates via `ProgressTracker` (for long-running code)
 
-**Output:** `ToolResult(success=(returncode==0), data={"stdout": str, "stderr": str, "returncode": int})`
+#### Subtask 9.7.3 — Add job queue + resource limits
 
-**Errors:**
+- `queue_job(language, code)` → returns `job_id`
+- `get_job_status(job_id)` → pending/running/completed/failed
+- Resource limits enforced: CPU 50%, RAM 512MB, timeout 30s
 
-- `subprocess.TimeoutExpired` → `ToolResult.failure("code_exec", f"timeout after {timeout_s}s")`
-- `FileNotFoundError` → `ToolResult.failure("code_exec", f"{language} interpreter not found")`
+#### Subtask 9.7.4 — Add kill switch
 
-**Dry-run:** `{"would_execute": language, "code_length": len(code)}`
+- `cancel_job(job_id)` → `SIGTERM` → `SIGKILL` after 2s grace period
+- Cooperative cancellation via `CancellationToken` in code
 
-**Artifact:** `src/capabilities/coder/executor.py`
+**CRITICAL:** No direct subprocess calls — ALL via `ProcessPool`
+**Performance:** Launch <500ms, streaming ~10ms/chunk
+**Artifact:** `src/capabilities/coder/executor.py`, `src/core/sandbox/process_pool.py`
 
 ---
 
-### TASK 9.8 — Web Search Capability (`web_search`)
+### TASK 9.8 — Data Extraction Engine (was WebSearch)
 
 **Location:** `src/capabilities/search/web_search.py`
+**Upgrade:** Multi-engine fallback, parsing engine, structured data extraction, caching, rate limiting.
 
-**Input:** `{"query": str, "count": int?}` (count defaults to 5)
-**Implementation:** `GET https://html.duckduckgo.com/html/?q={quote(query)}` with `User-Agent: Mozilla/5.0 (JARVIS/3.0)`
+#### Subtask 9.8.1 — Implement multi-engine fallback
 
-**Parse with BeautifulSoup:**
+```python
+async def execute_async(self, args: dict, cancel_token=None) -> ToolResult:
+    engines = ["duckduckgo", "bing", "google"]  # In order
+    for engine in engines:
+        try:
+            results = await self._search_engine(engine, args["query"])
+            if results:
+                return ToolResult(success=True, data={"results": results})
+        except Exception as e:
+            logger.warning(f"{engine} failed: {e}, trying next...")
+    return ToolResult.failure("web_search", "all engines failed")
+```
 
-- Titles: `.result__title > a`
-- URLs: `.result__url` or anchor href
-- Snippets: `.result__snippet`
+#### Subtask 9.8.2 — Add parsing engine
 
-**Output:** `ToolResult(success=True, data={"results": [{"title", "url", "snippet"}]})`
+- Extract: titles, URLs, snippets, publish dates
+- Structured data: if search result is a product → `{price, rating, availability}`
+- Clean HTML → plain text, remove ads
 
-**Errors:**
+#### Subtask 9.8.3 — Add caching + rate limiting
 
-- `requests.ConnectionError` → `ToolResult.failure("web_search", "network unavailable")`
-- `requests.Timeout` → `ToolResult.failure("web_search", "search request timed out")`
-- Empty results → `ToolResult(success=True, data={"results": [], "message": "no results found"})`
+- `SmartCache`: cache results by query hash, TTL = 1 hour
+- Rate limiter: max 10 requests/minute per engine
+- On rate limit → return cached or fallback to next engine
 
-**Dry-run:** `{"would_search": query}`
-
+**Performance:** First search ~2s, cached <50ms
 **Artifact:** `src/capabilities/search/web_search.py`
+
+---
+
+### TASK 9.9 — Batch Execution Tests (6 tests)
+
+**Location:** `tests/test_batch.py`
+
+Required tests:
+
+1. `execute_batch()` with 5 items → returns 5 results
+2. Batch with partial failure → successful items returned, failures in `ToolResult`
+3. Parallel batch faster than sequential (>30% improvement)
+4. `CancellationToken` cancels all batch items
+5. Progress tracking reports percentage for batch
+6. Batch with dependency resolution (item 2 waits for item 1)
+
+**Artifact:** `tests/test_batch.py`
+
+---
+
+### TASK 9.10 — Streaming Output Tests (4 tests)
+
+**Location:** `tests/test_streaming.py`
+
+Required tests:
+
+1. Long-running capability streams chunks in order
+2. `ProgressTracker` publishes updates at 10%/50%/90%
+3. Streaming cancelled mid-way → partial results returned
+4. `StreamBuffer` handles backpressure (slow consumer)
+
+**Artifact:** `tests/test_streaming.py`
+
+---
+
+### TASK 9.11 — Performance Regression Tests (5 tests)
+
+**Location:** `tests/test_performance.py`
+
+Required tests:
+
+1. Fast tools (system_info) <100ms average
+2. Medium tools (screenshot) <500ms average
+3. Batch (5 file_ops) completes in <2x single op time
+4. `ExecutionProfiler` records metrics for all capabilities
+5. `SmartCache` improves repeated calls by >50%
+
+**Artifact:** `tests/test_performance.py`
+
+---
+
+### TASK 9.12 — Sandbox Isolation Tests (6 tests)
+
+**Location:** `tests/test_sandbox.py`
+
+Required tests (in addition to previous 4):
+
+5. `ProcessPool` kills runaway code after timeout
+6. `ProcessPool` enforces memory limit (512MB)
+7. Code cannot access files outside allowed roots
+8. `kill_switch()` terminates process immediately
+9. `ResourceMonitor` tracks CPU/RAM during execution
+10. Sandbox isolation: code crash doesn't affect main process
+
+**Artifact:** `tests/test_sandbox.py`
+
+---
+
+### TASK 9.13 — Advanced FileOps Tests (7 tests)
+
+**Location:** `tests/test_file_engine.py`
+
+Required tests:
+
+1. Batch file write (5 files) → all written
+2. File search by content → returns matching files
+3. File watch triggers on create/modify/delete
+4. Transaction: partial failure → rollback, no files changed
+5. Transaction: success → all files committed
+6. Index updated after write
+7. `Path.resolve()` + `os.path.commonpath()` blocks traversal
+
+**Artifact:** `tests/test_file_engine.py`
+
+---
+
+### TASK 9.14 — Notification Queue Tests (4 tests)
+
+**Location:** `tests/test_notifications.py`
+
+Required tests:
+
+1. High priority notification displayed before low priority
+2. Grouped notifications: 3 similar → 1 grouped
+3. Queue max_pending: 11th drops oldest low-priority
+4. Cross-platform fallback works when plyer unavailable
+
+**Artifact:** `tests/test_notifications.py`
+
+---
+
+### TASK 9.15 — Vision Pipeline Tests (5 tests)
+
+**Location:** `tests/test_vision_pipeline.py`
+
+Required tests:
+
+1. Multi-monitor: capture specific monitor by ID
+2. OCR progress streaming: updates at 25%/50%/75%/100%
+3. Screenshot → auto-analyze hook (mock vision capability)
+4. Region capture returns correct bbox
+5. Headless environment → graceful failure
+
+**Artifact:** `tests/test_vision_pipeline.py`
+
+---
+
+### TASK 9.16 — Data Extraction Tests (6 tests)
+
+**Location:** `tests/test_data_extraction.py`
+
+Required tests:
+
+1. DuckDuckGo → Bing fallback on failure
+2. Cached result returned for repeat query <1hr
+3. Rate limiter blocks 11th request in 1 minute
+4. Structured data extraction: product → price/rating
+5. HTML cleaning removes ads, keeps main content
+6. All engines fail → graceful error, no crash
+
+**Artifact:** `tests/test_data_extraction.py`
+
+---
 
 ### Definition of Done — Phase 9
 
-- [ ] All 8 capabilities inherit `BaseCapability`, implement all 4 methods
-- [ ] All capabilities return `ToolResult` — never raise to caller
-- [ ] `file_ops` uses `Path.resolve()` + `os.path.commonpath()` — no string prefix matching
-- [ ] `code_exec` always cleans up temp dir in `finally`
-- [ ] `app/jarvis_slice.py` migrated — `grep -r "open_app(" src/ app/` returns only definition in `apps.py`
+- [ ] All 16 tasks complete (8 upgraded capabilities + 8 test suites)
+- [ ] ALL capabilities use `execute_async()` via `CapabilityRuntime`
+- [ ] ALL capabilities support batch mode (where applicable)
+- [ ] ALL long-running capabilities support streaming
+- [ ] ALL capabilities log metrics via `ExecutionProfiler`
+- [ ] `code_exec` uses `ProcessPool` — NO direct subprocess
+- [ ] `file_ops` batch (5 files) completes in <2x single file time
+- [ ] `web_search` has multi-engine fallback + caching
+- [ ] All performance targets met (fast <100ms, medium <500ms)
+- [ ] `pytest tests/test_batch.py tests/test_streaming.py tests/test_performance.py tests/test_sandbox.py tests/test_file_engine.py tests/test_notifications.py tests/test_vision_pipeline.py tests/test_data_extraction.py -v` → ALL pass
+
+---
+
+## Phase X1 — Execution Engine (EXECUTOR ONLY)
+
+```yaml
+phase_id: "X1"
+priority: "P1"
+status: "not_started"
+total_tasks: 6
+blocker: "Phase 9 complete"
+next_action: "TASK X1.1"
+stabilization: "v3.2 — ExecutionEngine is executor ONLY, no decisions/retries/routing, termination confirmation required"
+```
+
+### Theoretical Foundation
+
+The Execution Engine is the **controlled execution layer** that handles task scheduling and concurrency. It transforms the runtime from a simple sequential executor to a **non-blocking system**.
+
+**CRITICAL RESTRICTIONS (v3.2):**
+
+- ExecutionEngine accepts tasks ONLY from StateMachine/runtime
+- ExecutionEngine executes ONLY — returns structured results
+- ExecutionEngine MUST NOT: decide, route, retry independently
+- ALL decisions return to StateMachine
+- Retries are controlled ONLY by StateMachine
+
+**Key Capabilities:**
+
+- Priority-based task scheduling (StateMachine-controlled)
+- Parallel execution with semaphore-based limits
+- Dependency resolution (task B waits for task A)
+- Future/promise pattern for async results
+
+---
+
+### TASK X1.1 — Task Scheduler
+
+**Location:** `src/core/execution_engine/scheduler.py`
+**Purpose:** Priority queue with dependency resolution and parallel execution.
+
+#### Subtask X1.1.1 — Implement `TaskScheduler`
+
+```python
+import heapq
+from dataclasses import dataclass, field
+import asyncio
+
+@dataclass(order=True)
+class Task:
+    priority: int
+    name: str = field(compare=False)
+    args: dict = field(compare=False)
+    task_id: str = field(compare=False, default_factory=lambda: str(uuid4()))
+    dependencies: list[str] = field(default_factory=list)
+    cancel_token: CancellationToken | None = field(compare=False, default=None)
+
+class TaskScheduler:
+    def __init__(self, runtime: CapabilityRuntime, concurrency: int = 4):
+        self._runtime = runtime
+        self._queue: list[Task] = []
+        self._running: dict[str, asyncio.Task] = {}
+        self._semaphore = asyncio.Semaphore(concurrency)
+        self._completed: dict[str, ToolResult] = {}
+        self._event_bus = EventBus()
+
+    async def schedule(self, task: Task) -> str:
+        """Schedule a task, return task_id."""
+        heapq.heappush(self._queue, task)
+        await self._process_queue()
+        return task.task_id
+
+    async def _process_queue(self):
+        """Process queue, respecting dependencies and concurrency limits."""
+        while self._queue and len(self._running) < self._semaphore._value:
+            task = heapq.heappop(self._queue)
+            if all(dep in self._completed for dep in task.dependencies):
+                self._running[task.task_id] = asyncio.create_task(
+                    self._execute_task(task)
+                )
+            else:
+                heapq.heappush(self._queue, task)  # Re-queue if deps not met
+
+    async def _execute_task(self, task: Task):
+        async with self._semaphore:
+            try:
+                result = await self._runtime.execute_async(
+                    task.name, task.args, task.cancel_token
+                )
+                self._completed[task.task_id] = result
+                self._event_bus.publish("EVT_TASK_COMPLETE", {
+                    "task_id": task.task_id, "success": result.success
+                })
+            except Exception as e:
+                self._completed[task.task_id] = ToolResult.failure(
+                    task.name, str(e)
+                )
+            finally:
+                self._running.pop(task.task_id, None)
+                await self._process_queue()  # Check if new tasks can run
+
+    def get_status(self, task_id: str) -> str:
+        if task_id in self._completed:
+            return "completed"
+        if task_id in self._running:
+            return "running"
+        return "pending"
+```
+
+**Artifact:** `src/core/execution_engine/scheduler.py`
+
+---
+
+### TASK X1.2 — Async Executor
+
+**Location:** `src/core/execution_engine/async_executor.py`
+**Purpose:** Non-blocking capability execution with Future pattern.
+
+#### Subtask X1.2.1 — Implement `AsyncExecutor`
+
+```python
+class AsyncExecutor:
+    def __init__(self, runtime: CapabilityRuntime):
+        self._runtime = runtime
+        self._futures: dict[str, asyncio.Future] = {}
+
+    async def execute(self, name: str, args: dict,
+                     cancel_token: CancellationToken | None = None) -> ToolResult:
+        """Non-blocking execution returning ToolResult."""
+        loop = asyncio.get_event_loop()
+        future = loop.create_future()
+        self._futures[f"{name}_{id(args)}"] = future
+
+        try:
+            result = await self._runtime.execute_async(name, args, cancel_token)
+            future.set_result(result)
+            return result
+        except Exception as e:
+            future.set_exception(e)
+            raise
+
+    def cancel_all(self):
+        """Cancel all pending futures."""
+        for f in self._futures.values():
+            f.cancel()
+        self._futures.clear()
+```
+
+**Artifact:** `src/core/execution_engine/async_executor.py`
+
+---
+
+### TASK X1.3 — Batch Processor
+
+**Location:** `src/core/execution_engine/batch_processor.py`
+**Purpose:** Multi-item capability execution with aggregation.
+
+#### Subtask X1.3.1 — Implement `BatchProcessor`
+
+```python
+class BatchProcessor:
+    def __init__(self, runtime: CapabilityRuntime, scheduler: TaskScheduler):
+        self._runtime = runtime
+        self._scheduler = scheduler
+
+    async def execute_parallel(self, name: str, items: list[dict],
+                                max_parallel: int = 4) -> list[ToolResult]:
+        """Execute all items in parallel (up to max_parallel)."""
+        semaphore = asyncio.Semaphore(max_parallel)
+
+        async def _execute_with_limit(item):
+            async with semaphore:
+                return await self._runtime.execute_async(name, item)
+
+        tasks = [_execute_with_limit(item) for item in items]
+        return await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def execute_sequential(self, name: str, items: list[dict]) -> list[ToolResult]:
+        """Execute items one by one."""
+        results = []
+        for item in items:
+            result = await self._runtime.execute_async(name, item)
+            results.append(result)
+        return results
+
+    async def execute_with_aggregation(self, name: str, items: list[dict]) -> dict:
+        """Execute and aggregate results."""
+        results = await self.execute_parallel(name, items)
+        return {
+            "total": len(results),
+            "successful": sum(1 for r in results if r.success),
+            "failed": sum(1 for r in results if not r.success),
+            "results": results
+        }
+```
+
+**Artifact:** `src/core/execution_engine/batch_processor.py`
+
+---
+
+### TASK X1.4 — Concurrency Controller
+
+**Location:** `src/core/execution_engine/concurrency.py`
+**Purpose:** Semaphore-based parallelism limits. Prevents system overload.
+
+#### Subtask X1.4.1 — Implement `ConcurrencyController`
+
+```python
+class ConcurrencyController:
+    def __init__(self, default_limit: int = 4):
+        self._semaphores: dict[str, asyncio.Semaphore] = {}
+        self._default_limit = default_limit
+
+    def get_semaphore(self, capability: str) -> asyncio.Semaphore:
+        if capability not in self._semaphores:
+            # Different limits for different capability types
+            limit = self._get_limit_for_capability(capability)
+            self._semaphores[capability] = asyncio.Semaphore(limit)
+        return self._semaphores[capability]
+
+    def _get_limit_for_capability(self, name: str) -> int:
+        limits = {
+            "code_exec": 1,      # Heavy, limit to 1
+            "screenshot": 2,     # Medium
+            "web_search": 3,     # Light
+            "open_app": 5,       # Very light
+        }
+        return limits.get(name, self._default_limit)
+
+    async def acquire(self, capability: str):
+        sem = self.get_semaphore(capability)
+        await sem.acquire()
+
+    def release(self, capability: str):
+        sem = self.get_semaphore(capability)
+        sem.release()
+```
+
+**Artifact:** `src/core/execution_engine/concurrency.py`
+
+---
+
+### TASK X1.5 — Execution Engine Tests (8 tests)
+
+**Location:** `tests/test_execution_engine.py`
+
+Required tests:
+
+1. `TaskScheduler.schedule()` returns valid `task_id`
+2. Priority ordering: higher priority tasks execute first
+3. Dependency resolution: task B waits for task A
+4. `ConcurrencyController` limits parallel executions
+5. `BatchProcessor.parallel()` runs faster than sequential
+6. `AsyncExecutor.cancel_all()` cancels pending tasks
+7. Task completion event published to EventBus
+8. Semaphore prevents overload (>limit tasks blocked)
+
+**Artifact:** `tests/test_execution_engine.py`
+
+---
+
+### TASK X1.6 — Integration with Runtime Loop
+
+**Location:** `src/core/runtime/loop.py`
+**Purpose:** Wire Execution Engine into main loop.
+
+#### Subtask X1.6.1 — Update `run_turn()`
+
+```python
+# In loop.py
+from src.core.execution_engine.scheduler import TaskScheduler
+from src.core.execution_engine.batch_processor import BatchProcessor
+
+class RuntimeLoop:
+    def __init__(self):
+        self._scheduler = TaskScheduler(CapabilityRuntime(...))
+        self._batch_processor = BatchProcessor(...)
+
+    async def run_turn(self, input_packet) -> FinalResponse:
+        # Schedule as task instead of direct call
+        task = Task(priority=1, name="decide", args={...})
+        task_id = await self._scheduler.schedule(task)
+        # Wait for completion
+        while self._scheduler.get_status(task_id) != "completed":
+            await asyncio.sleep(0.01)
+        ...
+```
+
+**Artifact:** Updated `src/core/runtime/loop.py`
+
+---
+
+### Definition of Done — Phase X1
+
+- [ ] `TaskScheduler` handles priority queue + dependencies
+- [ ] `AsyncExecutor` provides non-blocking execution
+- [ ] `BatchProcessor` supports parallel + sequential + aggregation
+- [ ] `ConcurrencyController` prevents system overload
+- [ ] Runtime loop wired to Execution Engine
+- [ ] All 8 tests pass
+
+---
+
+## Phase X2 — Sandbox System (HARDENED)
+
+```yaml
+phase_id: "X2"
+priority: "P0"
+status: "not_started"
+total_tasks: 5
+blocker: "Phase X1 complete"
+next_action: "TASK X2.1"
+stabilization: "v3.2 — system-level sandbox hardening, dual-mode cancellation"
+```
+
+### Theoretical Foundation
+
+The Sandbox System provides **strict system-level isolation** for ALL capability executions. No capability runs outside the sandbox. This includes:
+
+- **Process isolation**: separate PID for each execution
+- **Privilege drop**: no admin/root access in sandbox
+- **Filesystem sandbox**: allowlist paths only
+- **Network policy**: deny by default
+- **Syscall restrictions**: where possible (platform-dependent)
+- **Execution timeout**: hard kill on exceeding SLA
+- **Process tree kill**: parent + children killed on cancellation
+
+---
+
+### TASK X2.1 — Process Pool (Isolated Subprocess)
+
+**Location:** `src/core/sandbox/process_pool.py`
+**Purpose:** Execute untrusted code in isolated subprocess with resource limits.
+
+#### Subtask X2.1.1 — Implement `ProcessPool`
+
+```python
+import subprocess
+import resource
+import os
+
+class ProcessPool:
+    def __init__(self, max_memory_mb: int = 512, timeout_s: int = 30):
+        self._max_memory_mb = max_memory_mb
+        self._timeout_s = timeout_s
+        self._active: dict[str, subprocess.Popen] = {}
+
+    async def execute_secure(self, language: str, code: str,
+                            cancel_token=None) -> ToolResult:
+        """Execute code in isolated subprocess with resource limits."""
+        import tempfile
+        import uuid
+
+        tmpdir = tempfile.mkdtemp(prefix="jarvis_sandbox_")
+        ext = {"python": ".py", "javascript": ".js", "bash": ".sh"}[language]
+        code_file = os.path.join(tmpdir, f"code{ext}")
+
+        with open(code_file, "w") as f:
+            f.write(code)
+
+        interpreter = {"python": "python3", "javascript": "node", "bash": "bash"}[language]
+
+        try:
+            # Set resource limits (Unix only, Windows needs different approach)
+            if os.name == "posix":
+                def _set_limits():
+                    # Memory limit (MB → bytes)
+                    resource.setrlimit(resource.RLIMIT_AS,
+                                    (self._max_memory_mb * 1024 * 1024, -1))
+                    # CPU time limit
+                    resource.setrlimit(resource.RLIMIT_CPU, (self._timeout_s, -1))
+            else:
+                _set_limits = None  # Windows: use subprocess timeout
+
+            proc = subprocess.Popen(
+                [interpreter, code_file],
+                capture_output=True,
+                timeout=self._timeout_s,
+                cwd=tmpdir,
+                env={"PATH": "/usr/bin:/bin", "HOME": tmpdir},  # Minimal env
+                preexec_fn=_set_limits if os.name == "posix" else None
+            )
+
+            task_id = str(uuid.uuid4())
+            self._active[task_id] = proc
+
+            try:
+                stdout, stderr = proc.communicate(timeout=self._timeout_s)
+                return ToolResult(
+                    success=(proc.returncode == 0),
+                    data={
+                        "stdout": stdout.decode("utf-8", errors="replace"),
+                        "stderr": stderr.decode("utf-8", errors="replace"),
+                        "returncode": proc.returncode
+                    }
+                )
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                return ToolResult.failure("code_exec",
+                    f"timeout after {self._timeout_s}s")
+            finally:
+                self._active.pop(task_id, None)
+                import shutil
+                shutil.rmtree(tmpdir, ignore_errors=True)
+
+        except Exception as e:
+            return ToolResult.failure("code_exec", str(e))
+```
+
+**Artifact:** `src/core/sandbox/process_pool.py`
+
+---
+
+### TASK X2.2 — Resource Monitor
+
+**Location:** `src/core/sandbox/resource_monitor.py`
+**Purpose:** Track CPU/RAM usage per execution.
+
+#### Subtask X2.2.1 — Implement `ResourceMonitor`
+
+```python
+import psutil
+
+class ResourceMonitor:
+    def __init__(self):
+        self._process_stats: dict[int, list[dict]] = {}  # pid -> stats history
+
+    def start_monitoring(self, pid: int):
+        """Start tracking resource usage for a process."""
+        if pid not in self._process_stats:
+            self._process_stats[pid] = []
+
+        try:
+            proc = psutil.Process(pid)
+            stats = {
+                "cpu_percent": proc.cpu_percent(interval=0.1),
+                "memory_mb": proc.memory_info().rss / 1024 / 1024,
+                "num_threads": proc.num_threads(),
+                "timestamp": time.time()
+            }
+            self._process_stats[pid].append(stats)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    def stop_monitoring(self, pid: int) -> dict:
+        """Stop tracking and return summary."""
+        stats = self._process_stats.pop(pid, [])
+        if not stats:
+            return {}
+
+        return {
+            "peak_cpu": max(s["cpu_percent"] for s in stats),
+            "peak_memory_mb": max(s["memory_mb"] for s in stats),
+            "avg_cpu": sum(s["cpu_percent"] for s in stats) / len(stats),
+            "samples": len(stats)
+        }
+```
+
+**Artifact:** `src/core/sandbox/resource_monitor.py`
+
+---
+
+### TASK X2.3 — Filesystem Restrictor
+
+**Location:** `src/core/sandbox/filesystem.py`
+**Purpose:** Chroot-like path restrictions for sandbox.
+
+#### Subtask X2.3.1 — Implement `FilesystemRestrictor`
+
+```python
+class FilesystemRestrictor:
+    def __init__(self, allowed_roots: list[str] | None = None):
+        self._allowed_roots = allowed_roots or [
+            tempfile.gettempdir(),
+            os.path.expanduser("~/.jarvis/sandbox")
+        ]
+
+    def validate_path(self, path: str) -> tuple[bool, str]:
+        """Check if path is within allowed roots."""
+        resolved = Path(path).resolve()
+
+        for root in self._allowed_roots:
+            root_resolved = Path(root).resolve()
+            try:
+                resolved.relative_to(root_resolved)
+                return True, str(resolved)
+            except ValueError:
+                continue
+
+        return False, f"Path {path} is outside allowed roots"
+
+    def restrict_environment(self, env: dict) -> dict:
+        """Remove sensitive env vars."""
+        restricted = env.copy()
+        # Remove sensitive vars
+        for var in ["HOME", "USER", "PATH", "LD_LIBRARY_PATH"]:
+            if var in restricted:
+                del restricted[var]
+        # Set sandbox-safe values
+        restricted["HOME"] = tempfile.gettempdir()
+        restricted["PATH"] = "/usr/bin:/bin"
+        return restricted
+```
+
+**Artifact:** `src/core/sandbox/filesystem.py`
+
+---
+
+### TASK X2.4 — Sandbox Integration Tests (6 tests)
+
+**Location:** `tests/test_sandbox_system.py`
+
+Required tests:
+
+1. `ProcessPool` executes code in isolated subprocess
+2. Memory limit enforced (512MB)
+3. Timeout kills runaway code
+4. `ResourceMonitor` tracks CPU/RAM correctly
+5. `FilesystemRestrictor` blocks paths outside allowed roots
+6. Code crash doesn't affect main process
+
+**Artifact:** `tests/test_sandbox_system.py`
+
+---
+
+### TASK X2.5 — Wire Sandbox into CapabilityExecutor
+
+**Location:** `src/capabilities/executor.py`
+**Purpose:** Ensure ALL capabilities run through sandbox.
+
+#### Subtask X2.5.1 — Update Gate 6
+
+```python
+# In CapabilityExecutor.execute()
+# Gate 6: Sandbox execution
+if name == "code_exec":
+    # Use ProcessPool for code execution
+    pool = ProcessPool(
+        max_memory_mb=limits.code_memory_mb,
+        timeout_s=limits.code_timeout_s
+    )
+    result = await pool.execute_secure(
+        args.get("language"), args.get("code"), cancel_token
+    )
+else:
+    # Use ThreadPoolExecutor for other capabilities
+    result = Sandbox.execute(capability, args, timeout_s)
+```
+
+**Artifact:** Updated `src/capabilities/executor.py`
+
+---
+
+### Definition of Done — Phase X2
+
+- [ ] `ProcessPool` provides isolated subprocess execution
+- [ ] Resource limits (CPU, RAM, time) enforced
+- [ ] `FilesystemRestrictor` blocks unauthorized paths
+- [ ] `ResourceMonitor` tracks usage per execution
+- [ ] ALL capabilities route through sandbox
+- [ ] All 6 tests pass
+
+---
+
+## Phase X3 — Performance (SLA Enforced)
+
+```yaml
+phase_id: "X3"
+priority: "P1"
+status: "not_started"
+total_tasks: 4
+blocker: "Phase X2 complete"
+next_action: "TASK X3.1"
+stabilization: "v3.2 — passive SLA events, StateMachine decision authority"
+```
+
+### Theoretical Foundation
+
+Performance Monitoring provides **real-time SLA enforcement** and controlled optimization:
+
+- Per-capability latency/CPU/memory metrics
+- **SLA Enforcer**: monitors execution vs targets (fast=100ms, medium=500ms, heavy=5000ms)
+- **Rule-based optimization**: simple thresholds, no auto-switching strategies
+- **Bounded cache**: TTL + LRU eviction, dynamic TTL for hot paths
+- **Degradation strategy**: on_degradation → reduce_quality, switch_strategy
+
+**Global SLA Config:**
+
+```yaml
+sla:
+  fast: 100ms
+  medium: 500ms
+  heavy: 5000ms
+```
+
+**Cache Policy:**
+
+```yaml
+cache:
+  ttl: dynamic
+  eviction: LRU
+```
+
+**Complexity Control (v3.2):**
+
+- No adaptive optimizer — keep rule-based only
+- Streaming ONLY for heavy tasks
+- Batching ONLY where needed (multi-item operations)
+
+---
+
+### TASK X3.1 — Execution Profiler
+
+**Location:** `src/core/performance/profiler.py`
+**Purpose:** Per-capability latency/CPU/memory metrics with auto-optimization hooks.
+
+#### Subtask X3.1.1 — Implement `ExecutionProfiler` (enhanced from Phase 8)
+
+```python
+class ExecutionProfiler:
+    def __init__(self):
+        self._metrics: dict[str, list[dict]] = {}
+        self._cache = SmartCache()
+        self._hot_paths: set[str] = set()
+
+    def record(self, capability: str, latency_ms: float,
+                success: bool, risk_level: str):
+        if capability not in self._metrics:
+            self._metrics[capability] = []
+
+        self._metrics[capability].append({
+            "latency_ms": latency_ms,
+            "success": success,
+            "risk_level": risk_level,
+            "timestamp": time.time()
+        })
+
+        # Keep only last 1000 entries per capability
+        if len(self._metrics[capability]) > 1000:
+            self._metrics[capability] = self._metrics[capability][-1000:]
+
+        # Auto-optimization: mark hot paths
+        self._check_hot_path(capability)
+
+    def _check_hot_path(self, capability: str):
+        """Mark capability as hot path if frequently used + fast."""
+        recent = self._metrics[capability][-10:]
+        if len(recent) >= 10:
+            avg_latency = sum(r["latency_ms"] for r in recent) / 10
+            all_success = all(r["success"] for r in recent)
+
+            if avg_latency < 100 and all_success:
+                self._hot_paths.add(capability)
+                self._cache.mark_hot_path(capability)
+
+    def get_stats(self, capability: str) -> dict:
+        """Return latency percentiles, success rate, avg CPU/memory."""
+        if capability not in self._metrics or not self._metrics[capability]:
+            return {}
+
+        latencies = [r["latency_ms"] for r in self._metrics[capability]]
+        return {
+            "count": len(latencies),
+            "avg_ms": sum(latencies) / len(latencies),
+            "p50_ms": sorted(latencies)[len(latencies)//2],
+            "p95_ms": sorted(latencies)[int(len(latencies)*0.95)],
+            "p99_ms": sorted(latencies)[int(len(latencies)*0.99)],
+            "success_rate": sum(1 for r in self._metrics[capability]
+                                 if r["success"]) / len(self._metrics[capability])
+        }
+
+    def get_all_stats(self) -> dict:
+        """Return stats for all capabilities."""
+        return {cap: self.get_stats(cap) for cap in self._metrics}
+```
+
+**Artifact:** `src/core/performance/profiler.py`
+
+---
+
+### TASK X3.2 — Adaptive Optimizer
+
+**Location:** `src/core/performance/optimizer.py`
+**Purpose:** Auto-switch strategy if slow. Cache frequent operations. Pre-load heavy dependencies.
+
+#### Subtask X3.2.1 — Implement `AdaptiveOptimizer`
+
+```python
+class AdaptiveOptimizer:
+    def __init__(self, profiler: ExecutionProfiler, cache: SmartCache):
+        self._profiler = profiler
+        self._cache = cache
+        self._strategy_overrides: dict[str, str] = {}
+
+    def check_and_optimize(self, capability: str):
+        """Check if capability needs optimization."""
+        stats = self._profiler.get_stats(capability)
+        if not stats:
+            return
+
+        # If p95 latency > 1000ms, switch to faster strategy
+        if stats["p95_ms"] > 1000:
+            self._strategy_overrides[capability] = "fast"
+            logger.info(f"Switched {capability} to fast strategy")
+
+        # If success rate < 80%, add retry logic
+        if stats["success_rate"] < 0.8:
+            logger.warning(f"Low success rate for {capability}: {stats['success_rate']}")
+
+    def get_strategy(self, capability: str) -> str:
+        """Return optimized strategy for capability."""
+        return self._strategy_overrides.get(capability, "default")
+
+    def preload_heavy_deps(self):
+        """Pre-load dependencies for heavy capabilities."""
+        # Pre-load pytesseract for OCR
+        try:
+            import pytesseract
+            pytesseract.get_tesseract_version()
+        except Exception:
+            pass
+```
+
+**Artifact:** `src/core/performance/optimizer.py`
+
+---
+
+### TASK X3.3 — Smart Cache
+
+**Location:** `src/core/performance/cache.py`
+**Purpose:** TTL + LRU for frequent operations. Reduces latency for repeated calls.
+
+#### Subtask X3.3.1 — Implement `SmartCache`
+
+```python
+from collections import OrderedDict
+
+class SmartCache:
+    def __init__(self, max_size: int = 100, ttl_seconds: int = 3600):
+        self._cache: OrderedDict[str, tuple[Any, float]] = OrderedDict()
+        self._max_size = max_size
+        self._ttl = ttl_seconds
+        self._hot_paths: set[str] = set()
+
+    def mark_hot_path(self, key: str):
+        """Mark a key pattern as hot path."""
+        self._hot_paths.add(key)
+
+    def get(self, key: str) -> Any | None:
+        """Get cached value if not expired."""
+        if key not in self._cache:
+            return None
+
+        value, timestamp = self._cache[key]
+
+        if time.time() - timestamp > self._ttl:
+            del self._cache[key]
+            return None
+
+        # Move to end (LRU)
+        self._cache.move_to_end(key)
+        return value
+
+    def set(self, key: str, value: Any):
+        """Cache value with TTL."""
+        if len(self._cache) >= self._max_size:
+            # Evict LRU (first item)
+            self._cache.popitem(last=False)
+
+        self._cache[key] = (value, time.time())
+
+        # Hot paths get extended TTL
+        if key in self._hot_paths:
+            # Re-set with longer TTL
+            self._cache[key] = (value, time.time())
+
+    def clear(self):
+        self._cache.clear()
+```
+
+**Artifact:** `src/core/performance/cache.py`
+
+---
+
+### TASK X3.4 — Benchmark Runner
+
+**Location:** `src/core/performance/benchmark.py`
+**Purpose:** Automated performance regression testing.
+
+#### Subtask X3.4.1 — Implement `BenchmarkRunner`
+
+```python
+class BenchmarkRunner:
+    def __init__(self, profiler: ExecutionProfiler):
+        self._profiler = profiler
+        self._baselines: dict[str, dict] = {}
+
+    def record_baseline(self, capability: str):
+        """Record current performance as baseline."""
+        stats = self._profiler.get_stats(capability)
+        if stats:
+            self._baselines[capability] = {
+                "p50_ms": stats["p50_ms"],
+                "p95_ms": stats["p95_ms"],
+                "success_rate": stats["success_rate"]
+            }
+
+    def check_regression(self, capability: str) -> tuple[bool, str]:
+        """Check if capability performance regressed."""
+        if capability not in self._baselines:
+            return False, "No baseline recorded"
+
+        current = self._profiler.get_stats(capability)
+        baseline = self._baselines[capability]
+
+        # Regression if p95 > baseline p95 * 1.5
+        if current["p95_ms"] > baseline["p95_ms"] * 1.5:
+            return True, f"p95 regression: {current['p95_ms']} > {baseline['p95_ms'] * 1.5}"
+
+        # Regression if success rate drops > 10%
+        if current["success_rate"] < baseline["success_rate"] - 0.1:
+            return True, f"Success rate drop: {current['success_rate']} < {baseline['success_rate'] - 0.1}"
+
+        return False, "No regression detected"
+
+    def run_benchmark_suite(self) -> dict:
+        """Run automated benchmark suite."""
+        results = {}
+        for cap in ["open_app", "system_info", "screenshot"]:
+            has_regression, msg = self.check_regression(cap)
+            results[cap] = {"regression": has_regression, "message": msg}
+        return results
+```
+
+**Artifact:** `src/core/performance/benchmark.py`
+
+---
+
+### Definition of Done — Phase X3
+
+- [ ] `ExecutionProfiler` records per-capability metrics
+- [ ] `AdaptiveOptimizer` auto-switches slow strategies
+- [ ] `SmartCache` reduces latency for hot paths
+- [ ] `BenchmarkRunner` detects performance regressions
+- [ ] All capabilities have performance baselines
 
 ---
 
@@ -2437,6 +4089,75 @@ class RetryManager:
 ```
 
 **Artifact:** `src/core/runtime/retry.py`
+
+---
+
+### TASK 11.4 — Central Retry Manager (Global)
+
+**Location:** `src/core/runtime/retry.py` (update)
+**Depends on:** Phase 2 `load_config()`
+**Purpose:** Centralized retry management with global budget. Replaces scattered retry logic.
+
+#### Subtask 11.4.1 — Implement global retry config
+
+```yaml
+# config/runtime/settings.yaml
+execution:
+  mode: "BALANCED"
+  max_iterations: 5
+  total_turn_timeout_s: 120
+  global_retry_budget: 3
+  backoff_strategy: "exponential"
+  base_backoff_ms: 1000
+  max_backoff_ms: 30000
+
+execution_mode:
+  deterministic:
+    parallelism: disabled
+    ordering: strict
+  performance:
+    parallelism: enabled
+    ordering: relaxed
+
+sla:
+  fast: 100
+  medium: 500
+  heavy: 5000
+
+cache:
+  ttl: dynamic
+  eviction: LRU
+```
+
+#### Subtask 11.4.2 — Update `RetryManager`
+
+```python
+class RetryManager:
+    def __init__(self):
+        config = load_config().execution
+        self._initial = config.global_retry_budget  # 3
+        self._budget = self._initial
+        self.backoff = config.backoff_strategy  # exponential
+        self.base_backoff_ms = config.base_backoff_ms  # 1000
+        self.max_backoff_ms = config.max_backoff_ms  # 30000
+
+    def consume(self, n: int = 1) -> int:
+        self._budget = max(0, self._budget - n)
+        return self._budget
+
+    def can_retry(self) -> bool:
+        return self._budget > 0
+
+    def get_backoff_ms(self, attempt: int) -> float:
+        if self.backoff == "exponential":
+            return min(self.base_backoff_ms * (2 ** attempt), self.max_backoff_ms)
+        return self.base_backoff_ms
+
+    def reset(self) -> None:
+        self._budget = self._initial
+```
+
+**Artifact:** Updated `src/core/runtime/retry.py`
 
 ---
 
@@ -3338,20 +5059,21 @@ class ImageGenCapability(BaseCapability):
 
 ---
 
-## Phase 18 — QA + Production
+## Phase 18 — QA + Production (EXTENDED TESTING)
 
 ```yaml
 phase_id: 18
 priority: "P0"
 status: "not_started"
-total_tasks: 6
+total_tasks: 9
 blocker: "Phase 17 complete"
 next_action: "TASK 18.1"
+stabilization: "v3.2 — extended testing: chaos, fault injection, load, timeout, sandbox escape, scheduling integrity, SLA isolation, cancellation, mode enforcement, capability scope"
 ```
 
 ### Theoretical Foundation
 
-Production readiness requires four proofs: performance targets met (fast-path <100ms, simple query <5s), Arabic bilingual operation verified end-to-end, determinism confirmed (identical inputs → identical outputs), and total test coverage above 80%. The release cannot ship without passing all 6 tasks in this phase.
+Production readiness requires four proofs: performance targets met (fast-path <100ms, simple query <5s), Arabic bilingual operation verified end-to-end, determinism confirmed (identical inputs → identical outputs), and total test coverage above 80%. **v3.2 extends testing** with chaos testing, fault injection, load testing, timeout testing, sandbox escape tests, plus 5 new suites: scheduling integrity, SLA isolation, cancellation confirmation, mode enforcement, and capability scope violation. The release cannot ship without passing all 14 tasks in this phase.
 
 ### TASK 18.1 — Performance Tests
 
@@ -3513,6 +5235,19 @@ pytest tests/test_arabic.py -v
 # Production overrides — deep-merged over settings.yaml defaults.
 # Start with: load_config("config/runtime/production.yaml")
 
+execution_mode:
+  deterministic:
+    parallelism: disabled
+    ordering: strict
+  performance:
+    parallelism: enabled
+    ordering: relaxed
+
+sla:
+  fast: 100ms
+  medium: 500ms
+  heavy: 5000ms
+
 models:
   default: "gemma3:4b"
   timeout_s: 45
@@ -3589,7 +5324,7 @@ cat VERSION
 #### Subtask 18.5.1 — Create VERSION file
 
 ```
-3.0.0
+3.2.0
 ```
 
 Single line, no trailing whitespace.
@@ -3598,11 +5333,11 @@ Single line, no trailing whitespace.
 
 Required sections:
 
-- **Version:** 3.0.0
+- **Version:** 3.2.0
 - **Release Date:** {date}
 - **Hardware Requirements:** RTX 3050 6GB VRAM minimum, 16GB RAM, Intel i5 12th Gen
-- **New in v3.0:** Full capability list (13 capabilities), state machine, formal contracts, bilingual support, three safety modes
-- **Breaking Changes from v2.x:** Complete architectural rewrite; no migration path from v2.x
+- **New in v3.2:** Hardening pass — scheduler restricted to placement, passive SLA events, dual-mode cancellation, runtime capability validator, execution mode enforcement, extended test suites (scheduling integrity, SLA isolation, cancellation, mode enforcement, capability scope)
+- **Breaking Changes from v3.0:** State machine flow corrected (SCHEDULING state added), ExecutionEngine stripped of decision/routing/retry logic, adaptive optimizer removed, streaming restricted to heavy tasks only, batching restricted to multi-item operations
 - **Setup Instructions:** `git clone` → `pip install -e .` → `cp settings.example.yaml settings.yaml` → `cp .env.example .env` → `python app/main.py`
 - **Known Limitations:** Hardware-bound performance, Ollama must be running locally, voice and vision require optional dependencies
 - **Debug Checklist:** Ollama connectivity, VRAM headroom, allowed_roots config
@@ -3688,6 +5423,91 @@ pytest tests/test_determinism.py -v
 
 **Artifact:** `tests/test_determinism.py`
 
+---
+
+### TASK 18.7 — Chaos Testing (5 tests)
+
+**Location:** `tests/test_chaos.py`
+
+**Purpose:** Random failure injection to verify system resilience under unpredictable conditions.
+
+Required tests:
+1. Random capability failure → system recovers gracefully, no crash
+2. Random model failure during DECIDING → fallback activates, no crash
+3. Random sandbox timeout → task cancelled, StateMachine transitions to ERROR → RECOVERY
+4. Multiple simultaneous failures → system degrades gracefully, produces FinalResponse
+5. Random EventBus failure → system continues, errors logged but not propagated
+
+**Artifact:** `tests/test_chaos.py`
+
+---
+
+### TASK 18.8 — Fault Injection Testing (5 tests)
+
+**Location:** `tests/test_fault_injection.py`
+
+**Purpose:** Simulate specific failure modes to verify recovery paths.
+
+Required tests:
+1. Simulate Ollama service down → degraded FinalResponse returned
+2. Simulate VRAM exhaustion → model downgrade attempted, fallback chain activated
+3. Simulate database corruption → DB moved aside, fresh DB created, system continues
+4. Simulate filesystem full → ToolResult.failure returned, no crash
+5. Simulate network failure during web_search → graceful fallback, error logged
+
+**Artifact:** `tests/test_fault_injection.py`
+
+---
+
+### TASK 18.9 — Load Testing (4 tests)
+
+**Location:** `tests/test_load.py`
+
+**Purpose:** Verify system behavior under concurrent load.
+
+Required tests:
+1. 10 concurrent chat requests → all return FinalResponse, no deadlock
+2. 5 concurrent capability executions → ConcurrencyController limits parallelism
+3. Rapid sequential requests (100 in 10s) → no resource exhaustion, system stable
+4. Priority aging test: low-priority tasks eventually execute (no starvation)
+
+**Artifact:** `tests/test_load.py`
+
+---
+
+### TASK 18.10 — Timeout Testing (4 tests)
+
+**Location:** `tests/test_timeout.py`
+
+**Purpose:** Verify SLA enforcement and timeout handling.
+
+Required tests:
+1. Fast task exceeds 100ms SLA → logged, system continues
+2. Medium task exceeds 500ms SLA → cancelled, fallback to simpler path
+3. Heavy task exceeds 5000ms SLA → hard kill, process tree terminated
+4. Timeout during DECIDING → ERROR → RECOVERY → IDLE transition verified
+
+**Artifact:** `tests/test_timeout.py`
+
+---
+
+### TASK 18.11 — Sandbox Escape Tests (5 tests)
+
+**Location:** `tests/test_sandbox_escape.py`
+
+**Purpose:** Verify sandbox isolation cannot be bypassed.
+
+Required tests:
+1. Code execution attempts to access `/etc/passwd` → blocked by FilesystemRestrictor
+2. Code execution attempts network access → blocked by network policy
+3. Code execution attempts privilege escalation → blocked by privilege drop
+4. Code execution attempts to spawn child process → blocked or tracked by process tree
+5. Code execution exceeds memory limit → killed by ResourceMonitor, no main process impact
+
+**Artifact:** `tests/test_sandbox_escape.py`
+
+---
+
 ### Definition of Done — Phase 18
 
 - [ ] `pytest tests/ -v` → all tests pass, 0 failures
@@ -3695,7 +5515,12 @@ pytest tests/test_determinism.py -v
 - [ ] Fast-path latency < 100ms confirmed by `test_performance.py`
 - [ ] Arabic verified end-to-end by `test_arabic.py`
 - [ ] Determinism verified by `test_determinism.py`
-- [ ] `VERSION` file contains `3.0.0`
+- [ ] Chaos testing passes: system resilient under random failures
+- [ ] Fault injection passes: all simulated failures recover gracefully
+- [ ] Load testing passes: no deadlocks, no starvation, no resource exhaustion
+- [ ] Timeout testing passes: SLA enforced, timeouts handled correctly
+- [ ] Sandbox escape tests pass: no isolation bypass possible
+- [ ] `VERSION` file contains `3.2.0`
 - [ ] `docs/RELEASE_NOTES.md` complete
 - [ ] No debug `print()` statements in non-interface code
 - [ ] No hardcoded paths anywhere in `src/`
@@ -3707,11 +5532,11 @@ pytest tests/test_determinism.py -v
 | Metric          | Value                                                                                               |
 | :-------------- | :-------------------------------------------------------------------------------------------------- |
 | Total phases    | 20 (0–18 + 14.5)                                                                                    |
-| Total tasks     | ~135                                                                                                |
-| Total subtasks  | ~310                                                                                                |
-| Test files      | 18                                                                                                  |
-| Config files    | 8                                                                                                   |
-| Source modules  | ~65                                                                                                 |
+| Total tasks     | ~150 (v3.2: +5 new test suites: scheduling integrity, SLA isolation, cancellation, mode enforcement, capability scope)                                                                  |
+| Total subtasks  | ~320                                                                                                |
+| Test files      | 23 (+5 new: chaos, fault injection, load, timeout, sandbox escape)                                  |
+| Config files    | 9 (+1: execution_mode config)                                                                       |
+| Source modules  | ~67 (+2: sla_enforcer, concurrency safeguards)                                                      |
 | Capabilities    | 13 (8 core + 2 voice + 2 vision + 1 browser)                                                        |
 | Contract models | 7 (InputPacket, DecisionOutput, LLMOutput, ToolResult, FinalResponse, ModelScore, EvaluationResult) |
 
@@ -3728,6 +5553,52 @@ Architecture
 [ ] src/core/observability/ with event_bus.py and metrics.py
 [ ] data/audio/ directory exists (TTS output)
 [ ] docs/RELEASE_NOTES.md exists
+
+CONTROL FLOW (v3.2)
+[ ] Single controller: StateMachine is ONLY orchestrator
+[ ] ExecutionEngine is executor ONLY — no decisions, routing, retries
+[ ] CapabilityRuntime is INTERNAL — not importable by interfaces/decision/services
+[ ] All calls route through StateManager.transition_to()
+[ ] Corrected flow: IDLE→DECIDING→SCHEDULING→EXECUTING→EVALUATING→COMPLETED
+[ ] Cancellation flow: ANY STATE→CANCELLED→CLEANUP→IDLE
+[ ] Error flow: ANY FAILURE→ERROR→RECOVERY→DECIDING|IDLE
+[ ] StateMachine controls ALL retries
+
+DETERMINISM (v3.2)
+[ ] execution_mode config exists: deterministic and performance modes
+[ ] Fast-path produces identical outputs for identical inputs
+[ ] Model scorer ranking is deterministic
+[ ] State machine transitions are deterministic
+
+SANDBOX (v3.2 HARDENED)
+[ ] Process isolation (separate PID)
+[ ] Privilege drop (no admin/root)
+[ ] Filesystem sandbox (allowlist paths)
+[ ] Network policy (deny by default)
+[ ] Syscall restrictions (where possible)
+[ ] Execution timeout (hard kill)
+[ ] Process tree kill (parent + children)
+
+SLA ENFORCEMENT (v3.2 PASSIVE)
+[ ] SLA config: fast=100ms, medium=500ms, heavy=5000ms
+[ ] SLAEnforcer monitors execution vs targets
+[ ] On timeout: cancel_task, fallback, log_event
+
+CONCURRENCY (v3.2)
+[ ] Deadlock prevention: lock ordering rules
+[ ] Starvation prevention: priority aging
+[ ] Priority inversion handling: temporary priority boost
+
+CAPABILITY BOUNDARIES (v3.2)
+[ ] Each capability defines scope: allowed/forbidden operations
+[ ] Resource limits per capability: cpu%, memory MB
+[ ] No capability expands beyond defined scope
+[ ] Cross-domain logic = NEW capability
+
+COMPLEXITY CONTROL (v3.2)
+[ ] No adaptive optimizer — rule-based only
+[ ] Streaming ONLY for heavy tasks
+[ ] Batching ONLY where needed (multi-item)
 
 Contracts
 [ ] All 7 contract models importable from canonical locations
@@ -3754,26 +5625,31 @@ Configuration
 
 Capabilities
 [ ] All capabilities inherit BaseCapability
-[ ] All capabilities implement all 4 abstract methods
+[ ] All capabilities implement all abstract methods
 [ ] All capabilities return ToolResult — never raise to caller
 [ ] AppLauncher.execute(args) used everywhere after Phase 9
 [ ] grep -r "open_app(" src/ app/ returns only apps.py definition
 
 Code Quality
-[ ] src/__version__ == "3.0.0"
-[ ] VERSION file contains 3.0.0
+[ ] src/__version__ == "3.2.0"
+[ ] VERSION file contains 3.2.0
 [ ] No debug print() in non-interface code
 [ ] No hardcoded paths
 
 Tests
 [ ] pytest tests/ -v → all tests pass
 [ ] pytest tests/ --cov=src → TOTAL >= 80%
-[ ] All three spec files share spec_version: v3.0
+[ ] All three spec files share spec_version: v3.2
 [ ] AuditLogger creates data/audit.db after first capability execution
+[ ] Chaos testing passes
+[ ] Fault injection passes
+[ ] Load testing passes
+[ ] Timeout testing passes
+[ ] Sandbox escape tests pass
 ```
 
 ---
 
-**JARVIS v3.0 — Execution Plan**
-_spec_version: v3.0 | structure_version: 3 | last_updated: 2026-05-03_
-_Contract-first. Capabilities sovereign. State machine authoritative. No drift._
+**JARVIS v3.2 — Execution Plan**
+_spec_version: v3.2 | structure_version: 3.2 | last_updated: 2026-05-03_
+_Contract-first. Capabilities sovereign. State machine authoritative. No bypass paths. Controlled determinism. Hardened sandbox. SLA enforced._

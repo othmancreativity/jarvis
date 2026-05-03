@@ -1,6 +1,6 @@
-# 🏗️ JARVIS v3.0 — Architecture Specification
+# 🏗️ JARVIS v3.2 — Architecture Specification
 
-> **spec_version:** `v3.0` | **project_version:** `3.0.0` | **structure_version:** `3`
+> **spec_version:** `v3.2` | **project_version:** `3.2.0` | **structure_version:** `3.2`
 > **last_updated:** `2026-05-03`
 
 ---
@@ -25,16 +25,24 @@
 
 |  #  | Principle                                   | Description                                                                                                                                                                              |
 | :-: | :------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  1  | **State Machine is Single Source of Truth** | All execution flow is controlled by the runtime state machine. No layer may call another layer directly.                                                                                 |
-|  2  | **Determinism Over Cleverness**             | Identical inputs produce identical execution paths. No randomization, no implicit behavior.                                                                                              |
-|  3  | **Observability-First Design**              | Every state transition, tool call, model swap, and failure MUST be logged with structured data.                                                                                          |
-|  4  | **Fail-Safe Defaults**                      | The system degrades gracefully. Never crashes. Never executes irreversible actions without explicit approval.                                                                            |
-|  5  | **Capabilities are Sovereign**              | Capabilities are the ONLY layer that may execute side-effects. Each capability is a complete, standalone tool with its own validation, error handling, dry-run, and risk classification. |
-|  6  | **Single Responsibility per Layer**         | Each layer has exactly one defined responsibility. No cross-layer duplication.                                                                                                           |
-|  7  | **No Vague Naming**                         | No folders named `utils`, `misc`, `helpers`, `brain`, or `common`. Every folder name describes its specific responsibility.                                                              |
-|  8  | **Contract-First Design**                   | All data contracts (`InputPacket`, `DecisionOutput`, `ToolResult`, `FinalResponse`) are defined and validated before any logic uses them.                                                |
-|  9  | **Config Precedence**                       | CLI args > shell ENV > `.env` file > YAML defaults. No exceptions.                                                                                                                       |
-| 10  | **Security by Structure**                   | Safety is enforced by the Safety layer, not by prompting the model. Path validation uses `Path.resolve()` + `os.path.commonpath()`.                                                      |
+|  1  | **State Machine is Single Decision Authority** | ALL decisions originate from StateMachine. No component may self-decide — including SLA, scheduler, sandbox, or execution engine. ALL actions route via `StateManager.transition_to()`. |
+|  2  | **ExecutionEngine is Executor ONLY**        | ExecutionEngine accepts tasks ONLY from StateMachine, executes ONLY, returns structured results. MUST NOT: decide, route, retry, or change execution mode.                                |
+|  3  | **Scheduler is Placement ONLY**             | Scheduler handles task placement, queue insertion, and pre-computed dependency resolution ONLY. Priority is computed in DECIDING state — scheduler makes NO priority decisions.          |
+|  4  | **SLAEnforcer is Passive Observer**         | SLAEnforcer emits events ONLY. It CANNOT cancel tasks, trigger retries, or select fallbacks. StateMachine receives SLAEvent and decides the action (cancel/fallback/retry/ignore).      |
+|  5  | **Determinism Contract**                    | Two modes: `deterministic` (strict ordering, no parallelism, fixed retry) and `performance` (relaxed ordering, bounded parallelism, adaptive retry). StateMachine enforces mode rules.  |
+|  6  | **No Bypass Rule**                          | No layer may call capabilities, models, or execution_engine directly. ALL calls go through `StateManager.transition_to()`.                                                               |
+|  7  | **Dual-Mode Cancellation**                  | Soft cancel (SIGTERM, 2s grace) → hard kill (SIGKILL). ExecutionEngine MUST confirm termination_status. Process tree killed. Cleanup always follows.                                     |
+|  8  | **Capability Boundary Enforcement**         | Runtime validates capability.scope BEFORE execution. Violations → block + emit CapabilityViolationEvent. Each capability defines: allowed_ops, forbidden_ops, resource_limits.            |
+|  9  | **Concurrency Mode-Bound**                  | Parallelism allowed ONLY in performance mode AND when no shared_resource_conflict. Blocked in deterministic mode OR when shared_lock_required. Lock ordering enforced globally.          |
+| 10  | **Observability-First Design**              | Every state transition, tool call, model swap, and failure MUST be logged with structured data.                                                                                          |
+| 11  | **Fail-Safe Defaults**                      | The system degrades gracefully. Never crashes. Never executes irreversible actions without explicit approval.                                                                            |
+| 12  | **Capabilities are Sovereign**              | Capabilities are the ONLY layer that may execute side-effects. Each capability is a complete, standalone tool with its own validation, error handling, dry-run, and risk classification. |
+| 13  | **CapabilityRuntime is Internal**           | CapabilityRuntime CANNOT be imported by interfaces, decision, or services. All calls: Runtime → ExecutionEngine → CapabilityRuntime → Capability.                                        |
+| 14  | **Single Responsibility per Layer**         | Each layer has exactly one defined responsibility. No cross-layer duplication.                                                                                                           |
+| 15  | **No Vague Folders**                        | No folders named `utils`, `misc`, `helpers`, `brain`, or `common`. Every folder name describes its specific responsibility.                                                              |
+| 16  | **Contract-First Design**                   | All data contracts (`InputPacket`, `DecisionOutput`, `ToolResult`, `FinalResponse`) are defined and validated before any logic uses them.                                                |
+| 17  | **Config Precedence**                       | CLI args > shell ENV > `.env` file > YAML defaults. No exceptions.                                                                                                                       |
+| 18  | **Security by Structure**                   | Safety is enforced by the Safety layer, not by prompting the model. Path validation uses `Path.resolve()` + `os.path.commonpath()`.                                                      |
 
 ---
 
@@ -120,21 +128,26 @@ jarvis/
     │   ├── registry.py              ← CapabilityRegistry singleton: register, get, load_from_manifest
     │   ├── result.py                ← ToolResult Pydantic model + failure/success_result factories
     │   ├── validator.py             ← ValidationResult dataclass + SchemaValidator (YAML-driven)
+    │   ├── runtime/                  ← CAPABILITY RUNTIME: INTERNAL ONLY — cannot be imported by interfaces/decision/services
+    │   │   ├── capability_runtime.py ← CapabilityRuntime: execute_async(), execute_batch(), stream_results(), cancel()
+    │   │   ├── progress.py          ← ProgressTracker: percentage, ETA, status updates via EventBus
+    │   │   ├── stream.py            ← StreamBuffer: chunked output for long-running capabilities
+    │   │   └── cancellation.py      ← CancellationToken: cooperative cancellation for capabilities
     │   ├── api/                     ← Reserved: future external API capability modules
     │   ├── coder/
     │   │   └── executor.py          ← CodeExecutorCapability: python/js/bash in isolated subprocess
     │   ├── files/
-    │   │   └── file_ops.py          ← FileOpsCapability: read/write/list/delete/move/copy with path validation
+    │   │   └── file_ops.py          ← FileSystemEngine: batch operations (ONLY where needed), indexing, search
     │   ├── notify/
-    │   │   └── toasts.py            ← NotificationCapability: desktop toast via plyer with fallback
+    │   │   └── toasts.py            ← EventNotificationSystem: queue, priority, grouping, cross-platform
     │   ├── screen/
-    │   │   └── capture.py           ← ScreenshotCapability: PIL ImageGrab + optional pytesseract OCR
+    │   │   └── capture.py           ← VisionPipeline: region capture, multi-monitor, OCR, image analysis hooks
     │   ├── search/
-    │   │   └── web_search.py        ← WebSearchCapability: DuckDuckGo HTML parse → structured results
+    │   │   └── web_search.py        ← DataExtractionEngine: multi-engine fallback, parsing, structured data, caching
     │   ├── system/
-    │   │   ├── apps.py              ← AppLauncher: platform-aware app discovery and launch
-    │   │   ├── clipboard.py         ← ClipboardCapability: pyperclip read/write
-    │   │   └── sysinfo.py           ← SystemInfoCapability: psutil CPU/RAM/GPU/OS metrics
+    │   │   ├── apps.py              ← SystemProcessManager: open/close/restart, detect running, batch launch, monitoring
+    │   │   ├── clipboard.py         ← SmartDataChannel: history tracking, multi-format, sync pipeline, transformations
+    │   │   └── sysinfo.py           ← RealTimeSystemMonitor: live streaming stats, threshold alerts, historical tracking
     │   ├── vision/
     │   │   ├── image_gen.py         ← ImageGenCapability: Stable Diffusion via diffusers
     │   │   └── vision.py            ← VisionCapability: llava:7b image analysis via Ollama
@@ -147,7 +160,7 @@ jarvis/
     │       └── session.py           ← WebSessionManager: isolated browser contexts (UUID-keyed)
     │
     ├── core/                        ← ORCHESTRATION LAYER: controls WHEN and HOW layers execute
-    │   ├── config.py                ← load_config() with Pydantic validation + 4-level precedence
+    │   ├── config.py                ← load_config() with Pydantic validation + 4-level precedence + execution_mode
     │   ├── exceptions.py            ← JarvisError hierarchy: Runtime, Models, Capabilities, Safety, Decision
     │   ├── logging_setup.py         ← setup_logging() + log_event() structured logging via loguru
     │   ├── context/
@@ -159,13 +172,26 @@ jarvis/
     │   │   ├── decision.py          ← decide(): FastPath → Classifier → Scorer → RiskAssessor pipeline
     │   │   ├── fast_path.py         ← FastPath: compiled regex rules for zero-latency decisions (EN + AR)
     │   │   ├── model_score.py       ← ModelScore Pydantic model with 5 required factor keys
-    │   │   ├── output.py            ← DecisionOutput + all enums: Intent, Complexity, ExecutionMode, etc.
+    │   │   ├── output.py            ← DecisionOutput + all enums: Intent, Complexity, ExecutionMode, RiskLevel, DecisionSource
     │   │   ├── risk.py              ← RiskAssessor: tool-level and arg-level risk classification
     │   │   └── scorer.py            ← ModelScorer: weighted multi-factor scoring + deterministic ranking
+    │   ├── execution_engine/        ← EXECUTOR ONLY: accepts tasks from StateMachine, executes, confirms termination
+    │   │   ├── scheduler.py        ← TaskScheduler: task placement + queue insertion + pre-computed dependency resolution ONLY
+    │   │   ├── async_executor.py   ← AsyncExecutor: non-blocking capability execution with Future pattern
+    │   │   ├── batch_processor.py  ← BatchProcessor: multi-item capability execution (ONLY where needed)
+    │   │   ├── cancellation.py     ← CancellationToken: dual-mode (soft=SIGTERM/2s grace, hard=SIGKILL) + termination confirmation
+    │   │   └── concurrency.py      ← ConcurrencyController: mode-bound parallelism + deadlock/starvation/priority inversion safeguards
     │   ├── observability/
     │   │   ├── event_bus.py         ← EventBus singleton: pub/sub with isolated exception handling
-    │   │   └── metrics.py           ← MetricsCollector singleton: latency percentiles, errors, model usage
+    │   │   ├── metrics.py           ← MetricsCollector singleton: latency percentiles, errors, model usage
+    │   │   └── tracing.py          ← TracingSystem: trace_id + span_id propagation, span lifecycle
+    │   ├── performance/            ← PASSIVE MONITORING: SLA events, rule-based profiling, bounded cache
+    │   │   ├── profiler.py         ← ExecutionProfiler: per-capability latency/cpu/memory metrics
+    │   │   ├── sla_enforcer.py     ← SLAEnforcer: PASSIVE — emits SLAEvent ONLY. NEVER cancels/retries. StateMachine decides.
+    │   │   ├── benchmark.py        ← BenchmarkRunner: automated performance regression testing
+    │   │   └── cache.py            ← SmartCache: TTL + LRU eviction, dynamic TTL for hot paths
     │   ├── runtime/
+    │   │   ├── capability_validator.py ← RuntimeValidator: validates capability.scope BEFORE execution. Blocks + emits event on violation.
     │   │   ├── degradation.py       ← DegradationHandler: model/tool failure → user-friendly fallback
     │   │   ├── escalation.py        ← EscalationChain: tiered retry with weight adjustment + forced fallback
     │   │   ├── evaluation_result.py ← EvaluationResult Pydantic model
@@ -175,19 +201,22 @@ jarvis/
     │   │   ├── final_response.py    ← FinalResponse Pydantic model + error_response() factory
     │   │   ├── limits.py            ← Limits: all numeric execution ceilings loaded from config
     │   │   ├── llm_output.py        ← LLMOutput Pydantic model (answer | tool_call)
-    │   │   ├── loop.py              ← run_turn(): main orchestration loop, never raises, always returns FinalResponse
-    │   │   ├── retry.py             ← RetryManager: per-turn budget counter
-    │   │   ├── state.py             ← RuntimeState enum + ALLOWED_TRANSITIONS map
-    │   │   ├── state_manager.py     ← StateManager: transition_to(), force_state(), history tracking
-    │   │   ├── timeout.py           ← TimeoutHandler + phase_timeout() context manager
+    │   │   ├── loop.py              ← run_turn(): state machine orchestration loop with streaming (ONLY for heavy tasks)
+    │   │   ├── retry.py             ← RetryManager: centralized global budget + exponential backoff (StateMachine-controlled)
+    │   │   ├── state.py             ← RuntimeState enum + ALLOWED_TRANSITIONS map + execution_mode bindings
+    │   │   ├── state_manager.py     ← StateManager: transition_to(), force_state(), history, retry authority, SLA handler, mode enforcer
+    │   │   ├── timeout.py           ← TimeoutHandler + phase_timeout() context manager + SLA enforcement
     │   │   └── validate_decision.py ← DecisionEnforcer: structural validation of DecisionOutput
     │   ├── safety/
     │   │   ├── audit.py             ← AuditLogger: SQLite log of every capability execution attempt
     │   │   ├── classifier.py        ← SafetyClassifier: path traversal, blocked path, code pattern checks
     │   │   ├── mode_enforcer.py     ← ModeEnforcer: SAFE/BALANCED/UNRESTRICTED permission matrix
     │   │   └── permission.py        ← PermissionLayer: Gate1(consistency) + Gate2(safety) + Gate3(schema)
-    │   └── sandbox/
-    │       └── sandbox.py           ← Sandbox: ThreadPoolExecutor isolation + timeout + exception wrapping
+    │   └── sandbox/                ← HARDENED ISOLATION: process isolation, privilege drop, filesystem sandbox, network policy
+    │       ├── sandbox.py           ← Sandbox: ThreadPoolExecutor isolation + timeout + exception wrapping
+    │       ├── resource_monitor.py  ← ResourceMonitor: CPU/RAM tracking per execution
+    │       ├── process_pool.py      ← ProcessPool: isolated subprocess + privilege drop + syscall restrictions + tree kill (soft→hard)
+    │       └── filesystem.py        ← FilesystemRestrictor: allowlist paths + chroot-like restrictions
     │
     ├── interfaces/                  ← THIN DISPLAY LAYER: converts user I/O to/from runtime requests
     │   ├── cli/
@@ -247,6 +276,8 @@ jarvis/
 | Execution sandbox (`sandbox.py`)                                                       | Direct capability invocation (must go via `CapabilityExecutor`) |
 | Observability (`event_bus.py`, `metrics.py`)                                           | Domain-specific business logic                                  |
 | Hardening (`timeout.py`, `degradation.py`, `fallback.py`, `retry.py`, `escalation.py`) |                                                                 |
+| ExecutionEngine (`execution_engine/`) — executor ONLY, no decisions                    | Independent retry logic, dynamic routing                        |
+| Performance (`performance/`) — SLA enforcer, rule-based optimization                   | Adaptive optimizer (auto-switching)                             |
 
 ---
 
@@ -263,6 +294,8 @@ jarvis/
 - Each capability validates args **before** executing — `validate()` is synchronous and fast.
 - Each capability handles all platform variations internally.
 - Capabilities **never** call LLMs, access memory, or invoke other capabilities.
+- Each capability defines scope: `allowed_operations`, `forbidden_operations`, `resource_limits`.
+- `CapabilityRuntime` is INTERNAL — cannot be imported by interfaces, decision, or services.
 
 | Owns                                                     | Must NOT Contain       |
 | :------------------------------------------------------- | :--------------------- |
@@ -381,22 +414,31 @@ RUNTIME LOOP  src/core/runtime/loop.py  run_turn()
   │
   ├─ [1] StateManager.transition_to(IDLE → DECIDING)
   │
-  ├─ [2] ContextAssembler.assemble(user_input, session_id)
-  │        └─ load_profile(user_id)
-  │        └─ MemoryDB.retrieve_recent(session_id, limit=5)
-  │        └─ → InputPacket
-  │
-  ├─ [3] decide(input_packet) → DecisionOutput
-  │        ├─ FastPath.check(message)          ← regex, <1ms, bilingual
-  │        │    └─ if match → assess_risk → return immediately
-  │        ├─ Classifier.classify(message)     ← LLM call, JSON extract+repair
-  │        ├─ VRAMMonitor.get_available_vram_mb()
-  │        ├─ ModelScorer.rank_models()        ← weighted 5-factor scoring
+  ├─ [2] DECIDING: ContextAssembler + decision + priority computation
+  │        ├─ ContextAssembler.assemble(user_input, session_id)
+  │        │    └─ → InputPacket (with trace_id, span_id)
+  │        ├─ FastPath.check(message) / Classifier.classify(message)
+  │        ├─ ModelScorer.rank_models() → best model selected
   │        ├─ RiskAssessor.assess(decision)
-  │        └─ DecisionEnforcer.validate()
+  │        ├─ DecisionEnforcer.validate()
+  │        └─ PRIORITY COMPUTED HERE (not in scheduler)
   │
-  ├─ [4a] intent == tool_use → DECIDING → EXECUTING_TOOL
-  │        └─ CapabilityExecutor.execute(name, args, decision, mode)
+  ├─ [3] StateManager.transition_to(DECIDING → SCHEDULING)
+  │        └─ Scheduler: task placement + queue insertion + pre-computed deps ONLY
+  │             ├─ NO priority decision (computed in DECIDING)
+  │             ├─ NO retry logic (StateMachine-controlled)
+  │             ├─ NO routing (pre-determined)
+  │             └─ → task_id
+  │
+  ├─ [4] StateManager.transition_to(SCHEDULING → EXECUTING)
+  │        └─ ExecutionEngine accepts task (executor ONLY)
+  │             ├─ RuntimeValidator.validate(capability.scope) BEFORE execution
+  │             ├─ If scope violation → BLOCK + emit CapabilityViolationEvent → ERROR
+  │             ├─ ConcurrencyController.acquire_slot() (mode-bound)
+  │             └─ SLAEnforcer starts monitoring (PASSIVE — emits events ONLY)
+  │
+  ├─ [5a] intent == tool_use → EXECUTING → EXECUTING_TOOL
+  │        └─ ExecutionEngine → CapabilityRuntime (INTERNAL) → Capability
   │             ├─ Gate 1: CapabilityRegistry.get(name) → not None
   │             ├─ Gate 2: capability.validate(args) → valid
   │             ├─ Gate 3: PermissionLayer.check() → allow/confirm/block
@@ -405,46 +447,59 @@ RUNTIME LOOP  src/core/runtime/loop.py  run_turn()
   │             │            └─ SubGate C: SchemaValidator
   │             ├─ Gate 4: if confirm → publish EVT_WAITING_CONFIRMATION → wait
   │             ├─ Gate 5: if dry_run → Sandbox.dry_run() → return
-  │             └─ Gate 6: Sandbox.execute(capability, args, timeout_s)
-  │                           └─ ThreadPoolExecutor(max_workers=1)
-  │                           └─ capability.execute(args) → ToolResult
+  │             ├─ Gate 6: Sandbox.execute(capability, args, timeout_s)
+  │             │           └─ ProcessPool (code_exec) or ThreadPoolExecutor
+  │             │           └─ ResourceMonitor.track(cpu, ram)
+  │             └─ ProgressTracker.report(percentage, eta)
   │
-  ├─ [4b] intent == chat → DECIDING → EXECUTING_MODEL
+  ├─ [5b] intent == chat → EXECUTING → EXECUTING_MODEL
   │        └─ Executor.execute(decision, input_packet)
   │             ├─ PromptBuilder.build(decision, input_packet)
-  │             │    ├─ Identity block (jarvis_identity.yaml)
-  │             │    ├─ Mode fragment (mode_fragments.yaml)
-  │             │    ├─ Context block (memory_snippets)
-  │             │    ├─ History block (recent_history[-3:])
-  │             │    └─ Language hint (if language=ar)
   │             ├─ OllamaEngine.chat_with_model(model, messages, system)
   │             └─ → LLMOutput (answer | tool_call)
   │
-  ├─ [5] EXECUTING_* → EVALUATING
+  ├─ [6] STREAMING (OPTIONAL — ONLY for heavy tasks)
+  │        └─ StreamBuffer streams chunks → EXECUTING continues
+  │
+  ├─ [7] StateManager.transition_to(EXECUTING → EVALUATING)
   │        └─ Evaluator.evaluate(output, decision, input_packet)
-  │             ├─ Completeness score  (weight: 0.40)
-  │             ├─ Relevance score     (weight: 0.40)
-  │             └─ Coherence score     (weight: 0.20)
   │
-  ├─ [6a] quality < 0.4 AND retry_budget > 0 → EVALUATING → DECIDING
+  ├─ [8a] quality < 0.4 AND retry_budget > 0 → EVALUATING → DECIDING
+  │        └─ StateMachine triggers retry (ONLY authority)
   │        └─ EscalationChain.retry(input_packet, attempt)
-  │        └─ RetryManager.consume(1)
+  │        └─ RetryManager.consume(1) + exponential backoff
   │
-  ├─ [6b] quality OK → EVALUATING → COMPLETED
+  ├─ [8b] quality OK → EVALUATING → COMPLETED → IDLE
   │
-  ├─ [7] COMPLETED → IDLE
-  │        ├─ MemoryDB.store(session_id, turn_data)
-  │        ├─ AuditLogger.log_action(...)
-  │        ├─ MetricsCollector.record_latency(...)
-  │        └─ publish EVT_TURN_COMPLETE
+  ├─ [SLA] EXECUTING → SLAEnforcer detects timeout → emits SLAEvent
+  │        └─ SLAEvent: {type, task_id, elapsed_time, threshold}
+  │        └─ StateMachine receives event → decides: cancel/fallback/retry/ignore
+  │        └─ SLAEnforcer NEVER cancels or retries directly
   │
-  └─ [ERR] Any JarvisError → ERROR → IDLE
-             └─ DegradationHandler.generate_error_response()
-             └─ return FinalResponse.error_response(...)
+  ├─ [CANCEL] ANY STATE → CANCELLED → CLEANUP → IDLE
+  │        └─ StateMachine.authorize_cancel()
+  │        └─ ExecutionEngine.signal(SIGTERM) → wait(2s grace) → if alive → SIGKILL
+  │        └─ ExecutionEngine.confirm_termination() → {confirmed | failed}
+  │        └─ ProcessPool.kill_tree() → parent + children killed
+  │        └─ CLEANUP → IDLE
+  │
+  ├─ [ERR] ANY FAILURE → ERROR → RECOVERY → DECIDING | IDLE
+  │        └─ StateMachine.transition_to(ERROR → RECOVERY)
+  │        └─ if recoverable → DECIDING, else → IDLE
+  │
+  └─ [BATCH] (ONLY where needed — multi-item file ops)
+           └─ BatchProcessor.execute() → sequential (deterministic) or bounded parallel (performance)
 ─────────────────────────────────────────────────────────────────
 
-INVARIANT: No layer calls another layer directly.
-           All calls route through the Runtime state machine.
+INVARIANTS (v3.2):
+  1. StateMachine is ONLY decision authority — no component self-decides
+  2. Scheduler handles placement ONLY — priority computed in DECIDING
+  3. SLAEnforcer is PASSIVE — emits events ONLY, never cancels/retries
+  4. ExecutionEngine is executor ONLY — confirms termination, no decisions
+  5. RuntimeValidator validates capability.scope BEFORE execution
+  6. Concurrency is mode-bound — parallelism ONLY in performance mode
+  7. Dual-mode cancellation: soft(SIGTERM, 2s) → hard(SIGKILL) → confirmed
+  8. ALL actions traceable to StateMachine.transition_to()
 ```
 
 ---
@@ -463,7 +518,7 @@ INVARIANT: No layer calls another layer directly.
 | 8   | Prompt-based safety approval                                | Safety enforced structurally, never by model instruction |
 | 9   | String pattern matching for path validation                 | Use `Path.resolve()` + `os.path.commonpath()`            |
 | 10  | Hardcoded model routing                                     | Use dynamic weighted scoring                             |
-| 11  | Infinite retry loops                                        | Enforced by global retry budget (8 default)              |
+| 11  | Infinite retry loops                                        | Enforced by global retry budget (StateMachine-controlled)|
 | 12  | Silent failures                                             | All errors logged with structured data                   |
 | 13  | Capabilities raising exceptions to caller                   | Return `ToolResult.failure(...)`                         |
 | 14  | Config files outside `config/`                              | All config in `config/runtime/` or `config/env/`         |
@@ -471,6 +526,141 @@ INVARIANT: No layer calls another layer directly.
 | 16  | Test files in `src/`                                        | All tests in `tests/`                                    |
 | 17  | Importing capabilities directly (non-capability code)       | Use `CapabilityRegistry.get()`                           |
 | 18  | Multiple `__init__.py` with logic in leaf packages          | Only `src/__init__.py` has content                       |
+| 19  | ExecutionEngine making decisions or routing                 | ExecutionEngine is executor ONLY                         |
+| 20  | ExecutionEngine triggering independent retries              | ALL retries controlled by StateMachine                   |
+| 21  | Importing CapabilityRuntime from interfaces/decision/services| CapabilityRuntime is INTERNAL ONLY                      |
+| 22  | Capability expanding beyond defined scope                   | Each capability has bounded allowed/forbidden operations |
+| 23  | Adaptive optimizer (auto-switching strategies)              | Keep rule-based optimization only                        |
+| 24  | Streaming for non-heavy tasks                               | Streaming ONLY for heavy tasks                           |
+| 25  | Batching for single-item operations                         | Batching ONLY where needed (multi-item)                  |
+| 26  | Scheduler making priority decisions                         | Priority computed in DECIDING state only                 |
+| 27  | Scheduler implementing retry logic                          | Retry is StateMachine authority only                     |
+| 28  | SLAEnforcer cancelling tasks directly                       | SLAEnforcer emits events ONLY; StateMachine decides       |
+| 29  | SLAEnforcer triggering retries                              | SLAEnforcer is passive observer only                     |
+| 30  | Cancellation without termination confirmation               | ExecutionEngine MUST confirm termination_status          |
+| 31  | Parallel execution in deterministic mode                    | Concurrency is mode-bound                                |
+| 32  | ExecutionEngine or capabilities changing execution mode     | Mode enforced by StateMachine only                       |
+| 33  | Execution without capability scope validation               | RuntimeValidator MUST validate scope BEFORE execution    |
+
+---
+
+## 7.1 CAPABILITY BOUNDARY ENFORCEMENT
+
+Each capability MUST define a scope contract:
+
+```yaml
+capability_scope:
+  open_app:
+    allowed_operations: [launch, close, restart, list_running]
+    forbidden_operations: [file_access, network_access, code_execution]
+    resource_limits:
+      cpu_percent: 10
+      memory_mb: 128
+  file_ops:
+    allowed_operations: [read, write, move, copy, delete, list, search]
+    forbidden_operations: [execute_binary, network_access, modify_system_files]
+    resource_limits:
+      cpu_percent: 20
+      memory_mb: 256
+  code_exec:
+    allowed_operations: [run_python, run_js, run_bash]
+    forbidden_operations: [file_access_outside_sandbox, network_access, escalate_privileges]
+    resource_limits:
+      cpu_percent: 50
+      memory_mb: 512
+```
+
+**Runtime Validation (v3.2):**
+
+```
+Runtime → validate(capability.scope) BEFORE execution
+  → if violation → BLOCK execution + emit CapabilityViolationEvent
+  → Event: {capability_name, violation_type, attempted_operation, timestamp}
+```
+
+**Rules:**
+- RuntimeValidator (`src/core/runtime/capability_validator.py`) validates scope BEFORE every execution
+- No capability may expand beyond its defined scope
+- Cross-domain logic = NEW capability (not scope expansion)
+- Resource limits enforced by Sandbox at execution time
+- Violations → block + emit `CapabilityViolationEvent` → StateMachine transitions to ERROR
+
+---
+
+## 7.2 SLA ENFORCEMENT (PASSIVE — v3.2)
+
+SLAEnforcer is a **passive observer** that emits events ONLY:
+
+```yaml
+SLAEvent:
+  type: timeout | degradation
+  task_id: str
+  elapsed_time: float
+  threshold: float
+```
+
+**StateMachine handles SLAEvent:**
+
+```yaml
+on_sla_event:
+  actions:
+    - cancel_task      → transition to ERROR → RECOVERY
+    - fallback         → simpler path, continue executing
+    - retry            → StateMachine-controlled retry (if budget available)
+    - ignore           → log and continue (for non-critical SLA misses)
+```
+
+**Forbidden:**
+- SLAEnforcer cancelling tasks directly
+- SLAEnforcer triggering retries
+- SLAEnforcer selecting fallback paths
+
+---
+
+## 7.3 CANCELLATION MODEL (DUAL-MODE — v3.2)
+
+```yaml
+cancellation:
+  soft:
+    signal: SIGTERM
+    grace_period: 2s
+  hard:
+    signal: SIGKILL
+```
+
+**Execution Flow:**
+
+```
+CANCEL REQUEST → StateMachine.authorize_cancel()
+  → ExecutionEngine.signal(SIGTERM)
+  → wait(grace_period: 2s)
+  → if alive → ExecutionEngine.signal(SIGKILL)
+  → ExecutionEngine.confirm_termination() → {confirmed | failed}
+  → CLEANUP → IDLE
+```
+
+**Mandatory Rule:**
+ExecutionEngine MUST confirm `termination_status: confirmed | failed` after every cancellation attempt.
+
+---
+
+## 7.4 EXECUTION MODE ENFORCEMENT (v3.2)
+
+StateMachine enforces mode rules:
+
+| Rule           | Deterministic              | Performance                |
+| -------------- | -------------------------- | -------------------------- |
+| Parallel Tasks | ❌ Blocked                  | ✅ Allowed (bounded)        |
+| Task Ordering  | Strict                     | Relaxed                    |
+| Retry Behavior | Fixed backoff              | Adaptive backoff           |
+| Concurrency    | Disabled                   | Enabled (if no conflict)   |
+
+**Enforcement Rules:**
+- `execution_mode` is set at startup via config
+- StateMachine validates mode on every transition
+- ExecutionEngine CANNOT change mode
+- Capabilities CANNOT alter execution mode
+- Mode changes require full system restart
 
 ---
 
@@ -478,26 +668,41 @@ INVARIANT: No layer calls another layer directly.
 
 | Rule                   | Detail                                                                             |
 | :--------------------- | :--------------------------------------------------------------------------------- |
-| Single source of truth | `src/core/runtime/state.py` defines states and transition map                      |
+| Single decision authority | `StateMachine` is the ONLY component that may make decisions. No self-deciding components. |
 | Transition authority   | All transitions MUST go through `StateManager.transition_to()`                     |
 | Invalid transitions    | Rejected, logged, system remains in current state, `InvalidTransitionError` raised |
-| Error recovery         | `ERROR → IDLE` is the only recovery path from ERROR                                |
+| Error recovery         | `ERROR → RECOVERY → DECIDING | IDLE` (StateMachine decides based on recoverability) |
+| Cancellation           | `ANY STATE → CANCELLED → CLEANUP → IDLE` (dual-mode: soft→hard, termination confirmed) |
+| Retry authority        | ONLY StateMachine may trigger retries — no layer may retry independently           |
+| SLA handling           | SLAEnforcer emits events ONLY; StateMachine decides cancel/fallback/retry/ignore   |
+| Scheduler role         | Task placement + queue insertion + pre-computed deps ONLY — no decisions           |
+| Mode enforcement       | StateMachine enforces deterministic/performance mode rules on every transition     |
+| Capability validation  | RuntimeValidator validates scope BEFORE execution — violations block and error     |
 | Forced transitions     | `force_state()` bypasses validation — for error recovery only, logs WARNING        |
-| Confirmation state     | `WAITING_CONFIRMATION` entered when `ModeEnforcer` returns `confirm`               |
 | No bypasses            | No layer may bypass the state machine to invoke another layer directly             |
 | History tracking       | All transitions recorded with `(from, to, timestamp, reason)` tuples               |
+| Determinism mode       | `execution_mode.deterministic`: strict ordering, no parallelism, fixed retry       |
+| Performance mode       | `execution_mode.performance`: relaxed ordering, bounded parallelism, adaptive retry|
+| Concurrency rules      | Parallelism ONLY in performance mode AND no shared_resource_conflict               |
 
-**Complete Transition Map:**
+**Complete Transition Map (v3.2 Hardened):**
 
 ```
 IDLE                 → DECIDING
-DECIDING             → EXECUTING_MODEL | EXECUTING_TOOL | ERROR
-EXECUTING_MODEL      → EVALUATING | EXECUTING_TOOL | ERROR
-EXECUTING_TOOL       → WAITING_CONFIRMATION | EVALUATING | ERROR
-WAITING_CONFIRMATION → EXECUTING_TOOL | ERROR | IDLE
-EVALUATING           → COMPLETED | DECIDING | ERROR
-ERROR                → IDLE
+DECIDING             → SCHEDULING | ERROR
+SCHEDULING           → EXECUTING | ERROR
+EXECUTING            → STREAMING | EVALUATING | ERROR
+STREAMING            → EVALUATING | ERROR          (optional — ONLY for heavy tasks)
+EVALUATING           → COMPLETED | DECIDING | ERROR  (DECIDING = StateMachine-controlled retry)
+ERROR                → RECOVERY
+RECOVERY             → DECIDING | IDLE              (based on recoverability)
 COMPLETED            → IDLE
+CANCELLED            → CLEANUP
+CLEANUP              → IDLE
+
+ANY STATE            → CANCELLED → CLEANUP → IDLE   (cancellation flow, dual-mode, confirmed)
+ANY FAILURE          → ERROR → RECOVERY → ...       (error flow)
+EXECUTING            → SLA EVENT → DECIDING         (SLAEnforcer emits, StateMachine decides)
 ```
 
 ---
@@ -523,20 +728,38 @@ COMPLETED            → IDLE
 | 2   | No spaces in directory names                  | `web_ui` not `web ui`; `web` not `web_automation`                |
 | 3   | Capability directory name                     | `web` not `web_automation`                                       |
 | 4   | Safety + Sandbox present                      | `src/core/safety/` and `src/core/sandbox/` exist                 |
-| 5   | Observability present                         | `src/core/observability/` with `event_bus.py` and `metrics.py`   |
-| 6   | All capabilities inherit BaseCapability       | Verified by ABC import test                                      |
-| 7   | All capabilities implement 4 required methods | Verified by ABC enforcement                                      |
-| 8   | No capability raises exceptions to caller     | Verified by Sandbox wrapping                                     |
-| 9   | All state transitions through StateManager    | No direct `self._state =` assignments outside `state_manager.py` |
-| 10  | Config precedence enforced                    | CLI > ENV > .env > YAML                                          |
-| 11  | Secrets only in `.env`                        | No API keys or tokens in YAML files                              |
-| 12  | All tests in `tests/`                         | No `test_*.py` files in `src/`                                   |
-| 13  | VERSION file exists                           | Root-level `VERSION` contains exactly `3.0.0`                    |
-| 14  | All three spec files share spec_version v3.0  | `grep spec_version docs/*.md` all return `v3.0`                  |
-| 15  | `data/audio/` directory exists                | Created by setup or TTS on first use                             |
-| 16  | `models.yaml` weights sum to 1.0              | Validated at `load_config()` time                                |
-| 17  | `__version__ == "3.0.0"`                      | `from src import __version__; assert __version__ == "3.0.0"`     |
-| 18  | AuditLogger creates `data/audit.db`           | File exists after first capability execution                     |
+| 5   | Observability present                         | `src/core/observability/` with `event_bus.py`, `metrics.py`, `tracing.py` |
+| 6   | All capabilities inherit BaseCapability       | Verified by ABC: all abstract methods implemented                |
+| 7   | No capability raises exceptions to caller     | Verified by Sandbox/ProcessPool wrapping                       |
+| 8   | All state transitions through StateManager    | No direct `self._state =` assignments outside `state_manager.py` |
+| 9   | Config precedence enforced                    | CLI > ENV > .env > YAML                                          |
+| 10  | Secrets only in `.env`                        | No API keys or tokens in YAML files                              |
+| 11  | All tests in `tests/`                         | No `test_*.py` files in `src/`                                   |
+| 12  | VERSION file exists                           | Root-level `VERSION` contains exactly `3.2.0`                    |
+| 13  | All three spec files share spec_version v3.2  | `select-string spec_version docs/*.md` all return `v3.2`          |
+| 14  | `data/audio/` directory exists                | Created by setup or TTS on first use                             |
+| 15  | `models.yaml` weights sum to 1.0              | Validated at `load_config()` time                                |
+| 16  | `__version__ == "3.2.0"`                      | `from src import __version__; assert __version__ == "3.2.0"`     |
+| 17  | AuditLogger creates `data/audit.db`           | File exists after first capability execution                     |
+| 18  | ExecutionEngine is executor ONLY              | No decision/routing/retry logic in `execution_engine/`           |
+| 19  | CapabilityRuntime is internal                 | Not importable by interfaces/decision/services                   |
+| 20  | SLAEnforcer is passive                        | Emits events ONLY; no direct cancel/retry/fallback logic         |
+| 21  | Scheduler is placement ONLY                   | No priority decision, retry logic, routing, or fallback selection |
+| 22  | Priority computed in DECIDING                 | Not in scheduler                                                 |
+| 23  | Sandbox hardened (system-level)               | Process isolation, privilege drop, filesystem sandbox, network policy |
+| 24  | Capability scopes defined + runtime validated | RuntimeValidator validates scope BEFORE every execution          |
+| 25  | Concurrency safeguards                        | Deadlock prevention, starvation prevention, priority inversion   |
+| 26  | Retry controlled by StateMachine ONLY         | No independent retry loops in any layer                          |
+| 27  | Streaming ONLY for heavy tasks                | No streaming for fast/medium capabilities                        |
+| 28  | Batching ONLY where needed                    | Multi-item operations only, no single-item batching              |
+| 29  | No adaptive optimizer                         | Rule-based optimization only, no auto-switching strategies       |
+| 30  | Cancellation dual-mode                        | Soft(SIGTERM, 2s grace) → Hard(SIGKILL) → termination confirmed  |
+| 31  | Error flow complete                           | ANY FAILURE → ERROR → RECOVERY → DECIDING \| IDLE               |
+| 32  | Determinism mode configurable                 | `execution_mode.deterministic` and `execution_mode.performance`  |
+| 33  | Mode enforcement                              | StateMachine enforces mode on every transition                   |
+| 34  | Parallelism mode-bound                        | Blocked in deterministic mode; bounded in performance mode       |
+| 35  | No orphan processes after cancellation        | Process tree kill + termination confirmation verified            |
+| 36  | SLA isolation                                 | SLAEnforcer cannot cancel tasks or trigger retries independently |
 
 ---
 
@@ -552,35 +775,46 @@ COMPLETED            → IDLE
 
 ### Alignment Rules
 
-- All three files share `spec_version: v3.0` and `project_version: 3.0.0`.
+- All three files share `spec_version: v3.2` and `project_version: 3.2.0`.
 - `STRUCTURE.md` directory tree must match `TASKS.md` canonical structure exactly.
 - Breaking changes require a major version bump in all three files simultaneously.
 - Structural changes update `STRUCTURE.md` first, then `TASKS.md`, then `README.md`.
 - No drift between files is tolerated. Drift is a spec violation.
 
-### Phase Completion Status (as of 2026-05-03)
+### Phase Completion Status (as of 2026-05-03 — v3.2 Hardening)
 
 | Phase | Title                       | Status     | Tasks Done | Notes                                                                      |
 | :---- | :-------------------------- | :--------- | :--------- | :------------------------------------------------------------------------- |
-| 0     | First Working System        | ✅ DONE    | 5/5        | Vertical slice. Phase 9 must migrate `open_app()` calls.                   |
-| 1     | Foundation + Observability  | ✅ DONE    | 13/13      | All infrastructure, config, logging, EventBus, exceptions operational.     |
-| 2     | Execution Contract          | 🔴 NEXT    | 0/10       | **Current blocker.** Formalizes all Pydantic contracts.                    |
-| 3     | Model Manager + VRAM        | ✅ DONE    | 5/5        | Completed ahead of Phase 2 via vertical slice work. Uses stub contracts.   |
-| 4     | Runtime State Machine       | ✅ DONE    | 8/8        | Completed ahead of Phase 2. State machine operational with stub contracts. |
-| 5     | Decision System             | ⬜ PENDING | 0/7        | Blocker: Phase 2                                                           |
-| 6     | Sandbox + Safety            | ⬜ PENDING | 0/7        | Blocker: Phase 5                                                           |
-| 7     | Memory Engine               | ⬜ PENDING | 0/6        | Blocker: Phase 6                                                           |
-| 8     | Capability System           | ⬜ PENDING | 0/6        | Blocker: Phase 7                                                           |
-| 9     | System Control Capabilities | ⬜ PENDING | 0/8        | Blocker: Phase 8                                                           |
-| 10    | Prompt Builder              | ⬜ PENDING | 0/5        | Blocker: Phase 9                                                           |
-| 11    | Execution Hardening         | ⬜ PENDING | 0/6        | Blocker: Phase 10                                                          |
-| 12    | CLI Interface               | ⬜ PENDING | 0/3        | Blocker: Phase 11                                                          |
-| 13    | Web Automation & Browser    | ⬜ PENDING | 0/3        | Blocker: Phase 12                                                          |
-| 14    | Google APIs                 | ⬜ PENDING | 0/4        | Blocker: Phase 13                                                          |
-| 14.5  | Telegram Integration        | ⬜ PENDING | 0/3        | Blocker: Phase 14                                                          |
-| 15    | Web UI                      | ⬜ PENDING | 0/3        | Blocker: Phase 14.5                                                        |
-| 16    | Voice Pipeline              | ⬜ PENDING | 0/4        | Blocker: Phase 15                                                          |
-| 17    | Vision + Image              | ⬜ PENDING | 0/2        | Blocker: Phase 16                                                          |
-| 18    | QA + Production             | ⬜ PENDING | 0/6        | Blocker: Phase 17                                                          |
+| 0     | State Machine Boot          | NEXT       | 0/4        | Hardened: single decision authority, no self-deciding components           |
+| 1     | Foundation + Observability  | PENDING    | 0/15       | Extended: tracing (trace_id/span_id), replay system                         |
+| 2     | Execution Contract          | PENDING    | 0/10       | Added: SystemError unified error, global error flow                         |
+| 3     | Model Manager + VRAM        | PENDING    | 0/5        | Added: global model lock for concurrency                                   |
+| 4     | Runtime State Machine       | PENDING    | 0/8        | Corrected flow: IDLE→DECIDING→SCHEDULING→EXECUTING→EVALUATING→COMPLETED    |
+| 5     | Decision System             | PENDING    | 0/8        | Priority computed in DECIDING (not scheduler)                              |
+| 6     | Sandbox + Safety (Hardened) | PENDING    | 0/9        | **HARDENED:** process isolation, privilege drop, filesystem sandbox, network policy |
+| 7     | Memory Engine               | PENDING    | 0/9        | Added: concurrency model, async strategy, request queue hooks               |
+| 8     | Capability System           | PENDING    | 0/12       | **RESTRICTED:** CapabilityRuntime internal-only, scope enforcement          |
+| 9     | System Control Capabilities | PENDING    | 0/16       | Upgraded: intelligent modules with bounded scope                            |
+| X1    | Execution Engine            | PENDING    | 0/6        | **RESTRICTED:** executor ONLY, confirms termination, no decisions/retries   |
+| X2    | Sandbox System (Hardened)   | PENDING    | 0/5        | **HARDENED:** syscall restrictions, process tree kill, dual-mode cancellation |
+| X3    | Performance (SLA Passive)   | PENDING    | 0/4        | **PASSIVE:** SLAEnforcer emits events ONLY, StateMachine decides           |
+| 10    | Prompt Builder              | PENDING    | 0/5        | Blocker: Phase 9                                                            |
+| 11    | Execution Hardening         | PENDING    | 0/8        | Added: centralized retry (StateMachine-controlled), exponential backoff     |
+| 12    | CLI Interface               | PENDING    | 0/3        | Blocker: Phase 11                                                           |
+| 13    | Web Automation & Browser    | PENDING    | 0/3        | Blocker: Phase 12                                                           |
+| 14    | Google APIs                 | PENDING    | 0/4        | Blocker: Phase 13                                                           |
+| 14.5  | Telegram Integration        | PENDING    | 0/3        | Blocker: Phase 14                                                           |
+| 15    | Web UI                      | PENDING    | 0/3        | Blocker: Phase 14.5                                                         |
+| 16    | Voice Pipeline              | PENDING    | 0/4        | Blocker: Phase 15                                                           |
+| 17    | Vision + Image              | PENDING    | 0/2        | Blocker: Phase 16                                                           |
+| 18    | QA + Production             | PENDING    | 0/14       | **EXTENDED:** scheduling integrity, SLA isolation, cancellation, mode enforcement, scope violation tests |
+
+**Hardening changes (v3.2):**
+- Scheduler strictly defined: placement ONLY, priority in DECIDING
+- SLAEnforcer converted to passive: emits events ONLY, StateMachine decides
+- Dual-mode cancellation: soft(SIGTERM/2s grace) → hard(SIGKILL) → confirmed
+- Runtime validator added: validates capability.scope BEFORE execution
+- Concurrency explicitly mode-bound with safeguards
+- 5 new test suites: scheduling integrity, SLA isolation, cancellation, mode enforcement, capability scope violation
 
 > **NOTE on Phases 3 and 4:** These phases were completed ahead of Phase 2 as an extension of the Phase 0 vertical slice. They operate on stub contracts (basic dataclasses and minimal Pydantic models). Phase 2 formalizes these contracts into production-grade validated models. After Phase 2, any Phase 3/4 code that uses stub contracts MUST be updated to use the new formal contracts. This is a required migration step within Phase 2.
