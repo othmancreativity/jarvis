@@ -47,7 +47,7 @@ project:
   structure_version: "3.2"
   last_updated: "2026-05-03"
   current_phase: 2
-  overall_progress_percent: 23
+  overall_progress_percent: 0
   risk_level: "medium"
   hardware_profile:
     gpu: "RTX 3050 6GB VRAM"
@@ -69,6 +69,8 @@ project:
   phases_pending:
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, "14.5", 15, 16, 17, 18]
   notes:
+    - "23% was a planning estimate for spec completeness, not implementation progress."
+    - "Implementation progress starts at Phase 0."
     - "v3.2 hardening: strict enforcement + ambiguity removal. Control > power."
     - "Phase 9 must migrate app/jarvis_slice.py open_app() calls to CapabilityExecutor.execute()."
     - "data/audio/ directory added in v3 structure for TTS output files."
@@ -104,7 +106,7 @@ Phase 0 (State Machine Boot)
                                                                                                                           └─→ Phase 17 (Vision + Image)
                                                                                                                                 └─→ Phase 18 (QA + Production — EXTENDED TESTING)
 
-Critical Path: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → X1 → X2 → X3 → 10 → 11 → 18
+Critical Path: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → X1 → X2 → X3 → 10 → 11 → 12 → 13 → 14 → 14.5 → 15 → 16 → 17 → 18
 ```
 
 **Design Order Rationale:**
@@ -131,7 +133,7 @@ Critical Path: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → X1 �
 ```
 jarvis/
 │
-├── VERSION
+├── VERSION    ← Single-line version string: "3.2.0"
 ├── app/
 │   ├── __init__.py
 │   ├── main.py
@@ -154,8 +156,12 @@ jarvis/
 ├── data/
 │   ├── audio/
 │   ├── images/
-│   ├── memory.db
-│   ├── audit.db
+│   ├── memory.db       ← SQLite: turn history, memory snippets (WAL mode)
+│   ├── audit.db        ← SQLite: capability execution audit log (WAL mode)
+│   ├── metrics.db      ← SQLite: real-time system metrics, historical tracking (WAL)
+│   │   Schema: `system_metrics(id, session_id, timestamp, metric_type, value, threshold, alert_fired, trace_id)`
+│   │   Indexes: `idx_metrics_timestamp`, `idx_metrics_type`
+│   │   PRAGMA journal_mode=WAL
 │   ├── profiles/
 │   └── screenshots/
 │
@@ -199,13 +205,18 @@ jarvis/
 │   └── test_web_ui.py
 │
 └── src/
-    ├── __init__.py
+    ├── __init__.py                  ← ONLY __init__.py at this level. Sets __version__ = "3.2.0"
     ├── capabilities/
     │   ├── base.py
     │   ├── executor.py
     │   ├── registry.py
     │   ├── result.py
     │   ├── validator.py
+    │   ├── runtime/               ← CAPABILITY RUNTIME: INTERNAL ONLY
+    │   │   ├── capability_runtime.py ← CapabilityRuntime: execute_async, batch, stream, cancel
+    │   │   ├── progress.py        ← ProgressTracker: percentage, ETA, status updates
+    │   │   ├── stream.py          ← StreamBuffer: chunked output for long-running tasks
+    │   │   └── cancellation.py    ← CancellationToken: cooperative async cancellation
     │   ├── api/
     │   ├── coder/
     │   │   └── executor.py
@@ -247,10 +258,24 @@ jarvis/
     │   │   ├── output.py
     │   │   ├── risk.py
     │   │   └── scorer.py
+    │   ├── execution_engine/      ← EXECUTOR ONLY: no decisions, no retries, no routing
+    │   │   ├── scheduler.py       ← TaskScheduler: placement + queue insertion ONLY
+    │   │   ├── async_executor.py  ← AsyncExecutor: non-blocking capability execution
+    │   │   ├── batch_processor.py ← BatchProcessor: multi-item execution
+    │   │   ├── cancellation.py    ← ProcessCancellationController: SIGTERM→SIGKILL dual-mode
+    │   │   └── concurrency.py     ← ConcurrencyController: mode-bound parallelism
     │   ├── observability/
-    │   │   ├── event_bus.py
-    │   │   └── metrics.py
+    │   │   ├── event_bus.py         ← EventBus singleton: pub/sub, EventEnvelope, EVT_* constants
+    │   │   ├── metrics.py           ← MetricsCollector singleton: latency percentiles, errors
+    │   │   ├── tracing.py           ← TracingSystem: trace_id + span_id propagation
+    │   │   └── alerting.py          ← AlertManager: passive alert rules, EVT_THRESHOLD_ALERT
+    │   ├── performance/           ← PASSIVE MONITORING: SLA events, rule-based profiling
+    │   │   ├── profiler.py        ← ExecutionProfiler: per-capability metrics
+    │   │   ├── sla_enforcer.py    ← SLAEnforcer: PASSIVE — emits SLAEvent ONLY
+    │   │   ├── benchmark.py       ← BenchmarkRunner: performance regression testing
+    │   │   └── cache.py           ← SmartCache: TTL + LRU eviction
     │   ├── runtime/
+    │   │   ├── capability_validator.py ← RuntimeValidator: validates scope BEFORE execution
     │   │   ├── degradation.py
     │   │   ├── escalation.py
     │   │   ├── evaluation_result.py
@@ -271,8 +296,11 @@ jarvis/
     │   │   ├── classifier.py
     │   │   ├── mode_enforcer.py
     │   │   └── permission.py
-    │   └── sandbox/
-    │       └── sandbox.py
+    │   └── sandbox/               ← HARDENED ISOLATION: process isolation, privilege drop
+    │       ├── sandbox.py         ← Sandbox: ThreadPoolExecutor isolation + timeout
+    │       ├── resource_monitor.py← ResourceMonitor: CPU/RAM tracking per execution
+    │       ├── process_pool.py    ← ProcessPool: isolated subprocess + tree kill
+    │       └── filesystem.py      ← FilesystemRestrictor: allowlist paths
     ├── interfaces/
     │   ├── cli/
     │   │   ├── chat.py
@@ -337,8 +365,8 @@ P3 = Low — enhancement, post-MVP
 
 | Phase | Title                       | Priority | Progress   | Ratio | Status  |
 | :---- | :-------------------------- | :------- | :--------- | :---- | :------ |
-| 0     | State Machine Boot          | P0       | ░░░░░░░░░░ | 0/4   | PENDING |
-| 1     | Foundation + Observability  | P0       | ░░░░░░░░░░ | 0/15  | PENDING |
+| 0     | State Machine Boot          | P0       | ░░░░░░░░░░ | 0/5   | NEXT    |
+| 1     | Foundation + Observability  | P0       | ░░░░░░░░░░ | 0/16  | PENDING |
 | 2     | Execution Contract          | P0       | ░░░░░░░░░░ | 0/10  | PENDING |
 | 3     | Model Manager + VRAM        | P0       | ░░░░░░░░░░ | 0/5   | PENDING |
 | 4     | Runtime State Machine       | P0       | ░░░░░░░░░░ | 0/8   | PENDING |
@@ -348,7 +376,7 @@ P3 = Low — enhancement, post-MVP
 | 8     | Capability System           | P1       | ░░░░░░░░░░ | 0/12  | PENDING |
 | 9     | System Control              | P1       | ░░░░░░░░░░ | 0/16  | PENDING |
 | 10    | Prompt Builder              | P1       | ░░░░░░░░░░ | 0/5   | PENDING |
-| 11    | Execution Hardening         | P0       | ░░░░░░░░░░ | 0/8   | PENDING |
+| 11    | Execution Hardening         | P0       | ░░░░░░░░░░ | 0/6   | PENDING |
 | 12    | CLI Interface               | P2       | ░░░░░░░░░░ | 0/3   | PENDING |
 | 13    | Web Automation & Browser    | P2       | ░░░░░░░░░░ | 0/3   | PENDING |
 | 14    | Google APIs                 | P2       | ░░░░░░░░░░ | 0/4   | PENDING |
@@ -379,7 +407,7 @@ P3 = Low — enhancement, post-MVP
 phase_id: 0
 priority: "P0"
 status: "not_started"
-total_tasks: 4
+total_tasks: 5
 validation_status: "pending"
 last_updated: "2026-05-03"
 ```
@@ -392,7 +420,6 @@ Phase 0 establish the runtime state machine as the **single decision authority**
 - No layer may invoke another layer directly
 - No capabilities execute outside the sandbox
 - All state transitions must pass through `StateManager`
-- ExecutionEngine must NOT decide, route, or retry independently
 - No component may self-decide (including SLA, scheduler, sandbox)
 
 **Tasks:**
@@ -401,8 +428,102 @@ Phase 0 establish the runtime state machine as the **single decision authority**
 2. Implement `StateManager.transition_to()` with thread lock and transition history
 3. Implement minimal `run_turn()` loop enforcing state machine flow
 4. Validate all layer interactions route through state machine (no direct assignments)
+5. Implement `FORBIDDEN_LOOPS` + `MAX_TRANSITIONS_PER_TURN` guard rails (TASK 0.5)
 
-**Artifacts:** `src/core/runtime/state.py`, `src/core/runtime/state_manager.py`, `src/core/runtime/loop.py` (minimal boot version)
+**Artifacts:** `src/core/runtime/state.py` (RuntimeState, ALLOWED_TRANSITIONS, FORBIDDEN_LOOPS, MAX_TRANSITIONS_PER_TURN), `src/core/runtime/state_manager.py` (transition_to, reset_turn_counter, force_state, transition history, cycle guard), `src/core/runtime/loop.py` (minimal boot version with turn counter reset)
+
+---
+
+### TASK 0.5 — Transition Guard Rails + Cycle Detection
+
+**Location:** `src/core/runtime/state.py`, `src/core/runtime/state_manager.py`
+**Depends on:** TASK 0.2 (`StateManager.transition_to()`)
+**Purpose:** With 11 states and cascading error/cancellation paths, unbounded re-entry creates infinite loops. Hard limits per cycle and explicit forbidden loop table prevent state explosion at the enforcement layer — not just in documentation.
+
+#### Subtask 0.5.1 — Add `FORBIDDEN_LOOPS` to `state.py`
+
+```python
+# src/core/runtime/state.py — extend existing module
+
+# Transitions that form illegal cycles (e.g. ERROR → ERROR means
+# the system is stuck and must force-transition to RECOVERY or IDLE)
+FORBIDDEN_LOOPS: frozenset[tuple[RuntimeState, RuntimeState]] = frozenset({
+    (RuntimeState.ERROR,    RuntimeState.ERROR),
+    (RuntimeState.RECOVERY, RuntimeState.RECOVERY),
+    (RuntimeState.CLEANUP,  RuntimeState.CLEANUP),
+    (RuntimeState.DECIDING, RuntimeState.DECIDING),   # re-entry without SCHEDULING
+})
+
+# Hard ceiling: how many transitions are allowed within one run_turn() call
+MAX_TRANSITIONS_PER_TURN: int = 20
+```
+
+**Rule:** `FORBIDDEN_LOOPS` is checked inside `StateManager.transition_to()` BEFORE the transition executes. Violation → `InvalidTransitionError` + force to `RECOVERY`.
+
+#### Subtask 0.5.2 — Enforce in `StateManager.transition_to()`
+
+```python
+# src/core/runtime/state_manager.py — extend existing transition_to()
+
+def transition_to(self, new_state: RuntimeState, reason: str = "") -> None:
+    with self._lock:
+        # --- NEW: cycle guard ---
+        pair = (self._state, new_state)
+        if pair in FORBIDDEN_LOOPS:
+            self._log_warning(f"Forbidden loop detected: {pair}")
+            self._force_to_recovery()
+            raise InvalidTransitionError(f"Forbidden loop: {pair}")
+
+        # --- NEW: turn transition ceiling ---
+        self._turn_transitions += 1
+        if self._turn_transitions > MAX_TRANSITIONS_PER_TURN:
+            self._log_error("MAX_TRANSITIONS_PER_TURN exceeded — forcing IDLE")
+            self._force_state(RuntimeState.IDLE, reason="transition_limit_exceeded")
+            return
+
+        # ... existing transition logic ...
+
+def reset_turn_counter(self) -> None:
+    """Call at the START of every run_turn() invocation."""
+    self._turn_transitions = 0
+```
+
+#### Subtask 0.5.3 — Test coverage (3 tests)
+
+Add to `tests/test_state_machine.py`:
+
+```python
+def test_forbidden_loop_error_to_error_raises():
+    sm = StateManager()
+    sm.force_state(RuntimeState.ERROR)
+    with pytest.raises(InvalidTransitionError):
+        sm.transition_to(RuntimeState.ERROR)
+
+def test_forbidden_loop_recovery_to_recovery_raises():
+    sm = StateManager()
+    sm.force_state(RuntimeState.RECOVERY)
+    with pytest.raises(InvalidTransitionError):
+        sm.transition_to(RuntimeState.RECOVERY)
+
+def test_max_transitions_per_turn_triggers_idle():
+    sm = StateManager()
+    sm.reset_turn_counter()
+    # Exhaust budget with valid transitions
+    for _ in range(MAX_TRANSITIONS_PER_TURN + 1):
+        try:
+            sm.transition_to(RuntimeState.DECIDING)
+            sm.force_state(RuntimeState.IDLE)
+        except Exception:
+            break
+    assert sm.current_state == RuntimeState.IDLE
+```
+
+**Artifacts:** Updated `src/core/runtime/state.py`, `src/core/runtime/state_manager.py`, `tests/test_state_machine.py`
+
+**Definition of Done:**
+- [ ] `FORBIDDEN_LOOPS` frozenset defined in `state.py`
+- [ ] `MAX_TRANSITIONS_PER_TURN = 20` enforced in `StateManager`
+- [ ] All 3 new tests pass alongside existing state machine tests
 
 ---
 
@@ -412,12 +533,12 @@ Phase 0 establish the runtime state machine as the **single decision authority**
 phase_id: 1
 priority: "P0"
 status: "not_started"
-total_tasks: 15
+total_tasks: 16
 validation_status: "Phase 0 complete"
 last_updated: "2026-05-03"
 ```
 
-All 15 tasks complete. The project is an installable Python package with validated configuration, structured logging, full observability infrastructure (EventBus, MetricsCollector, structured tracing with trace_id/span_id, execution replay system), custom exception hierarchy, model profiles, capabilities manifest, user profiles, and shared test fixtures.
+All 16 tasks complete. The project is an installable Python package with validated configuration, structured logging, full observability infrastructure (EventBus, MetricsCollector, structured tracing with trace_id/span_id, execution replay system, EventEnvelope delivery contract), custom exception hierarchy, model profiles, capabilities manifest, user profiles, and shared test fixtures.
 
 **Key additions over previous version:**
 
@@ -425,7 +546,7 @@ All 15 tasks complete. The project is an installable Python package with validat
 - Replay system: `EventBus` persists events to `data/audit.db` for full execution replay
 - Trace context propagation through all layer boundaries
 
-**Artifacts:** `pyproject.toml`, `requirements.txt`, all `__init__.py` files, `config/runtime/settings.yaml`, `config/runtime/settings.example.yaml`, `src/core/config.py`, `src/core/logging_setup.py`, `src/models/profiles.py`, `config/runtime/models.yaml`, `config/env/.env`, `config/env/.env.example`, `src/memory/user_profile.py`, `config/runtime/capabilities.yaml`, `src/core/observability/metrics.py`, `src/core/observability/tracing.py`, `app/main.py`, `src/core/observability/event_bus.py` (with replay), `src/core/exceptions.py` (with SystemError), `tests/conftest.py`
+**Artifacts:** `pyproject.toml`, `requirements.txt`, all `__init__.py` files, `config/runtime/settings.yaml`, `config/runtime/settings.example.yaml`, `src/core/config.py`, `src/core/logging_setup.py`, `src/models/profiles.py`, `config/runtime/models.yaml`, `config/env/.env`, `config/env/.env.example`, `src/memory/user_profile.py`, `config/runtime/capabilities.yaml`, `src/core/observability/metrics.py`, `src/core/observability/tracing.py`, `src/core/observability/alerting.py`, `app/main.py`, `src/core/observability/event_bus.py` (with replay, EventEnvelope, delivery contract, EVT_* constants), `src/core/exceptions.py` (with SystemError), `tests/conftest.py`
 
 ---
 
@@ -485,6 +606,171 @@ Events stored in `audit.db` `events` table: `(trace_id, span_id, event_type, tim
 Returns ordered list of all events for a trace, enabling full execution replay.
 
 **Artifact:** Updated `src/core/observability/event_bus.py`
+
+---
+
+### TASK 1.16 — EventBus Operational Contract
+
+**Location:** `src/core/observability/event_bus.py`
+**Depends on:** TASK 1.15 (replay system)
+**Purpose:** EventBus is the backbone for SLAEvents, CapabilityViolationEvents, cancellation signals, and state transitions. Without a contract defining delivery semantics, ordering guarantees, and mandatory event envelope, events silently drop or arrive out of order — making debugging impossible and SLA enforcement unreliable.
+
+#### Subtask 1.16.1 — Define `EventEnvelope` (mandatory wrapper for ALL events)
+
+```python
+# src/core/observability/event_bus.py — add to existing module
+
+import uuid as _uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+@dataclass
+class EventEnvelope:
+    """Every event published on EventBus MUST be wrapped in this envelope."""
+    event_id:   str = field(default_factory=lambda: str(_uuid.uuid4())[:12])
+    event_type: str = ""
+    source:     str = ""          # e.g. "state_manager", "sla_enforcer"
+    trace_id:   str = ""          # propagated from InputPacket
+    timestamp:  str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    payload:    dict = field(default_factory=dict)
+    sequence:   int = 0           # monotonic counter per-trace_id
+```
+
+**Rule:** `EventBus.publish()` MUST accept either a raw dict (legacy, wrapped internally) or an `EventEnvelope`. Subscribers always receive an `EventEnvelope`.
+
+#### Subtask 1.16.2 — Enforce delivery + ordering guarantees
+
+```python
+class EventBus:
+    """
+    Delivery contract:
+    - at-least-once:  failed subscriber callbacks are retried once
+    - per-trace ordering: events with the same trace_id are delivered
+      in sequence order (sequence field monotonically increasing)
+    - isolation:      subscriber exception CANNOT affect other subscribers
+    - persistence:    all events written to audit.db (existing TASK 1.15)
+    """
+
+    _RETRY_ON_FAILURE: bool = True   # retry subscriber once on exception
+    _MAX_QUEUE_SIZE: int = 10_000    # drop oldest if exceeded (emit EVT_BUS_OVERFLOW)
+
+    def publish(self, event_type: str, payload: dict,
+                source: str = "", trace_id: str = "") -> EventEnvelope:
+        env = EventEnvelope(
+            event_type=event_type,
+            source=source,
+            trace_id=trace_id,
+            payload=payload,
+            sequence=self._next_sequence(trace_id),
+        )
+        # 1. persist to audit.db (existing)
+        self._persist(env)
+        # 2. deliver to subscribers with isolation
+        for handler in self._subscribers.get(event_type, []):
+            self._deliver(handler, env)
+        return env
+
+    def _deliver(self, handler, env: EventEnvelope) -> None:
+        try:
+            handler(env)
+        except Exception as exc:
+            self._log_error(f"Subscriber {handler} failed: {exc}")
+            if self._RETRY_ON_FAILURE:
+                try:
+                    handler(env)          # one retry
+                except Exception:
+                    pass                  # swallow — isolation preserved
+
+    def _next_sequence(self, trace_id: str) -> int:
+        self._seq_counters[trace_id] = self._seq_counters.get(trace_id, 0) + 1
+        return self._seq_counters[trace_id]
+```
+
+#### Subtask 1.16.3 — Define mandatory system-wide event types
+
+```python
+# src/core/observability/event_bus.py — canonical event type constants
+
+# State machine
+EVT_STATE_TRANSITION       = "EVT_STATE_TRANSITION"
+EVT_INVALID_TRANSITION     = "EVT_INVALID_TRANSITION"
+EVT_FORBIDDEN_LOOP         = "EVT_FORBIDDEN_LOOP"
+EVT_TRANSITION_LIMIT       = "EVT_TRANSITION_LIMIT"
+
+# Execution
+EVT_TOOL_EXECUTED          = "EVT_TOOL_EXECUTED"
+EVT_TOOL_FAILED            = "EVT_TOOL_FAILED"
+EVT_TURN_COMPLETE          = "EVT_TURN_COMPLETE"
+EVT_WAITING_CONFIRMATION   = "EVT_WAITING_CONFIRMATION"
+
+# Safety / sandbox
+EVT_SAFETY_BLOCK           = "EVT_SAFETY_BLOCK"
+EVT_CAPABILITY_VIOLATION   = "EVT_CAPABILITY_VIOLATION"
+
+# Performance / SLA
+EVT_SLA_BREACH             = "EVT_SLA_BREACH"
+EVT_DEGRADATION            = "EVT_DEGRADATION"
+EVT_PROGRESS               = "EVT_PROGRESS"
+EVT_TASK_COMPLETE          = "EVT_TASK_COMPLETE"
+
+# Observability
+EVT_TRACE_START            = "EVT_TRACE_START"
+EVT_TRACE_END              = "EVT_TRACE_END"
+EVT_BUS_OVERFLOW           = "EVT_BUS_OVERFLOW"
+EVT_SYSTEM_UPDATE          = "EVT_SYSTEM_UPDATE"
+EVT_THRESHOLD_ALERT        = "EVT_THRESHOLD_ALERT"
+```
+
+**Rule:** No string literals for event types anywhere in `src/`. Import constants from `event_bus.py`.
+
+#### Subtask 1.16.4 — Test coverage (4 tests)
+
+Add to `tests/test_observability.py`:
+
+```python
+def test_event_envelope_has_required_fields():
+    from src.core.observability.event_bus import EventBus, EVT_TOOL_EXECUTED
+    bus = EventBus()
+    received = []
+    bus.subscribe(EVT_TOOL_EXECUTED, received.append)
+    env = bus.publish(EVT_TOOL_EXECUTED, {"tool": "open_app"}, source="test", trace_id="t1")
+    assert env.event_id and env.timestamp and env.sequence == 1
+
+def test_subscriber_exception_does_not_affect_others():
+    from src.core.observability.event_bus import EventBus, EVT_TOOL_EXECUTED
+    bus = EventBus()
+    good_results = []
+    bus.subscribe(EVT_TOOL_EXECUTED, lambda e: (_ for _ in ()).throw(RuntimeError("boom")))
+    bus.subscribe(EVT_TOOL_EXECUTED, good_results.append)
+    bus.publish(EVT_TOOL_EXECUTED, {})
+    assert len(good_results) == 1   # second subscriber still received
+
+def test_per_trace_sequence_monotonic():
+    from src.core.observability.event_bus import EventBus, EVT_TRACE_START
+    bus = EventBus()
+    seqs = []
+    bus.subscribe(EVT_TRACE_START, lambda e: seqs.append(e.sequence))
+    for _ in range(5):
+        bus.publish(EVT_TRACE_START, {}, trace_id="trace_abc")
+    assert seqs == [1, 2, 3, 4, 5]
+
+def test_all_event_type_constants_are_strings():
+    import src.core.observability.event_bus as eb
+    constants = [v for k, v in vars(eb).items() if k.startswith("EVT_")]
+    assert all(isinstance(c, str) for c in constants)
+    assert len(constants) >= 18   # enforce completeness
+```
+
+**Artifacts:** Updated `src/core/observability/event_bus.py`, `tests/test_observability.py`
+
+**Definition of Done:**
+- [ ] `EventEnvelope` dataclass with `event_id`, `source`, `trace_id`, `sequence`, `timestamp`
+- [ ] `publish()` always wraps in `EventEnvelope`, persists, isolates subscribers
+- [ ] At-least-once retry on subscriber failure
+- [ ] All 22 `EVT_*` constants defined; no string literals in `src/`
+- [ ] All 4 new tests pass
 
 ---
 
@@ -578,11 +864,11 @@ from src.memory.user_profile import UserProfile
 class InputPacket(BaseModel):
     user_message: str
     session_id: str
-    attachments: list[dict] = []
-    memory_snippets: list[dict] = []
-    recent_history: list[dict] = []
+    attachments: list[dict] = Field(default_factory=list)
+    memory_snippets: list[dict] = Field(default_factory=list)
+    recent_history: list[dict] = Field(default_factory=list)
     user_profile: UserProfile
-    tool_results: list[dict] = []
+    tool_results: list[dict] = Field(default_factory=list)
     turn_number: int = 0
     trace_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
@@ -676,12 +962,12 @@ class DecisionOutput(BaseModel):
     requires_tools: bool
     requires_planning: bool = False
     tool_name: str | None = None
-    tool_args: dict = {}
+    tool_args: dict = Field(default_factory=dict)
     confidence: float = Field(ge=0.0, le=1.0)
     risk_level: RiskLevel
     decision_source: DecisionSource
-    score_breakdown: dict = {}
-    candidate_list: list[dict] = []
+    score_breakdown: dict = Field(default_factory=dict)
+    candidate_list: list[dict] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def validate_consistency(self) -> 'DecisionOutput':
@@ -739,7 +1025,7 @@ class LLMOutput(BaseModel):
     type: LLMOutputType
     content: str | None = None
     tool: str | None = None
-    args: dict = {}
+    args: dict = Field(default_factory=dict)
     raw: str = ""
 
     @model_validator(mode='after')
@@ -784,7 +1070,7 @@ from pydantic import BaseModel
 class ToolResult(BaseModel):
     tool: str
     success: bool
-    data: dict = {}
+    data: dict = Field(default_factory=dict)
     error: str = ""
     duration_ms: float = 0.0
     dry_run: bool = False
@@ -842,7 +1128,7 @@ class FinalResponse(BaseModel):
     decision_source: DecisionSource
     degraded: bool = False
     turn_id: int
-    tool_results: list[ToolResult] = []
+    tool_results: list[ToolResult] = Field(default_factory=list)
     duration_ms: float = 0.0
     trace_id: str = ""
 
@@ -940,7 +1226,7 @@ from pydantic import BaseModel, Field
 class EvaluationResult(BaseModel):
     should_retry: bool
     quality_score: float = Field(ge=0.0, le=1.0)
-    issues: list[str] = []
+    issues: list[str] = Field(default_factory=list)
     retry_reason: str = ""
 ```
 
@@ -1193,7 +1479,7 @@ phase_id: 3
 priority: "P0"
 status: "not_started"
 total_tasks: 5
-validation_status: "Phase 22 complete"
+validation_status: "Phase 2 complete"
 completion_note: >
   Completed ahead of Phase 2 via vertical slice extension.
   TASK 2.8 migrates this code to formal Phase 2 contracts.
@@ -1217,7 +1503,7 @@ phase_id: 4
 priority: "P0"
 status: "not_started"
 total_tasks: 8
-validation_status: "Phase 3 complete"
+validation_status: "Phase 3 "
 completion_note: >
   Completed ahead of Phase 2 via vertical slice extension.
   TASK 2.8 migrates loop.py and executor.py to formal Phase 2 contracts.
@@ -1259,32 +1545,13 @@ CLEANUP              → IDLE
 
 ANY STATE            → CANCELLED → CLEANUP → IDLE   (dual-mode cancellation, termination confirmed)
 ANY FAILURE          → ERROR → RECOVERY → ...       (error flow)
-EXECUTING            → SLA EVENT → DECIDING         (SLAEnforcer emits event, StateMachine decides)
-```
 
-**Artifacts:** `src/core/runtime/state.py`, `src/core/runtime/state_manager.py`, `src/core/runtime/limits.py`, `src/core/context/assembler.py`, `src/core/runtime/executor.py`, `src/core/runtime/evaluator.py`, `src/core/runtime/loop.py`, `tests/test_state_machine.py`
-
-**Key implementations:**
-
-- `RuntimeState` enum: IDLE, DECIDING, EXECUTING_MODEL, EXECUTING_TOOL, WAITING_CONFIRMATION, EVALUATING, ERROR, COMPLETED
-- `ALLOWED_TRANSITIONS` frozenset map — all transitions defined and enforced
-- `StateManager.transition_to()` with lock, history recording, EventBus publication
-- `Limits` class loaded from `config.execution` with `check_limit(name, current) → bool` (current < max → True)
-- `ContextAssembler.assemble()` returning `InputPacket` — cold start returns empty history, no error
-- `Evaluator`: completeness (0.4) + relevance (0.4) + coherence (0.2) heuristic scoring
-- `run_turn()`: full state machine loop with `_stub_decide()` (replaced in Phase 5) and `_stub_execute_tool()`
-
-**Transition map:**
-
-```
-IDLE → DECIDING
-DECIDING → EXECUTING_MODEL | EXECUTING_TOOL | ERROR
-EXECUTING_MODEL → EVALUATING | EXECUTING_TOOL | ERROR
-EXECUTING_TOOL → WAITING_CONFIRMATION | EVALUATING | ERROR
-WAITING_CONFIRMATION → EXECUTING_TOOL | ERROR | IDLE
-EVALUATING → COMPLETED | DECIDING | ERROR
-ERROR → IDLE
-COMPLETED → IDLE
+SLA EVENT HANDLING (not a state — in-band event during EXECUTING):
+  SLAEnforcer emits SLAEvent → StateMachine decides:
+  ├─ cancel  → EXECUTING → ERROR → RECOVERY → IDLE
+  ├─ fallback→ EXECUTING → ERROR → RECOVERY → DECIDING (downgraded model)
+  ├─ retry   → EXECUTING → EVALUATING → DECIDING (if retry budget > 0)
+  └─ ignore  → EXECUTING continues (log event, no state change)
 ```
 
 ---
@@ -1392,6 +1659,8 @@ All rules use `re.compile()` at class instantiation. Lambda factories call `_mak
 | `^(what\s+is\|what'?s\|who\s+is\|define\|explain\|tell\s+me\s+about)\s+.+` | EN       | —             | `_make_chat()`   |
 | `^(ما\s+هو\|ما\s+هي\|من\s+هو\|اشرح\|عرّف)\s+.+`                            | AR       | —             | `_make_chat()`   |
 
+> **Note:** The `\|` characters in the table above are markdown table escaping (`|` is a column separator). In actual Python source code, regex alternation uses unescaped `|`: `r"^(افتح|شغّل|شغل|ابدأ)\s+(.+)"`.
+
 #### Subtask 5.2.2 — Implement `check()` method
 
 Iterates rules list, returns `DecisionOutput` on first match. Returns `None` if no rule matches.
@@ -1454,7 +1723,7 @@ MAX_VRAM_MB      = 6144
 TOOL_RISK = {
     "open_app":"medium","system_info":"low","clipboard":"low","notify":"low",
     "screenshot":"low","file_ops":"medium","code_exec":"high","web_search":"low",
-    "browser":"medium","stt":"low","tts":"low","vision_analyze":"low","image_gen":"low",
+    "browser":"medium","stt":"low","tts":"low","vision_analyze":"medium","image_gen":"low",
 }
 FILE_ACTION_RISK = {
     "delete":"high","write":"medium","move":"medium","copy":"medium","read":"low","list":"low",
@@ -1464,6 +1733,8 @@ FILE_ACTION_RISK = {
 #### Subtask 5.4.2 — Implement `assess()` with escalation logic
 
 No tool → `RiskLevel.low`. Collect base risk + file action override + path traversal check + blocked path check. Return highest level using `RISK_RANK = {"low":0, "medium":1, "high":2}`.
+
+For `vision_analyze` specifically: check `image_path` argument for path traversal (`..` → escalate to `high`). Resolve the path and compare against `blocked_paths` using `os.path.commonpath` — match → escalate to `high`.
 
 **Artifact:** `src/core/decision/risk.py`
 
@@ -1511,7 +1782,7 @@ Remove `_stub_decide()` from `src/core/runtime/loop.py`. Import and call `decide
 
 ---
 
-### TASK 5.7 — Decision System Tests (14 tests)
+### TASK 5.7 — Decision System Tests (15 tests)
 
 **Location:** `tests/test_decision.py`
 
@@ -2076,14 +2347,9 @@ pytest tests/test_memory.py -v
 - `process_next()` called by main loop when IDLE
 - Phase 7 defines interface; full implementation in Phase 11
 
-**Artifact:** Updated `src/core/runtime/loop.py` 9. `ContextRetriever.get_context` returns sorted results 10. `ContextRetriever` cold start returns empty list
+**Artifact:** Updated `src/core/runtime/loop.py`
 
-```bash
-pytest tests/test_memory.py -v
-# Expected: 10 passed
-```
-
-**Artifact:** `tests/test_memory.py`
+---
 
 ### Definition of Done — Phase 7
 
@@ -2091,7 +2357,7 @@ pytest tests/test_memory.py -v
 - [ ] `MemoryScorer` values always in [0.0, 1.0]
 - [ ] `TTLManager.cleanup()` removes expired entries and returns count
 - [ ] `ContextRetriever` returns empty list on cold start
-- [ ] `pytest tests/test_memory.py -v` → 10 passed
+- [ ] `pytest tests/test_memory.py -v` → 12 passed
 
 ---
 
@@ -2182,10 +2448,34 @@ class BaseCapability(ABC):
         """Default: sequential execution. Override for parallel."""
         return [await self.execute_async(item, cancel_token) for item in items]
 
-    # Sync wrapper (default)
+    # Sync wrapper (default) — MUST be called from synchronous contexts only
     def execute(self, args: dict) -> ToolResult:
+        """
+        Sync wrapper for execute_async().
+        MUST be called from synchronous contexts only.
+        From async contexts, call execute_async() directly.
+        """
         import asyncio
-        return asyncio.run(self.execute_async(args))
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                raise RuntimeError(
+                    f"{self.name}.execute() called from async context. "
+                    "Use execute_async() instead."
+                )
+            return loop.run_until_complete(self.execute_async(args))
+        except RuntimeError:
+            raise
+        except Exception as e:
+            return ToolResult.failure(self.name, str(e))
+
+    """
+    DESIGN CONTRACT:
+    - Sync contexts (CLI, tests): call execute(args)
+    - Async contexts (FastAPI, Telegram, CapabilityRuntime): call execute_async(args)
+    - Sandbox.execute() is sync — it wraps execute() via ThreadPoolExecutor
+    - CapabilityRuntime.execute_async() calls Sandbox via asyncio.to_thread()
+    """
 ```
 
 **Artifact:** `src/capabilities/base.py`
@@ -2316,73 +2606,26 @@ class CancellationToken:
 
 ---
 
-### TASK 8.5 — Execution Engine (Core Layer)
+### TASK 8.5 — Reference: TaskScheduler (Implemented in Phase X1)
 
 **Location:** `src/core/execution_engine/scheduler.py`
-**Purpose:** Task scheduling, priority queue, dependency resolution, parallel execution.
-
-#### Subtask 8.5.1 — Implement `TaskScheduler`
-
-```python
-import heapq
-from dataclasses import dataclass, field
-
-@dataclass(order=True)
-class Task:
-    priority: int
-    name: str = field(compare=False)
-    args: dict = field(compare=False)
-    task_id: str = field(compare=False, default_factory=lambda: str(uuid4()))
-    dependencies: list[str] = field(default_factory=list)
-
-class TaskScheduler:
-    def __init__(self, runtime: CapabilityRuntime, concurrency: int = 4):
-        self._runtime = runtime
-        self._queue: list[Task] = []
-        self._running: dict[str, asyncio.Task] = {}
-        self._semaphore = asyncio.Semaphore(concurrency)
-        self._completed: dict[str, ToolResult] = {}
-
-    async def schedule(self, task: Task) -> str:
-        heapq.heappush(self._queue, task)
-        await self._process_queue()
-        return task.task_id
-
-    async def _process_queue(self):
-        while self._queue and len(self._running) < self._semaphore._value:
-            task = heapq.heappop(self._queue)
-            if all(dep in self._completed for dep in task.dependencies):
-                asyncio.create_task(self._execute_task(task))
-            else:
-                heapq.heappush(self._queue, task)  # Re-queue if deps not met
-
-    async def _execute_task(self, task: Task):
-        async with self._semaphore:
-            self._running[task.task_id] = True
-            result = await self._runtime.execute_async(task.name, task.args)
-            self._completed[task.task_id] = result
-            del self._running[task.task_id]
-```
-
-**Artifact:** `src/core/execution_engine/scheduler.py`
+**Status:** Deferred to Phase X1. Phase 8 uses CapabilityRuntime directly.
+CapabilityRuntime.execute_async() calls CapabilityExecutor without scheduling.
+Full task scheduling with priority queue and dependency resolution: Phase X1.
 
 ---
 
-### TASK 8.6 — Async Executor (Core Layer)
+### TASK 8.6 — Reference: Async Executor (Implemented in Phase X1)
 
 **Location:** `src/core/execution_engine/async_executor.py`
-**Purpose:** Non-blocking capability execution with Future pattern.
-
-**Artifact:** `src/core/execution_engine/async_executor.py`
+**Status:** Deferred to Phase X1. Stub: pass.
 
 ---
 
-### TASK 8.7 — Concurrency Controller
+### TASK 8.7 — Reference: Concurrency Controller (Implemented in Phase X1)
 
 **Location:** `src/core/execution_engine/concurrency.py`
-**Purpose:** Semaphore-based parallelism limits. Prevents system overload.
-
-**Artifact:** `src/core/execution_engine/concurrency.py`
+**Status:** Deferred to Phase X1. Stub: pass.
 
 ---
 
@@ -2427,12 +2670,23 @@ class ExecutionProfiler:
 
 ---
 
-### TASK 8.9 — Adaptive Optimizer
+### TASK 8.9 — Rule-Based Optimization Hooks (REPLACES AdaptiveOptimizer)
 
-**Location:** `src/core/performance/optimizer.py`
-**Purpose:** Auto-switch strategy if slow. Cache frequent operations. Pre-load heavy dependencies.
+**Location:** `src/core/performance/profiler.py` (extend existing)
+**Purpose:** Rule-based thresholds that emit EVT_DEGRADATION events.
+StateMachine decides action. No auto-switching. No strategy overrides.
 
-**Artifact:** `src/core/performance/optimizer.py`
+Rules (read-only evaluation, emit event, stop):
+- p95 latency > 1000ms for a capability → emit EVT_DEGRADATION
+  `{capability, metric: "latency_p95_ms", value, suggested_action: "switch_model"}`
+- success_rate < 0.8 → emit EVT_DEGRADATION
+  `{capability, metric: "success_rate", value, suggested_action: "inspect_capability"}`
+- hot_path detection (avg < 100ms, all success) → emit EVT_HOT_PATH
+  `{capability}` — StateMachine may choose to pre-warm
+
+These are observations, not actions. StateMachine is the ONLY actor.
+
+**Artifact:** Updated `src/core/performance/profiler.py` (NO `src/core/performance/optimizer.py`)
 
 ---
 
@@ -2600,9 +2854,28 @@ async def execute_async(self, args: dict, cancel_token=None) -> ToolResult:
 
 #### Subtask 9.2.3 — Add historical tracking
 
-- Store metrics to `data/metrics.db` (SQLite, WAL mode)
+- Store metrics to `data/metrics.db` (SQLite, WAL mode, thread-local pool, same pattern as memory.db)
 - `get_history(hours: int = 24)` → returns time-series data
 - Performance analysis: min/max/avg for each metric
+
+```python
+# Schema for data/metrics.db (WAL mode, thread-local pool)
+CREATE TABLE IF NOT EXISTS system_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT,
+    timestamp TEXT NOT NULL,
+    metric_type TEXT NOT NULL CHECK(metric_type IN ('cpu','ram','gpu','disk','network')),
+    value REAL NOT NULL,
+    threshold REAL,
+    alert_fired INTEGER DEFAULT 0,
+    trace_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON system_metrics(timestamp);
+CREATE INDEX IF NOT EXISTS idx_metrics_type ON system_metrics(metric_type);
+PRAGMA journal_mode=WAL;
+```
+
+Corruption recovery: same pattern as memory.db — rename to `.corrupted.{timestamp}`, create fresh.
 
 **Performance:** Snapshot <50ms, streaming ~2ms/update
 **Artifact:** `src/capabilities/system/sysinfo.py`
@@ -3041,6 +3314,7 @@ class Task:
 class TaskScheduler:
     def __init__(self, runtime: CapabilityRuntime, concurrency: int = 4):
         self._runtime = runtime
+        self._concurrency = concurrency
         self._queue: list[Task] = []
         self._running: dict[str, asyncio.Task] = {}
         self._semaphore = asyncio.Semaphore(concurrency)
@@ -3055,7 +3329,7 @@ class TaskScheduler:
 
     async def _process_queue(self):
         """Process queue, respecting dependencies and concurrency limits."""
-        while self._queue and len(self._running) < self._semaphore._value:
+        while self._queue and len(self._running) < self._concurrency:
             task = heapq.heappop(self._queue)
             if all(dep in self._completed for dep in task.dependencies):
                 self._running[task.task_id] = asyncio.create_task(
@@ -3378,9 +3652,30 @@ class ProcessPool:
                     }
                 )
             except subprocess.TimeoutExpired:
-                proc.kill()
-                return ToolResult.failure("code_exec",
-                    f"timeout after {self._timeout_s}s")
+                import signal, time as _time
+                # Dual-mode cancellation per Architecture Principle 7
+                try:
+                    proc.send_signal(signal.SIGTERM)   # soft: SIGTERM
+                    _time.sleep(2.0)                    # grace period: 2 seconds
+                    if proc.poll() is None:
+                        proc.kill()                     # hard: SIGKILL if still alive
+                except OSError:
+                    pass
+                # Kill entire process tree (children too)
+                try:
+                    import psutil
+                    parent = psutil.Process(proc.pid)
+                    for child in parent.children(recursive=True):
+                        child.kill()
+                    parent.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+                termination_confirmed = proc.poll() is not None
+                return ToolResult.failure(
+                    "code_exec",
+                    f"timeout after {self._timeout_s}s — "
+                    f"termination {'confirmed' if termination_confirmed else 'failed'}"
+                )
             finally:
                 self._active.pop(task_id, None)
                 import shutil
@@ -3551,7 +3846,7 @@ else:
 phase_id: "X3"
 priority: "P1"
 status: "not_started"
-total_tasks: 4
+total_tasks: 5
 blocker: "Phase X2 complete"
 next_action: "TASK X3.1"
 stabilization: "v3.2 — passive SLA events, StateMachine decision authority"
@@ -3661,50 +3956,25 @@ class ExecutionProfiler:
 
 ---
 
-### TASK X3.2 — Adaptive Optimizer
+### TASK X3.2 — Rule-Based Optimization Hooks (REPLACES AdaptiveOptimizer)
 
-**Location:** `src/core/performance/optimizer.py`
-**Purpose:** Auto-switch strategy if slow. Cache frequent operations. Pre-load heavy dependencies.
+**Location:** `src/core/performance/profiler.py` (extend existing)
+**Purpose:** Rule-based thresholds that emit EVT_DEGRADATION events.
+StateMachine decides action. No auto-switching. No strategy overrides.
 
-#### Subtask X3.2.1 — Implement `AdaptiveOptimizer`
+#### Subtask X3.2.1 — Implement rule-based profiler hooks
 
-```python
-class AdaptiveOptimizer:
-    def __init__(self, profiler: ExecutionProfiler, cache: SmartCache):
-        self._profiler = profiler
-        self._cache = cache
-        self._strategy_overrides: dict[str, str] = {}
+Rules (read-only evaluation, emit event, stop):
+- p95 latency > 1000ms for a capability → emit EVT_DEGRADATION
+  `{capability, metric: "latency_p95_ms", value, suggested_action: "switch_model"}`
+- success_rate < 0.8 → emit EVT_DEGRADATION
+  `{capability, metric: "success_rate", value, suggested_action: "inspect_capability"}`
+- hot_path detection (avg < 100ms, all success) → emit EVT_HOT_PATH
+  `{capability}` — StateMachine may choose to pre-warm
 
-    def check_and_optimize(self, capability: str):
-        """Check if capability needs optimization."""
-        stats = self._profiler.get_stats(capability)
-        if not stats:
-            return
+These are observations, not actions. StateMachine is the ONLY actor.
 
-        # If p95 latency > 1000ms, switch to faster strategy
-        if stats["p95_ms"] > 1000:
-            self._strategy_overrides[capability] = "fast"
-            logger.info(f"Switched {capability} to fast strategy")
-
-        # If success rate < 80%, add retry logic
-        if stats["success_rate"] < 0.8:
-            logger.warning(f"Low success rate for {capability}: {stats['success_rate']}")
-
-    def get_strategy(self, capability: str) -> str:
-        """Return optimized strategy for capability."""
-        return self._strategy_overrides.get(capability, "default")
-
-    def preload_heavy_deps(self):
-        """Pre-load dependencies for heavy capabilities."""
-        # Pre-load pytesseract for OCR
-        try:
-            import pytesseract
-            pytesseract.get_tesseract_version()
-        except Exception:
-            pass
-```
-
-**Artifact:** `src/core/performance/optimizer.py`
+**Artifact:** `src/core/performance/profiler.py` (extended)
 
 ---
 
@@ -3819,13 +4089,221 @@ class BenchmarkRunner:
 
 ---
 
+### TASK X3.5 — Alerting + Anomaly Detection Layer
+
+**Location:** `src/core/performance/sla_enforcer.py` (extend), new `src/core/observability/alerting.py`
+**Depends on:** TASK X3.1 (`ExecutionProfiler`), TASK 1.16 (`EventBus` contract)
+**Purpose:** Without proactive alerting, production failures surface only after user impact. Three signal types — latency spike, repeated capability failure, sandbox violation rate — cover the dominant failure modes. Alerts publish `EVT_THRESHOLD_ALERT` (passive, per principle 4); StateMachine decides action. No alert system modifies execution.
+
+#### Subtask X3.5.1 — Define `AlertRule` and `AlertManager`
+
+```python
+# src/core/observability/alerting.py
+
+from dataclasses import dataclass
+from src.core.observability.event_bus import EventBus, EVT_THRESHOLD_ALERT
+
+@dataclass
+class AlertRule:
+    name:        str
+    metric:      str    # "latency_p95_ms" | "error_rate_pct" | "violation_count"
+    threshold:   float
+    window_size: int    # number of recent samples to evaluate
+    severity:    str    # "warning" | "critical"
+
+# Production defaults — override via settings.yaml
+DEFAULT_ALERT_RULES: list[AlertRule] = [
+    AlertRule("high_latency",     "latency_p95_ms",   500.0,  20,  "warning"),
+    AlertRule("critical_latency", "latency_p95_ms",  5000.0,  10,  "critical"),
+    AlertRule("high_error_rate",  "error_rate_pct",     5.0,  50,  "warning"),
+    AlertRule("sandbox_abuse",    "violation_count",    3.0,  10,  "critical"),
+]
+
+class AlertManager:
+    """
+    PASSIVE — emits EVT_THRESHOLD_ALERT only.
+    Never cancels tasks, never retries, never changes execution mode.
+    StateMachine receives alert events and decides action.
+    """
+    def __init__(self, profiler, event_bus: EventBus,
+                 rules: list[AlertRule] | None = None):
+        self._profiler  = profiler
+        self._bus       = event_bus
+        self._rules     = rules or DEFAULT_ALERT_RULES
+        self._fired:    dict[str, float] = {}   # rule_name → last_fired_timestamp
+        self._cooldown_s: float = 60.0           # suppress duplicate alerts
+
+    def evaluate(self, capability: str) -> list[dict]:
+        """
+        Called by ExecutionProfiler.record() after every execution.
+        Returns list of fired alerts (for logging). Side-effect: publishes events.
+        """
+        stats  = self._profiler.get_stats(capability)
+        if not stats:
+            return []
+        fired = []
+        now = __import__("time").time()
+        for rule in self._rules:
+            value = self._extract_metric(stats, rule.metric)
+            if value is None:
+                continue
+            if value > rule.threshold:
+                key = f"{rule.name}:{capability}"
+                if now - self._fired.get(key, 0) > self._cooldown_s:
+                    self._fired[key] = now
+                    alert = {
+                        "rule":       rule.name,
+                        "capability": capability,
+                        "metric":     rule.metric,
+                        "value":      value,
+                        "threshold":  rule.threshold,
+                        "severity":   rule.severity,
+                    }
+                    self._bus.publish(
+                        EVT_THRESHOLD_ALERT, alert,
+                        source="alert_manager"
+                    )
+                    fired.append(alert)
+        return fired
+
+    def _extract_metric(self, stats: dict, metric: str) -> float | None:
+        mapping = {
+            "latency_p95_ms":  stats.get("p95_ms"),
+            "error_rate_pct":  (1 - stats.get("success_rate", 1)) * 100,
+            "violation_count": stats.get("violation_count", 0),
+        }
+        return mapping.get(metric)
+```
+
+#### Subtask X3.5.2 — Wire AlertManager into ExecutionProfiler
+
+```python
+# src/core/performance/profiler.py — extend record()
+
+class ExecutionProfiler:
+    def __init__(self, alert_manager=None):
+        ...
+        self._alert_manager = alert_manager   # injected; None = no alerting
+
+    def record(self, capability: str, latency_ms: float,
+               success: bool, risk_level: str) -> None:
+        ...
+        # existing hot-path logic
+        ...
+        # NEW: evaluate alerts after every write
+        if self._alert_manager:
+            self._alert_manager.evaluate(capability)
+```
+
+#### Subtask X3.5.3 — Add `violation_count` tracking to profiler
+
+```python
+# In ExecutionProfiler — track CapabilityViolationEvent
+def record_violation(self, capability: str) -> None:
+    """Called by RuntimeValidator on scope violation."""
+    if capability not in self._metrics:
+        self._metrics[capability] = []
+    # piggyback violation into existing stats
+    self._metrics[capability].append({
+        "latency_ms": 0, "success": False,
+        "risk_level": "high", "timestamp": time.time(),
+        "violation": True
+    })
+    if self._alert_manager:
+        self._alert_manager.evaluate(capability)
+
+def get_stats(self, capability: str) -> dict:
+    ...
+    # extend existing return dict
+    entries  = self._metrics.get(capability, [])
+    violations = sum(1 for e in entries if e.get("violation"))
+    return {
+        ...existing fields...,
+        "violation_count": violations,
+    }
+```
+
+#### Subtask X3.5.4 — Test coverage (4 tests)
+
+Add to `tests/test_performance.py`:
+
+```python
+def test_alert_fires_on_high_latency():
+    from src.core.performance.profiler import ExecutionProfiler
+    from src.core.observability.alerting import AlertManager, AlertRule
+    from src.core.observability.event_bus import EventBus, EVT_THRESHOLD_ALERT
+    bus  = EventBus()
+    alerts = []
+    bus.subscribe(EVT_THRESHOLD_ALERT, alerts.append)
+    rule = AlertRule("test_latency", "latency_p95_ms", 100.0, 5, "warning")
+    am   = AlertManager(None, bus, [rule])  # profiler injected below
+    prof = ExecutionProfiler(alert_manager=am)
+    am._profiler = prof
+    for _ in range(10):
+        prof.record("open_app", latency_ms=999.0, success=True, risk_level="low")
+    assert any(a.payload["rule"] == "test_latency" for a in alerts)
+
+def test_alert_cooldown_suppresses_duplicates():
+    from src.core.performance.profiler import ExecutionProfiler
+    from src.core.observability.alerting import AlertManager, AlertRule
+    from src.core.observability.event_bus import EventBus, EVT_THRESHOLD_ALERT
+    bus, alerts = EventBus(), []
+    bus.subscribe(EVT_THRESHOLD_ALERT, alerts.append)
+    rule = AlertRule("dup_test", "latency_p95_ms", 50.0, 5, "warning")
+    am   = AlertManager(None, bus, [rule])
+    am._cooldown_s = 9999  # force cooldown active
+    prof = ExecutionProfiler(alert_manager=am)
+    am._profiler = prof
+    for _ in range(20):
+        prof.record("open_app", 999.0, True, "low")
+    # Despite many breaches, only 1 alert fires per cooldown window
+    rule_alerts = [a for a in alerts if a.payload["rule"] == "dup_test"]
+    assert len(rule_alerts) == 1
+
+def test_violation_count_increments_on_record_violation():
+    from src.core.performance.profiler import ExecutionProfiler
+    prof = ExecutionProfiler()
+    prof.record_violation("file_ops")
+    prof.record_violation("file_ops")
+    assert prof.get_stats("file_ops")["violation_count"] == 2
+
+def test_alert_manager_is_passive_no_side_effects():
+    """AlertManager must NOT modify any execution state."""
+    from src.core.performance.profiler import ExecutionProfiler
+    from src.core.observability.alerting import AlertManager
+    from src.core.observability.event_bus import EventBus
+    prof = ExecutionProfiler()
+    am   = AlertManager(prof, EventBus())
+    # After evaluation, no state change on profiler internals beyond metrics
+    before = dict(prof._metrics)
+    am.evaluate("nonexistent_cap")
+    assert prof._metrics == before
+```
+
+**Artifacts:** `src/core/observability/alerting.py`, updated `src/core/performance/profiler.py`, `tests/test_performance.py`
+
+**Definition of Done:**
+- [ ] `AlertManager` is passive: emits `EVT_THRESHOLD_ALERT` only
+- [ ] 3 default rules: `latency_p95_ms`, `error_rate_pct`, `violation_count`
+- [ ] 60s cooldown prevents alert storms
+- [ ] `record_violation()` feeds `violation_count` into stats
+- [ ] `AlertManager` wired into `ExecutionProfiler` via injection (not hard-dependency)
+- [ ] All 4 new tests pass
+
+---
+
 ### Definition of Done — Phase X3
 
 - [ ] `ExecutionProfiler` records per-capability metrics
-- [ ] `AdaptiveOptimizer` auto-switches slow strategies
+- [ ] Rule-based profiler emits EVT_DEGRADATION on threshold breach — StateMachine decides
 - [ ] `SmartCache` reduces latency for hot paths
 - [ ] `BenchmarkRunner` detects performance regressions
 - [ ] All capabilities have performance baselines
+- [ ] AlertManager passive: emits EVT_THRESHOLD_ALERT only — StateMachine decides action
+- [ ] 3 default alert rules with configurable thresholds + 60s cooldown
+- [ ] violation_count tracked in ExecutionProfiler stats
+- [ ] All 4 alerting tests pass
+- [ ] `src/core/performance/optimizer.py` does NOT exist
 
 ---
 
@@ -4061,34 +4539,6 @@ class TimeoutHandler(Limits):
 Tier 1 always tried before tier 2.
 
 **Artifact:** `src/core/runtime/fallback.py`
-
----
-
-### TASK 11.4 — Retry Manager
-
-**Location:** `src/core/runtime/retry.py`
-**Purpose:** Per-turn budget counter. One instance per `run_turn()` call — never singleton.
-
-#### Subtask 11.4.1 — Implement `RetryManager`
-
-```python
-class RetryManager:
-    def __init__(self):
-        self._initial = load_config().execution.global_retry_budget  # 8
-        self._budget = self._initial
-
-    def consume(self, n: int = 1) -> int:
-        self._budget = max(0, self._budget - n)
-        return self._budget
-
-    def can_retry(self) -> bool:
-        return self._budget > 0
-
-    def reset(self) -> None:
-        self._budget = self._initial
-```
-
-**Artifact:** `src/core/runtime/retry.py`
 
 ---
 
@@ -4526,17 +4976,17 @@ next_action: "TASK 14.5.1"
 
 ### TASK 14.5.1 — Telegram Bot Service
 
-**Location:** `src/services/telegram/bot.py`
+**Location:** `src/interfaces/telegram/bot.py`
 **Purpose:** Async message handler that routes Telegram messages through `run_turn()` via `asyncio.to_thread`.
 
 #### Subtask 14.5.1 — Implement `TelegramBot`
 
 ```python
 import asyncio
-from src.core.runtime.loop import run_turn
 
 class TelegramBot:
-    def __init__(self):
+    def __init__(self, run_turn_fn):
+        self._run_turn = run_turn_fn
         token = os.environ.get("TELEGRAM_BOT_TOKEN")
         if not token:
             logger.error("TELEGRAM_BOT_TOKEN not set. Telegram integration disabled.")
@@ -4548,7 +4998,7 @@ class TelegramBot:
     async def handle_message(self, update, context) -> None:
         user_input = update.message.text
         session_id = f"telegram_{update.effective_user.id}"
-        response = await asyncio.to_thread(run_turn, user_input, session_id)
+        response = await asyncio.to_thread(self._run_turn, user_input, session_id)
         await update.message.reply_text(response.text)
 
     def start(self) -> None:
@@ -4559,13 +5009,13 @@ class TelegramBot:
         self._app.run_polling()
 ```
 
-**Artifact:** `src/services/telegram/bot.py`
+**Artifact:** `src/interfaces/telegram/bot.py`
 
 ---
 
 ### TASK 14.5.2 — Telegram Command Handlers
 
-**Location:** `src/services/telegram/commands.py`
+**Location:** `src/interfaces/telegram/commands.py`
 
 | Command                              | Action                                                  |
 | :----------------------------------- | :------------------------------------------------------ |
@@ -4574,7 +5024,7 @@ class TelegramBot:
 | `/status`                            | Reply with current model, mode, turn count              |
 | `/quit`                              | Reply "Goodbye." — bot continues for other users        |
 
-**Artifact:** `src/services/telegram/commands.py`
+**Artifact:** `src/interfaces/telegram/commands.py`
 
 ---
 
@@ -4662,10 +5112,23 @@ async def set_mode(body: dict):
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     from src.core.observability.event_bus import EventBus, EVT_STATE_TRANSITION, EVT_TURN_COMPLETE
     await websocket.accept()
-    async def send_event(event):
-        await websocket.send_json(event)
-    EventBus().subscribe(EVT_STATE_TRANSITION, lambda e: asyncio.create_task(send_event(e)))
-    EventBus().subscribe(EVT_TURN_COMPLETE, lambda e: asyncio.create_task(send_event(e)))
+
+    loop = asyncio.get_event_loop()
+
+    def on_event(env):
+        # thread-safe: schedule send_event on the websocket's event loop
+        asyncio.run_coroutine_threadsafe(send_event(env), loop)
+
+    async def send_event(env):
+        try:
+            payload = env.payload if hasattr(env, 'payload') else env
+            await websocket.send_json(payload)
+        except Exception:
+            pass
+
+    bus = EventBus()
+    bus.subscribe(EVT_STATE_TRANSITION, on_event)
+    bus.subscribe(EVT_TURN_COMPLETE, on_event)
     try:
         while True:
             await websocket.receive_text()  # keep alive
@@ -4885,19 +5348,37 @@ class WakeWordDetector:
         self._thread.start()
 
     def _listen_loop(self, wake_word: str, callback) -> None:
+        """
+        Local wake word detection using offline recognition only.
+        No external API calls — local-first principle enforced.
+        """
         r = sr.Recognizer()
         while not self._stop.is_set():
             try:
                 with sr.Microphone() as source:
                     audio = r.listen(source, timeout=3, phrase_time_limit=3)
-                try:
-                    text = r.recognize_google(audio).lower()
-                    if wake_word in text:
-                        callback(text)
-                except sr.UnknownValueError:
-                    pass
+                text = self._recognize_locally(r, audio)
+                if text and wake_word in text:
+                    callback(text)
             except Exception:
                 pass
+
+    def _recognize_locally(self, recognizer, audio) -> str | None:
+        """
+        Attempt local recognition in priority order:
+        1. Vosk (offline, fast, accurate)
+        2. CMU Sphinx (offline, lightweight)
+        3. Return None if neither available — no fallback to online services
+        """
+        try:
+            return recognizer.recognize_vosk(audio).lower()
+        except Exception:
+            pass
+        try:
+            return recognizer.recognize_sphinx(audio).lower()
+        except Exception:
+            pass
+        return None  # never call recognize_google or any online service
 
     def stop(self) -> None:
         self._stop.set()
@@ -5310,7 +5791,7 @@ find . -type d -name "utils" -o -name "misc" -o -name "helpers" -o -name "brain"
 
 # Verify VERSION file
 cat VERSION
-# Must contain exactly: 3.0.0
+# Must contain exactly: 3.2.0
 ```
 
 **Pass condition:** All tests pass, coverage ≥ 80%, no forbidden patterns found.
@@ -5532,11 +6013,11 @@ Required tests:
 | Metric          | Value                                                                                               |
 | :-------------- | :-------------------------------------------------------------------------------------------------- |
 | Total phases    | 20 (0–18 + 14.5)                                                                                    |
-| Total tasks     | ~150 (v3.2: +5 new test suites: scheduling integrity, SLA isolation, cancellation, mode enforcement, capability scope)                                                                  |
-| Total subtasks  | ~320                                                                                                |
-| Test files      | 23 (+5 new: chaos, fault injection, load, timeout, sandbox escape)                                  |
+| Total tasks     | ~153 (v3.2: +5 new test suites + 3 operational hardening tasks: guard rails, EventBus contract, alerting) |
+| Total subtasks  | ~332                                                                                                |
+| Test files      | 23 (tests added to existing files: +11 new tests across state_machine, observability, performance)  |
 | Config files    | 9 (+1: execution_mode config)                                                                       |
-| Source modules  | ~67 (+2: sla_enforcer, concurrency safeguards)                                                      |
+| Source modules  | ~68 (+3: alerting.py, FORBIDDEN_LOOPS, EventEnvelope contract)                                      |
 | Capabilities    | 13 (8 core + 2 voice + 2 vision + 1 browser)                                                        |
 | Contract models | 7 (InputPacket, DecisionOutput, LLMOutput, ToolResult, FinalResponse, ModelScore, EvaluationResult) |
 
@@ -5563,6 +6044,13 @@ CONTROL FLOW (v3.2)
 [ ] Cancellation flow: ANY STATE→CANCELLED→CLEANUP→IDLE
 [ ] Error flow: ANY FAILURE→ERROR→RECOVERY→DECIDING|IDLE
 [ ] StateMachine controls ALL retries
+[ ] EventBus: EventEnvelope enforced — event_id + source + trace_id + sequence on every event
+[ ] EventBus: subscriber isolation — one subscriber failure cannot affect others
+[ ] State machine: FORBIDDEN_LOOPS enforced in StateManager.transition_to()
+[ ] State machine: MAX_TRANSITIONS_PER_TURN = 20 hard ceiling per run_turn()
+[ ] AlertManager: passive — emits EVT_THRESHOLD_ALERT only, no execution side effects
+[ ] AlertManager: 3 default rules (latency, error_rate, violation_count) with cooldown
+[ ] No EVT_* string literals anywhere in src/ — all imports from event_bus.py
 
 DETERMINISM (v3.2)
 [ ] execution_mode config exists: deterministic and performance modes

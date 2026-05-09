@@ -37,7 +37,7 @@
 | 10  | **Observability-First Design**              | Every state transition, tool call, model swap, and failure MUST be logged with structured data.                                                                                          |
 | 11  | **Fail-Safe Defaults**                      | The system degrades gracefully. Never crashes. Never executes irreversible actions without explicit approval.                                                                            |
 | 12  | **Capabilities are Sovereign**              | Capabilities are the ONLY layer that may execute side-effects. Each capability is a complete, standalone tool with its own validation, error handling, dry-run, and risk classification. |
-| 13  | **CapabilityRuntime is Internal**           | CapabilityRuntime CANNOT be imported by interfaces, decision, or services. All calls: Runtime → ExecutionEngine → CapabilityRuntime → Capability.                                        |
+| 13  | **CapabilityRuntime is Internal**           | CapabilityRuntime CANNOT be imported by interfaces, decision, or services. The ONLY call path is: StateManager.transition_to(EXECUTING) → run_turn() → ExecutionEngine → CapabilityRuntime → CapabilityExecutor → Capability. |
 | 14  | **Single Responsibility per Layer**         | Each layer has exactly one defined responsibility. No cross-layer duplication.                                                                                                           |
 | 15  | **No Vague Folders**                        | No folders named `utils`, `misc`, `helpers`, `brain`, or `common`. Every folder name describes its specific responsibility.                                                              |
 | 16  | **Contract-First Design**                   | All data contracts (`InputPacket`, `DecisionOutput`, `ToolResult`, `FinalResponse`) are defined and validated before any logic uses them.                                                |
@@ -51,7 +51,7 @@
 ```
 jarvis/
 │
-├── VERSION                          ← Single-line version string: "3.0.0"
+├── VERSION                          ← Single-line version string: "3.2.0"
 │
 ├── app/
 │   ├── __init__.py
@@ -77,6 +77,7 @@ jarvis/
 │   ├── images/                      ← Image generation output (PNG, UUID-named)
 │   ├── memory.db                    ← SQLite: turn history, memory snippets (WAL mode)
 │   ├── audit.db                     ← SQLite: capability execution audit log (WAL mode)
+│   ├── metrics.db                   ← SQLite: real-time system metrics time-series (WAL mode)
 │   ├── profiles/                    ← Per-user JSON profiles ({user_id}.json)
 │   └── screenshots/                 ← Screen captures (PNG, timestamp-UUID named)
 │
@@ -90,7 +91,7 @@ jarvis/
 │
 ├── meta/
 │   ├── .editorconfig
-│   ├── .gitignore                   ← Includes: settings.yaml, .env, logs/, data/*.db, __pycache__
+│   ├── .gitignore                   ← Includes: settings.yaml, .env, logs/, data/*.db, __pycache__ (data/*.db covers memory.db, audit.db, metrics.db)
 │   ├── LICENSE
 │   ├── pyproject.toml               ← Package definition, dependencies, pytest config
 │   ├── requirements.txt             ← Comment header: "pip install -e ."
@@ -120,7 +121,7 @@ jarvis/
 │   └── test_web_ui.py               ← FastAPI endpoints, WebSocket state streaming
 │
 └── src/
-    ├── __init__.py                  ← ONLY __init__.py at this level. Sets __version__ = "3.0.0"
+    ├── __init__.py                  ← ONLY __init__.py at this level. Sets __version__ = "3.2.0"
     │
     ├── capabilities/                ← SOVEREIGN LAYER: all side-effectful actions live here exclusively
     │   ├── base.py                  ← BaseCapability ABC: execute, validate, get_risk_level, dry_run
@@ -132,7 +133,7 @@ jarvis/
     │   │   ├── capability_runtime.py ← CapabilityRuntime: execute_async(), execute_batch(), stream_results(), cancel()
     │   │   ├── progress.py          ← ProgressTracker: percentage, ETA, status updates via EventBus
     │   │   ├── stream.py            ← StreamBuffer: chunked output for long-running capabilities
-    │   │   └── cancellation.py      ← CancellationToken: cooperative cancellation for capabilities
+    │   │   └── cancellation.py      ← CancellationToken: cooperative asyncio cancellation (event flag + callbacks). Used by capabilities to check for user-initiated cancellation mid-execution.
     │   ├── api/                     ← Reserved: future external API capability modules
     │   ├── coder/
     │   │   └── executor.py          ← CodeExecutorCapability: python/js/bash in isolated subprocess
@@ -179,14 +180,15 @@ jarvis/
     │   │   ├── scheduler.py        ← TaskScheduler: task placement + queue insertion + pre-computed dependency resolution ONLY
     │   │   ├── async_executor.py   ← AsyncExecutor: non-blocking capability execution with Future pattern
     │   │   ├── batch_processor.py  ← BatchProcessor: multi-item capability execution (ONLY where needed)
-    │   │   ├── cancellation.py     ← CancellationToken: dual-mode (soft=SIGTERM/2s grace, hard=SIGKILL) + termination confirmation
+    │   │   ├── cancellation.py     ← ProcessCancellationController: OS-level dual-mode cancel (SIGTERM 2s grace → SIGKILL → confirm). Used by ExecutionEngine for subprocess management ONLY.
     │   │   └── concurrency.py      ← ConcurrencyController: mode-bound parallelism + deadlock/starvation/priority inversion safeguards
     │   ├── observability/
-    │   │   ├── event_bus.py         ← EventBus singleton: pub/sub with isolated exception handling
+    │   │   ├── event_bus.py         ← EventBus singleton: pub/sub, EventEnvelope, EVT_* constants, subscriber isolation
     │   │   ├── metrics.py           ← MetricsCollector singleton: latency percentiles, errors, model usage
-    │   │   └── tracing.py          ← TracingSystem: trace_id + span_id propagation, span lifecycle
+    │   │   ├── tracing.py          ← TracingSystem: trace_id + span_id propagation, span lifecycle
+    │   │   └── alerting.py         ← AlertManager: passive alert rules, EVT_THRESHOLD_ALERT emission, cooldown
     │   ├── performance/            ← PASSIVE MONITORING: SLA events, rule-based profiling, bounded cache
-    │   │   ├── profiler.py         ← ExecutionProfiler: per-capability latency/cpu/memory metrics
+    │   │   ├── profiler.py         ← ExecutionProfiler: per-capability latency/cpu/memory metrics, violation_count tracking
     │   │   ├── sla_enforcer.py     ← SLAEnforcer: PASSIVE — emits SLAEvent ONLY. NEVER cancels/retries. StateMachine decides.
     │   │   ├── benchmark.py        ← BenchmarkRunner: automated performance regression testing
     │   │   └── cache.py            ← SmartCache: TTL + LRU eviction, dynamic TTL for hot paths
@@ -218,17 +220,20 @@ jarvis/
     │       ├── process_pool.py      ← ProcessPool: isolated subprocess + privilege drop + syscall restrictions + tree kill (soft→hard)
     │       └── filesystem.py        ← FilesystemRestrictor: allowlist paths + chroot-like restrictions
     │
-    ├── interfaces/                  ← THIN DISPLAY LAYER: converts user I/O to/from runtime requests
-    │   ├── cli/
-    │   │   ├── chat.py              ← CLIChat: main REPL loop with thinking indicator and session management
-    │   │   ├── commands.py          ← CommandHandler: /help /mode /replay /debug /status /quit
-    │   │   └── formatting.py        ← CLIFormatter: colorama output, [DEGRADED] prefix, RTL Arabic mark
-    │   ├── gui/                     ← Reserved: future desktop GUI (Tkinter/PyQt)
-    │   └── web_ui/
-    │       ├── app.py               ← FastAPI app: POST /chat, GET /history, WebSocket /ws/{session_id}
-    │       └── static/
-    │           └── index.html       ← Single-file SPA: WebSocket client, mode dropdown, dir="auto" input
-    │
+     ├── interfaces/                  ← THIN DISPLAY LAYER: converts user I/O to/from runtime requests
+     │   ├── cli/
+     │   │   ├── chat.py              ← CLIChat: main REPL loop with thinking indicator and session management
+     │   │   ├── commands.py          ← CommandHandler: /help /mode /replay /debug /status /quit
+     │   │   └── formatting.py        ← CLIFormatter: colorama output, [DEGRADED] prefix, RTL Arabic mark
+     │   ├── gui/                     ← Reserved: future desktop GUI (Tkinter/PyQt)
+     │   ├── telegram/                ← MOVED from services/ (thin I/O interface, not a data service)
+     │   │   ├── bot.py               ← TelegramBot: async message handler → run_turn via injected callable
+     │   │   └── commands.py          ← Telegram command handlers: /start /mode /status /quit
+     │   └── web_ui/
+     │       ├── app.py               ← FastAPI app: POST /chat, GET /history, WebSocket /ws/{session_id}
+     │       └── static/
+     │           └── index.html       ← Single-file SPA: WebSocket client, mode dropdown, dir="auto" input
+     │
     ├── memory/                      ← MEMORY ENGINE: retrieval, scoring, decay — not just storage
     │   ├── database.py              ← MemoryDB: SQLite WAL, turns table, snippets table, thread-local pool
     │   ├── indexer.py               ← KeywordIndexer: keyword → snippet_id inverted index
@@ -253,10 +258,7 @@ jarvis/
         │   ├── calendar.py          ← GoogleCalendar: list/create/delete events via Calendar API
         │   ├── drive.py             ← GoogleDrive: list/download/upload files via Drive API
         │   └── gmail.py             ← Gmail: list/get/send messages via Gmail API
-        ├── integrations/            ← Reserved: future third-party service connectors
-        └── telegram/
-            ├── bot.py               ← TelegramBot: async message handler → run_turn() via asyncio.to_thread
-            └── commands.py          ← Telegram command handlers: /start /mode /status /quit
+        └── integrations/            ← Reserved: future third-party service connectors
 ```
 
 ---
@@ -273,8 +275,8 @@ jarvis/
 | Decision pipeline (`decision.py`, `classifier.py`, `fast_path.py`, `scorer.py`)        | External API clients                                            |
 | Context assembly (`assembler.py`, `builder.py`, `bundle.py`)                           | UI / display logic                                              |
 | Safety enforcement (`classifier.py`, `mode_enforcer.py`, `permission.py`)              | Model loading/unloading                                         |
-| Execution sandbox (`sandbox.py`)                                                       | Direct capability invocation (must go via `CapabilityExecutor`) |
-| Observability (`event_bus.py`, `metrics.py`)                                           | Domain-specific business logic                                  |
+| Hardened Sandbox (`sandbox.py`, `process_pool.py`, `resource_monitor.py`, `filesystem.py`) | Direct capability invocation (must go via `CapabilityExecutor`) |
+| Observability (`event_bus.py`, `metrics.py`, `tracing.py`, `alerting.py`)   | Domain-specific business logic                                  |
 | Hardening (`timeout.py`, `degradation.py`, `fallback.py`, `retry.py`, `escalation.py`) |                                                                 |
 | ExecutionEngine (`execution_engine/`) — executor ONLY, no decisions                    | Independent retry logic, dynamic routing                        |
 | Performance (`performance/`) — SLA enforcer, rule-based optimization                   | Adaptive optimizer (auto-switching)                             |
@@ -332,7 +334,6 @@ jarvis/
 
 | Owns                                 | Must NOT Contain         |
 | :----------------------------------- | :----------------------- |
-| Telegram bot handler                 | Core orchestration logic |
 | Google APIs (Calendar, Gmail, Drive) | Decision making          |
 | OAuth token management               | Tool execution           |
 | Third-party service clients          | State management         |
@@ -391,7 +392,7 @@ jarvis/
 | 2   | Each capability subdirectory represents a domain. Domain names are singular nouns.                                                                   |
 | 3   | No logic outside `src/capabilities/` may perform actions or side-effects.                                                                            |
 | 4   | Every capability MUST inherit from `BaseCapability`.                                                                                                 |
-| 5   | Every capability MUST implement: `execute(args: dict) → ToolResult`, `validate(args: dict) → ValidationResult`, `get_risk_level(args: dict           | None) → RiskLevel`, `dry_run(args: dict) → ToolResult`. |
+| 5   | Every capability MUST implement all four methods: (1) `execute(args)→ToolResult`, (2) `validate(args)→ValidationResult`, (3) `get_risk_level(args?)→RiskLevel` (args optional, may be None), (4) `dry_run(args)→ToolResult`. |
 | 6   | Capabilities return `ToolResult` — they **NEVER** raise exceptions to the caller. All exceptions caught internally → `ToolResult.failure(...)`.      |
 | 7   | Capabilities are registered via `CapabilityRegistry` loaded from `config/runtime/capabilities.yaml`. Never imported directly by non-capability code. |
 | 8   | Each capability's `validate()` is called before `execute()`. Failed validation blocks execution.                                                     |
@@ -437,22 +438,12 @@ RUNTIME LOOP  src/core/runtime/loop.py  run_turn()
   │             ├─ ConcurrencyController.acquire_slot() (mode-bound)
   │             └─ SLAEnforcer starts monitoring (PASSIVE — emits events ONLY)
   │
-  ├─ [5a] intent == tool_use → EXECUTING → EXECUTING_TOOL
+  ├─ [5a] intent == tool_use → (within EXECUTING state)
   │        └─ ExecutionEngine → CapabilityRuntime (INTERNAL) → Capability
-  │             ├─ Gate 1: CapabilityRegistry.get(name) → not None
-  │             ├─ Gate 2: capability.validate(args) → valid
-  │             ├─ Gate 3: PermissionLayer.check() → allow/confirm/block
-  │             │            ├─ SubGate A: tool_name consistency
-  │             │            ├─ SubGate B: SafetyClassifier + ModeEnforcer
-  │             │            └─ SubGate C: SchemaValidator
-  │             ├─ Gate 4: if confirm → publish EVT_WAITING_CONFIRMATION → wait
-  │             ├─ Gate 5: if dry_run → Sandbox.dry_run() → return
-  │             ├─ Gate 6: Sandbox.execute(capability, args, timeout_s)
-  │             │           └─ ProcessPool (code_exec) or ThreadPoolExecutor
-  │             │           └─ ResourceMonitor.track(cpu, ram)
-  │             └─ ProgressTracker.report(percentage, eta)
+  │             ├─ Gate 1–6 pipeline (see below)
+  │             └─ Results returned to EXECUTING state for evaluation
   │
-  ├─ [5b] intent == chat → EXECUTING → EXECUTING_MODEL
+  ├─ [5b] intent == chat → (within EXECUTING state)
   │        └─ Executor.execute(decision, input_packet)
   │             ├─ PromptBuilder.build(decision, input_packet)
   │             ├─ OllamaEngine.chat_with_model(model, messages, system)
@@ -477,7 +468,7 @@ RUNTIME LOOP  src/core/runtime/loop.py  run_turn()
   │        └─ SLAEnforcer NEVER cancels or retries directly
   │
   ├─ [CANCEL] ANY STATE → CANCELLED → CLEANUP → IDLE
-  │        └─ StateMachine.authorize_cancel()
+  │        └─ StateManager.transition_to(CANCELLED, reason="user_cancel")
   │        └─ ExecutionEngine.signal(SIGTERM) → wait(2s grace) → if alive → SIGKILL
   │        └─ ExecutionEngine.confirm_termination() → {confirmed | failed}
   │        └─ ProcessPool.kill_tree() → parent + children killed
@@ -631,11 +622,15 @@ cancellation:
 **Execution Flow:**
 
 ```
-CANCEL REQUEST → StateMachine.authorize_cancel()
+CANCEL REQUEST → StateManager.transition_to(CANCELLED, reason="user_cancel")
+  → StateManager records transition in history
+  → EventBus.publish(EVT_STATE_TRANSITION, {from: EXECUTING, to: CANCELLED})
+  → ExecutionEngine receives CANCELLED signal via event subscription
   → ExecutionEngine.signal(SIGTERM)
   → wait(grace_period: 2s)
   → if alive → ExecutionEngine.signal(SIGKILL)
   → ExecutionEngine.confirm_termination() → {confirmed | failed}
+  → ProcessPool.kill_tree() → parent + all children killed
   → CLEANUP → IDLE
 ```
 
@@ -656,11 +651,13 @@ StateMachine enforces mode rules:
 | Concurrency    | Disabled                   | Enabled (if no conflict)   |
 
 **Enforcement Rules:**
-- `execution_mode` is set at startup via config
+- `execution_mode` (deterministic ↔ performance) is set at startup via config and CANNOT be changed at runtime
+- A full process restart is required to change execution mode
+- Safety mode (SAFE ↔ BALANCED ↔ UNRESTRICTED) CAN be changed at runtime via `/mode` command
+- Safety mode is NOT an execution mode
 - StateMachine validates mode on every transition
 - ExecutionEngine CANNOT change mode
 - Capabilities CANNOT alter execution mode
-- Mode changes require full system restart
 
 ---
 
@@ -675,7 +672,7 @@ StateMachine enforces mode rules:
 | Cancellation           | `ANY STATE → CANCELLED → CLEANUP → IDLE` (dual-mode: soft→hard, termination confirmed) |
 | Retry authority        | ONLY StateMachine may trigger retries — no layer may retry independently           |
 | SLA handling           | SLAEnforcer emits events ONLY; StateMachine decides cancel/fallback/retry/ignore   |
-| Scheduler role         | Task placement + queue insertion + pre-computed deps ONLY — no decisions           |
+| Scheduler role         | Task placement + queue insertion + pre-computed dependency resolution ONLY. Priority is computed in DECIDING state and passed to scheduler as data. Scheduler NEVER computes, adjusts, or overrides task priority. |
 | Mode enforcement       | StateMachine enforces deterministic/performance mode rules on every transition     |
 | Capability validation  | RuntimeValidator validates scope BEFORE execution — violations block and error     |
 | Forced transitions     | `force_state()` bypasses validation — for error recovery only, logs WARNING        |
@@ -702,7 +699,13 @@ CLEANUP              → IDLE
 
 ANY STATE            → CANCELLED → CLEANUP → IDLE   (cancellation flow, dual-mode, confirmed)
 ANY FAILURE          → ERROR → RECOVERY → ...       (error flow)
-EXECUTING            → SLA EVENT → DECIDING         (SLAEnforcer emits, StateMachine decides)
+
+SLA EVENT HANDLING (not a state — in-band event during EXECUTING):
+  SLAEnforcer emits SLAEvent → StateMachine decides:
+  ├─ cancel  → EXECUTING → ERROR → RECOVERY → IDLE
+  ├─ fallback→ EXECUTING → ERROR → RECOVERY → DECIDING (downgraded path)
+  ├─ retry   → EXECUTING → EVALUATING → DECIDING (if retry budget > 0)
+  └─ ignore  → EXECUTING continues (log event, no state change)
 ```
 
 ---
@@ -728,7 +731,7 @@ EXECUTING            → SLA EVENT → DECIDING         (SLAEnforcer emits, Stat
 | 2   | No spaces in directory names                  | `web_ui` not `web ui`; `web` not `web_automation`                |
 | 3   | Capability directory name                     | `web` not `web_automation`                                       |
 | 4   | Safety + Sandbox present                      | `src/core/safety/` and `src/core/sandbox/` exist                 |
-| 5   | Observability present                         | `src/core/observability/` with `event_bus.py`, `metrics.py`, `tracing.py` |
+| 5   | Observability present                         | `src/core/observability/` with `event_bus.py`, `metrics.py`, `tracing.py`, `alerting.py` |
 | 6   | All capabilities inherit BaseCapability       | Verified by ABC: all abstract methods implemented                |
 | 7   | No capability raises exceptions to caller     | Verified by Sandbox/ProcessPool wrapping                       |
 | 8   | All state transitions through StateManager    | No direct `self._state =` assignments outside `state_manager.py` |
@@ -736,7 +739,7 @@ EXECUTING            → SLA EVENT → DECIDING         (SLAEnforcer emits, Stat
 | 10  | Secrets only in `.env`                        | No API keys or tokens in YAML files                              |
 | 11  | All tests in `tests/`                         | No `test_*.py` files in `src/`                                   |
 | 12  | VERSION file exists                           | Root-level `VERSION` contains exactly `3.2.0`                    |
-| 13  | All three spec files share spec_version v3.2  | `select-string spec_version docs/*.md` all return `v3.2`          |
+| 13  | All three spec files share spec_version v3.2  | Unix/macOS: `grep spec_version docs/*.md`<br>Windows: `Select-String spec_version docs/*.md`<br>All results must contain: `spec_version: v3.2` |
 | 14  | `data/audio/` directory exists                | Created by setup or TTS on first use                             |
 | 15  | `models.yaml` weights sum to 1.0              | Validated at `load_config()` time                                |
 | 16  | `__version__ == "3.2.0"`                      | `from src import __version__; assert __version__ == "3.2.0"`     |
@@ -797,7 +800,7 @@ EXECUTING            → SLA EVENT → DECIDING         (SLAEnforcer emits, Stat
 | 9     | System Control Capabilities | PENDING    | 0/16       | Upgraded: intelligent modules with bounded scope                            |
 | X1    | Execution Engine            | PENDING    | 0/6        | **RESTRICTED:** executor ONLY, confirms termination, no decisions/retries   |
 | X2    | Sandbox System (Hardened)   | PENDING    | 0/5        | **HARDENED:** syscall restrictions, process tree kill, dual-mode cancellation |
-| X3    | Performance (SLA Passive)   | PENDING    | 0/4        | **PASSIVE:** SLAEnforcer emits events ONLY, StateMachine decides           |
+| X3    | Performance (SLA Passive)   | PENDING    | 0/5        | **PASSIVE:** SLAEnforcer emits events ONLY, StateMachine decides + alerting |
 | 10    | Prompt Builder              | PENDING    | 0/5        | Blocker: Phase 9                                                            |
 | 11    | Execution Hardening         | PENDING    | 0/8        | Added: centralized retry (StateMachine-controlled), exponential backoff     |
 | 12    | CLI Interface               | PENDING    | 0/3        | Blocker: Phase 11                                                           |
