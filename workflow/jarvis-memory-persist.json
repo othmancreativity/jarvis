@@ -1,0 +1,127 @@
+{
+  "name": "JARVIS 4.0 — Memory Persist",
+  "nodes": [
+    {
+      "parameters": {"jsCode": "return [$input.item];"},
+      "id": "mp-input-001",
+      "name": "Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [340, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO jarvis_logs (session_key, source, intent, input_text, response_text, execution_ms, error) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "options": {
+          "queryParams": "={{ [$json.sessionId || '', $json.source || '', $json.intent || '', $json.inputText || '', $json.responseText || '', (Date.now() - ($json.startTime || Date.now())), $json.error || null] }}"
+        },
+        "jsCode": ""
+      },
+      "id": "mp-log-001",
+      "name": "Log Execution",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [580, 300],
+      "continueOnFail": true,
+      "credentials": {"postgres": {"name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jarvis_stm SET messages = messages || $1::jsonb, updated_at = NOW() RETURNING jsonb_array_length(messages) as msg_count",
+        "options": {
+          "queryParams": "={{ [JSON.stringify([{role:'user',content:$json.inputText||'',ts:new Date().toISOString()},{role:'assistant',content:$json.responseText||'',ts:new Date().toISOString()}])] }}"
+        },
+        "jsCode": ""
+      },
+      "id": "mp-stm-001",
+      "name": "Update STM",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [820, 300],
+      "continueOnFail": true,
+      "credentials": {"postgres": {"name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT jsonb_array_length(messages) as count FROM jarvis_stm LIMIT 1",
+        "jsCode": ""
+      },
+      "id": "mp-check-001",
+      "name": "Check Message Count",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1060, 300],
+      "continueOnFail": true,
+      "credentials": {"postgres": {"name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const count = $json.count || 0;\nconst threshold = parseInt($env.STM_SUMMARY_THRESHOLD || '25', 10);\nreturn [{ json: { ...$input.item.json, needsSummary: count >= threshold, messageCount: count } }];"
+      },
+      "id": "mp-if-summary-001",
+      "name": "Need Summary?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: ($env.SUMMARY_LLM_MODEL || 'llama-3.1-8b-instant'), temperature: 0.1, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: 'Summarize this conversation into a JSON object with keys: summary (string, max 300 words), key_facts (array of strings, max 10).' }, { role: 'user', content: JSON.stringify({ recent_messages: $json.messages }) }] }) }}",
+        "options": {"timeout": 15000, "retryOnFail": true, "maxTries": 2},
+        "jsCode": ""
+      },
+      "id": "mp-summary-llm-001",
+      "name": "Summary LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jarvis_stm SET rolling_summary = $1, messages = '[]'::jsonb, updated_at = NOW()",
+        "options": {
+          "queryParams": "={{ [$json.summary || 'Session summarized.'] }}"
+        },
+        "jsCode": ""
+      },
+      "id": "mp-save-summary-001",
+      "name": "Save Summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1780, 200],
+      "continueOnFail": true,
+      "credentials": {"postgres": {"name": "Postgres account"}}
+    }
+  ],
+  "connections": {
+    "Input": {"main": [[{"node": "Log Execution", "type": "main", "index": 0}]]},
+    "Log Execution": {"main": [[{"node": "Update STM", "type": "main", "index": 0}]]},
+    "Update STM": {"main": [[{"node": "Check Message Count", "type": "main", "index": 0}]]},
+    "Check Message Count": {"main": [[{"node": "Need Summary?", "type": "main", "index": 0}]]},
+    "Need Summary?": {
+      "main": [
+        [{"node": "Summary LLM", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Summary LLM": {"main": [[{"node": "Save Summary", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "staticData": null,
+  "tags": []
+}

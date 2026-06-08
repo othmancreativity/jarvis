@@ -1,0 +1,68 @@
+{
+  "name": "JARVIS 4.0 — Local Device Bridge",
+  "nodes": [
+    {
+      "parameters": {"jsCode": "return [$input.item];"},
+      "id": "lb-input-001",
+      "name": "Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [340, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cmdId = 'cmd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);\nconst intent = $json.intent || '';\nconst params = $json.intentParams || {};\nconst text = $json.inputText || '';\n\nlet action, commandParams, requiresConfirmation;\n\nswitch (intent) {\n  case 'local_screenshot':\n    action = 'screenshot';\n    commandParams = { monitor: params.monitor || 0 };\n    requiresConfirmation = false;\n    break;\n  case 'local_browser':\n    action = params.action || 'open';\n    commandParams = { url: params.url || text.match(/https?:\\/\\/[^\\s]+/)?.[0] || 'https://google.com' };\n    requiresConfirmation = false;\n    break;\n  case 'local_app':\n    action = 'app_open';\n    commandParams = { app_name: params.app || text.split(' ').slice(-1)[0] };\n    requiresConfirmation = false;\n    break;\n  case 'local_file':\n    action = params.file_action || 'list';\n    commandParams = { path: params.path || '~' };\n    requiresConfirmation = ['delete', 'move'].includes(action);\n    break;\n  case 'local_shell':\n    action = 'shell_exec';\n    commandParams = { command: params.command || text };\n    requiresConfirmation = true;\n    break;\n  default:\n    action = 'system_info';\n    commandParams = {};\n    requiresConfirmation = false;\n}\n\nreturn [{ json: {\n  ...$json,\n  bridgeCommand: {\n    command_id: cmdId,\n    action,\n    params: commandParams,\n    requires_confirmation: requiresConfirmation,\n    timeout_ms: 30000\n  }\n} }];"
+      },
+      "id": "lb-build-001",
+      "name": "Build Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [580, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:{{ $env.BRIDGE_PORT || '8765' }}/command",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{ $env.JARVIS_BRIDGE_SECRET }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.bridgeCommand) }}",
+        "options": {
+          "timeout": 35000,
+          "retryOnFail": true,
+          "maxTries": 2
+        },
+        "jsCode": ""
+      },
+      "id": "lb-send-001",
+      "name": "Send to Laptop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [820, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $json;\nconst cmd = $input.item.json.bridgeCommand;\nlet responseText;\n\nif (result.status === 'denied') {\n  responseText = '\\u26d4 The action was denied on your laptop for safety.';\n} else if (result.status === 'error') {\n  responseText = '\\u274c Error: ' + (result.error || 'Unknown error from laptop.');\n} else if (result.status === 'timeout') {\n  responseText": "⏰ The laptop did not respond in time. Is the JARVIS companion app running?';\n} else if (result.status === 'success') {\n  const action = cmd.action;\n  switch (action) {\n    case 'screenshot':\n      responseText = '\\ud83d\udcf7 Screenshot captured.' + (result.file_path ? ' Saved to: ' + result.file_path : '');\n      break;\n    case 'browser_open':\n    case 'browser_navigate':\n      responseText = '\\ud83c\udf10 Browser opened: ' + (cmd.params?.url || '');\n      break;\n    case 'app_open':\n      responseText = '\\ud83d\ude80 Opened: ' + (cmd.params?.app_name || 'application');\n      break;\n    case 'shell_exec':\n      responseText = '\\ud83d\udcbb Command result:\\n```\\n' + (result.stdout || '').slice(0, 2000) + '\\n```';\n      break;\n    case 'file_list':\n      const files = result.files || [];\n      responseText = '\\ud83d\udcc1 Files in ' + (cmd.params?.path || '~') + ':\\n' + files.slice(0, 20).map(f => '  ' + f).join('\\n');\n      break;\n    default:\n      responseText = '\\u2705 Done: ' + action;\n  }\n} else {\n  responseText = 'Received response from laptop.';\n}\n\nreturn [{ json: { ...$input.item.json, responseText, success: result.status === 'success' } }];"
+      },
+      "id": "lb-format-001",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 300]
+    }
+  ],
+  "connections": {
+    "Input": {"main": [[{"node": "Build Command", "type": "main", "index": 0}]]},
+    "Build Command": {"main": [[{"node": "Send to Laptop", "type": "main", "index": 0}]]},
+    "Send to Laptop": {"main": [[{"node": "Format Response", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "staticData": null,
+  "tags": []
+}

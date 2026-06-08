@@ -1,0 +1,63 @@
+{
+  "name": "JARVIS 4.0 — Intent Router",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "return [$input.item];"
+      },
+      "id": "ir-input-001",
+      "name": "Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [340, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama-3.1-8b-instant', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: 'You are an intent classifier for JARVIS, a personal AI assistant. Analyze the user message and classify into exactly one category. Available intents: general_chat, youtube_search, youtube_download, drive_list, drive_search, drive_upload, drive_download, drive_delete, gmail_search, gmail_read, gmail_send, gmail_delete, calendar_list, calendar_create, calendar_delete, translate, contacts_list, contacts_search, contacts_create, docs_create, docs_read, slides_create, sheets_read, sheets_write, local_screenshot, local_browser, local_app, local_file, local_shell. Output ONLY JSON: {\"intent\": \"name\", \"confidence\": 0.0-1.0, \"params\": {}}' }, { role: 'user', content: 'Message: ' + ($json.inputText || '') }] }) }}",
+        "options": {
+          "timeout": 10000,
+          "retryOnFail": true,
+          "maxTries": 2
+        },
+        "jsCode": ""
+      },
+      "id": "ir-llm-001",
+      "name": "Classify Intent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [580, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw = '';\ntry {\n  raw = $json.choices?.[0]?.message?.content || '{}';\n  raw = raw.replace(/```json|```/g, '').trim();\n} catch (e) {\n  raw = '{}';\n}\nlet decision;\ntry {\n  decision = JSON.parse(raw);\n} catch (e) {\n  decision = { intent: 'general_chat', confidence: 1.0, params: {} };\n}\nconst VALID_INTENTS = ['general_chat','youtube_search','youtube_download','drive_list','drive_search','drive_upload','drive_download','drive_delete','gmail_search','gmail_read','gmail_send','gmail_delete','calendar_list','calendar_create','calendar_delete','translate','contacts_list','contacts_search','contacts_create','docs_create','docs_read','slides_create','sheets_read','sheets_write','local_screenshot','local_browser','local_app','local_file','local_shell'];\nif (!VALID_INTENTS.includes(decision.intent)) {\n  decision.intent = 'general_chat';\n  decision.confidence = 0.5;\n}\nreturn [{ json: { ...$input.item.json, intent: decision.intent, intentConfidence: decision.confidence || 0, intentParams: decision.params || {} } }];"
+      },
+      "id": "ir-parse-001",
+      "name": "Parse Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 300]
+    }
+  ],
+  "connections": {
+    "Input": {
+      "main": [[{"node": "Classify Intent", "type": "main", "index": 0}]]
+    },
+    "Classify Intent": {
+      "main": [[{"node": "Parse Intent", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"},
+  "staticData": null,
+  "tags": []
+}

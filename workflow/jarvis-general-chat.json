@@ -1,0 +1,60 @@
+{
+  "name": "JARVIS 4.0 — General Chat",
+  "nodes": [
+    {
+      "parameters": {"jsCode": "return [$input.item];"},
+      "id": "gc-input-001",
+      "name": "Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [340, 300]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.inputText }}",
+        "options": {
+          "systemMessage": "={{ 'You are Jarvis, a highly capable personal AI assistant - helpful, proactive, precise, and concise.\\n\\nUser: ' + ($json.metadata?.clientInfo?.firstName || 'User') + '\\nLanguage: ' + ($json.userLang || 'English') + '\\nTime: ' + new Date().toISOString() + '\\n\\nRespond concisely. Be helpful but not verbose. If the user needs a Google service, say so clearly.' }}",
+          "maxIterations": 3
+        },
+        "jsCode": ""
+      },
+      "id": "gc-agent-001",
+      "name": "Chat Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [580, 300]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {"temperature": 0.3},
+        "jsCode": ""
+      },
+      "id": "gc-llm-001",
+      "name": "Groq Chat",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [580, 520],
+      "credentials": {"groqApi": {"name": "Groq account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $json.output || $json.choices?.[0]?.message?.content || 'I apologize, I could not generate a response.';\nreturn [{ json: { ...$input.item.json, responseText: output.trim(), success: true } }];"
+      },
+      "id": "gc-format-001",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 300]
+    }
+  ],
+  "connections": {
+    "Input": {"main": [[{"node": "Chat Agent", "type": "main", "index": 0}]]},
+    "Groq Chat": {"ai_languageModel": [[{"node": "Chat Agent", "type": "ai_languageModel", "index": 0}]]},
+    "Chat Agent": {"main": [[{"node": "Format Output", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "staticData": null,
+  "tags": []
+}
