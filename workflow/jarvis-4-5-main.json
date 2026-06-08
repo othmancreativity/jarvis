@@ -1,0 +1,326 @@
+{
+  "name": "JARVIS 4.5 — Main Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message", "callback_query"],
+        "additionalFields": {},
+        "jsCode": ""
+      },
+      "id": "trigger-telegram-001",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [340, 280],
+      "webhookId": "jarvis-telegram-45",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jarvis-webhook",
+        "responseMode": "responseNode",
+        "jsCode": ""
+      },
+      "id": "trigger-website-001",
+      "name": "Website Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [340, 420],
+      "webhookId": "jarvis-webhook-site"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jarvis-local",
+        "responseMode": "responseNode",
+        "jsCode": ""
+      },
+      "id": "trigger-local-001",
+      "name": "Local Script Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [340, 560],
+      "webhookId": "jarvis-webhook-local"
+    },
+    {
+      "parameters": {
+        "jsCode": "const update = $input.item.json;\nconst isTelegram = !!update.message;\nconst isWebsite = !!update.body && update.headers?.['x-jarvis-source'] === 'website';\nconst isLocal = !!update.body && update.headers?.['x-jarvis-source'] === 'local';\n\nlet result;\nif (isTelegram) {\n  const msg = update.message || update.callback_query?.message;\n  const cbq = update.callback_query;\n  result = {\n    source: 'telegram',\n    userId: String(msg?.from?.id || 'unknown'),\n    sessionId: 'sess_' + String(msg?.chat?.id || '0') + '_' + Date.now(),\n    messageId: String(msg?.message_id || ''),\n    inputType: msg?.voice ? 'voice' : msg?.photo ? 'photo' : msg?.document ? 'document' : msg?.location ? 'location' : msg?.text ? 'text' : 'unknown',\n    inputText: msg?.text || msg?.caption || cbq?.data || '',\n    inputBinary: null,\n    metadata: {\n      chatId: String(msg?.chat?.id || ''),\n      replyEndpoint: null,\n      timestamp: new Date().toISOString(),\n      clientInfo: { firstName: msg?.from?.first_name, username: msg?.from?.username }\n    }\n  };\n} else if (isWebsite || isLocal) {\n  const body = update.body || {};\n  result = {\n    source: isWebsite ? 'website' : 'local',\n    userId: 'default',\n    sessionId: body.session_id || 'sess_default_' + Date.now(),\n    messageId: body.message_id || '',\n    inputType: body.input_type || 'text',\n    inputText: body.text || body.message || '',\n    inputBinary: body.attachment || null,\n    metadata: {\n      chatId: null,\n      replyEndpoint: body.reply_url || null,\n      timestamp: new Date().toISOString(),\n      clientInfo: body.client_info || {}\n    }\n  };\n} else {\n  return [];\n}\n\nreturn [{ json: result }];"
+      },
+      "id": "node-normalize-001",
+      "name": "Request Normalizer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [580, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "const OWNER_USER_ID = String($env.OWNER_USER_ID || '');\nconst AUTH_MODE = String($env.AUTH_MODE || 'protected').toLowerCase();\nconst userId = String($json.userId || '');\n\nif ($env.TELEGRAM_WEBHOOK_SECRET) {\n  const trigger = $('Telegram Trigger').first();\n  const headers = trigger?.json?.headers || {};\n  const secret = headers['x-telegram-bot-api-secret-token'];\n  if (!secret || secret !== $env.TELEGRAM_WEBHOOK_SECRET) {\n    return [];\n  }\n}\n\nif (AUTH_MODE === 'protected' && OWNER_USER_ID && userId !== OWNER_USER_ID) {\n  try {\n    await $helpers.httpRequest({\n      method: 'POST',\n      url: 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage',\n      headers: { 'Content-Type': 'application/json' },\n      body: { chat_id: $json.metadata?.chatId, text: '\u26d4 Access denied. Unauthorized user.' },\n      timeout: 5000\n    });\n  } catch (e) { /* silent */ }\n  return [];\n}\n\nreturn [$input.item];"
+      },
+      "id": "node-auth-001",
+      "name": "Auth Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "const userId = String($json.userId || 'default');\nconst limit = parseInt($env.RATE_LIMIT_PER_MINUTE || '30', 10);\nconst WINDOW_MS = 60_000;\nconst now = Date.now();\n\nconst sd = $getWorkflowStaticData('global');\nsd.rl = sd.rl || {};\nconst bucket = sd.rl[userId] || (sd.rl[userId] = []);\nwhile (bucket.length && (now - bucket[0]) > WINDOW_MS) bucket.shift();\n\nif (bucket.length >= limit) {\n  return [];\n}\n\nbucket.push(now);\nreturn [{ json: { ...$json, startTime: now } }];"
+      },
+      "id": "node-ratelimit-001",
+      "name": "Rate Limit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendChatAction",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $json.metadata?.chatId, action: 'typing' }) }}",
+        "options": {
+          "timeout": 3000,
+          "retryOnFail": false
+        },
+        "jsCode": ""
+      },
+      "id": "node-typing-001",
+      "name": "Typing Indicator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 420],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "node-merge-entry-001",
+      "name": "Merge Entry Points",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [580, 280]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1},
+                "conditions": [{"id": "route-all", "leftValue": "={{ $json.source }}", "rightValue": "", "operator": {"type": "string", "operation": "exists"}}],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {"fallbackOutput": 0},
+        "jsCode": ""
+      },
+      "id": "node-route-source-001",
+      "name": "Route by Source",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1540, 420]
+    },
+    {
+      "parameters": {
+        "workflowId": "=jarvis-intent-router",
+        "jsCode": ""
+      },
+      "id": "node-router-001",
+      "name": "Intent Router",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1780, 420]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1},
+          "conditions": [{"id": "is-general", "leftValue": "={{ $json.intent }}", "rightValue": "general_chat", "operator": {"type": "string", "operation": "equals"}}],
+          "combinator": "and"
+        },
+        "options": {},
+        "jsCode": ""
+      },
+      "id": "node-if-general-001",
+      "name": "Is General Chat?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2020, 280]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1},
+          "conditions": [{"id": "is-local", "leftValue": "={{ $json.intent }}", "rightValue": "local_", "operator": {"type": "string", "operation": "startsWith"}}],
+          "combinator": "and"
+        },
+        "options": {},
+        "jsCode": ""
+      },
+      "id": "node-if-local-001",
+      "name": "Is Local Device?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2020, 560]
+    },
+    {
+      "parameters": {"workflowId": "=jarvis-general-chat", "jsCode": ""},
+      "id": "node-general-001",
+      "name": "General Chat",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2260, 140]
+    },
+    {
+      "parameters": {"workflowId": "=jarvis-service-dispatcher", "jsCode": ""},
+      "id": "node-service-dispatch-001",
+      "name": "Service Dispatcher",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2260, 420]
+    },
+    {
+      "parameters": {"workflowId": "=jarvis-local-bridge", "jsCode": ""},
+      "id": "node-local-001",
+      "name": "Local Device Bridge",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2260, 700]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "node-merge-response-001",
+      "name": "Merge Responses",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2500, 420]
+    },
+    {
+      "parameters": {"workflowId": "=jarvis-response-sender", "jsCode": ""},
+      "id": "node-response-001",
+      "name": "Response Sender",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2740, 420]
+    },
+    {
+      "parameters": {"workflowId": "=jarvis-memory-persist", "jsCode": ""},
+      "id": "node-memory-001",
+      "name": "Memory Persist",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2740, 700],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const MAX_LEN = parseInt($env.TELEGRAM_MAX_MESSAGE_LENGTH || '4000', 10);\nlet text = String($json.responseText || '');\nif (text.length > MAX_LEN) {\n  const parts = [];\n  while (text.length > 0) {\n    let chunk = text.slice(0, MAX_LEN);\n    const lastBreak = Math.max(chunk.lastIndexOf('\\n'), chunk.lastIndexOf(' '));\n    if (lastBreak > MAX_LEN * 0.8) chunk = chunk.slice(0, lastBreak);\n    parts.push(chunk.trim());\n    text = text.slice(chunk.length);\n  }\n  return parts.map(p => ({ json: { ...$json, messageText: p } }));\n}\nreturn [{ json: { ...$json, messageText: text } }];"
+      },
+      "id": "node-split-001",
+      "name": "Split Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2980, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $json.metadata?.chatId, text: $json.messageText, parse_mode: 'HTML' }) }}",
+        "options": {
+          "timeout": 10000,
+          "retryOnFail": true,
+          "maxTries": 3,
+          "waitBetweenTries": 2000
+        },
+        "jsCode": ""
+      },
+      "id": "node-send-telegram-001",
+      "name": "Send Telegram Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3220, 280],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": {},
+        "responseBody": "={{ JSON.stringify({ success: true, response: $json.responseText, version: '4.5.0' }) }}",
+        "jsCode": ""
+      },
+      "id": "node-respond-web-001",
+      "name": "Respond Website",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3220, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": {},
+        "responseBody": "={{ JSON.stringify({ success: true, response: $json.responseText, version: '4.5.0' }) }}",
+        "jsCode": ""
+      },
+      "id": "node-respond-local-001",
+      "name": "Respond Local",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3220, 560]
+    },
+    {
+      "parameters": {
+        "content": "JARVIS 4.5 — Multi-Agent AI Operating Assistant\n\nEntry Points: Telegram | Website Webhook | Local Script\n\nArchitecture:\n  Router + Specialized Agents | Local Device Bridge | Memory System\n\nAgents (9):\n  planner | executor | browser | memory | vision | coding | google | security | scheduler\n\nFlow:\n  Entry → Normalizer → Auth → Rate Limit → Intent Router → [General Chat | Service Dispatcher | Local Bridge] → Response\n\nLocal Device Ops:\n  browser (open, navigate, tabs, screenshot)\n  apps (open, close, restart, focus, list)\n  files (list, read, write, move, copy, delete, search, compress, extract)\n  screen (screenshot, record, OCR)\n  shell (execute with safety)\n  system (info, processes, kill)\n\nEnv: TELEGRAM_BOT_TOKEN, GROQ_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, OWNER_USER_ID, JARVIS_BRIDGE_SECRET",
+        "height": 500,
+        "width": 650,
+        "color": 5,
+        "jsCode": ""
+      },
+      "id": "sticky-main-001",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [340, 40]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {"main": [[{"node": "Merge Entry Points", "type": "main", "index": 0}]]},
+    "Website Webhook": {"main": [[{"node": "Merge Entry Points", "type": "main", "index": 0}]]},
+    "Local Script Webhook": {"main": [[{"node": "Merge Entry Points", "type": "main", "index": 0}]]},
+    "Merge Entry Points": {"main": [[{"node": "Request Normalizer", "type": "main", "index": 0}]]},
+    "Request Normalizer": {"main": [[{"node": "Auth Gate", "type": "main", "index": 0}]]},
+    "Auth Gate": {"main": [[{"node": "Rate Limit", "type": "main", "index": 0}]]},
+    "Rate Limit": {"main": [[{"node": "Typing Indicator", "type": "main", "index": 0}, {"node": "Route by Source", "type": "main", "index": 0}]]},
+    "Route by Source": {"main": [[{"node": "Intent Router", "type": "main", "index": 0}]]},
+    "Intent Router": {"main": [[{"node": "Is General Chat?", "type": "main", "index": 0}]]},
+    "Is General Chat?": {"main": [[{"node": "General Chat", "type": "main", "index": 0}], [{"node": "Is Local Device?", "type": "main", "index": 0}]]},
+    "Is Local Device?": {"main": [[{"node": "Service Dispatcher", "type": "main", "index": 0}], [{"node": "Local Device Bridge", "type": "main", "index": 0}]]},
+    "General Chat": {"main": [[{"node": "Merge Responses", "type": "main", "index": 0}]]},
+    "Service Dispatcher": {"main": [[{"node": "Merge Responses", "type": "main", "index": 0}]]},
+    "Local Device Bridge": {"main": [[{"node": "Merge Responses", "type": "main", "index": 0}]]},
+    "Merge Responses": {"main": [[{"node": "Response Sender", "type": "main", "index": 0}]]},
+    "Response Sender": {"main": [[{"node": "Split Response", "type": "main", "index": 0}, {"node": "Memory Persist", "type": "main", "index": 0}]]},
+    "Split Response": {"main": [[{"node": "Send Telegram Reply", "type": "main", "index": 0}, {"node": "Respond Website", "type": "main", "index": 0}, {"node": "Respond Local", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}

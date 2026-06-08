@@ -1,5 +1,5 @@
 {
-  "name": "JARVIS 4.0 — Local Device Bridge",
+  "name": "JARVIS 4.5 — Local Device Bridge",
   "nodes": [
     {
       "parameters": {"jsCode": "return [$input.item];"},
@@ -11,10 +11,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const cmdId = 'cmd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);\nconst intent = $json.intent || '';\nconst params = $json.intentParams || {};\nconst text = $json.inputText || '';\n\nlet action, commandParams, requiresConfirmation;\n\nswitch (intent) {\n  case 'local_screenshot':\n    action = 'screenshot';\n    commandParams = { monitor: params.monitor || 0 };\n    requiresConfirmation = false;\n    break;\n  case 'local_browser':\n    action = params.action || 'open';\n    commandParams = { url: params.url || text.match(/https?:\\/\\/[^\\s]+/)?.[0] || 'https://google.com' };\n    requiresConfirmation = false;\n    break;\n  case 'local_app':\n    action = 'app_open';\n    commandParams = { app_name: params.app || text.split(' ').slice(-1)[0] };\n    requiresConfirmation = false;\n    break;\n  case 'local_file':\n    action = params.file_action || 'list';\n    commandParams = { path: params.path || '~' };\n    requiresConfirmation = ['delete', 'move'].includes(action);\n    break;\n  case 'local_shell':\n    action = 'shell_exec';\n    commandParams = { command: params.command || text };\n    requiresConfirmation = true;\n    break;\n  default:\n    action = 'system_info';\n    commandParams = {};\n    requiresConfirmation = false;\n}\n\nreturn [{ json: {\n  ...$json,\n  bridgeCommand: {\n    command_id: cmdId,\n    action,\n    params: commandParams,\n    requires_confirmation: requiresConfirmation,\n    timeout_ms: 30000\n  }\n} }];"
+        "jsCode": "const intent = $json.intent || '';\nconst params = $json.intentParams || {};\nconst text = $json.inputText || '';\n\nconst intentMap = {\n  'local_screenshot': { action: 'screenshot', params: {} },\n  'local_browser': { action: params.action || 'browser_open', params: { url: params.url || text.match(/https?:\/\/[^\\s]+/)?.[0] || 'about:blank' } },\n  'local_app': { action: 'app_open', params: { app_name: params.app || text.replace(/open|launch|start/i, '').trim() } },\n  'local_file': { action: params.file_action || 'file_list', params: { path: params.path || '~' } },\n  'local_shell': { action: 'shell_exec', params: { command: params.command || text } },\n  'local_system': { action: 'system_info', params: {} }\n};\n\nconst mapped = intentMap[intent] || { action: 'system_info', params: { query: text } };\n\nreturn [{\n  json: {\n    ...$json,\n    action: mapped.action,\n    params: mapped.params,\n    command_id: 'cmd_' + Date.now(),\n    requires_confirmation: ['shell_exec', 'file_delete', 'app_close'].includes(mapped.action)\n  }\n}];"
       },
-      "id": "lb-build-001",
-      "name": "Build Command",
+      "id": "lb-map-001",
+      "name": "Map Intent to Command",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [580, 300]
@@ -22,45 +22,45 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://host.docker.internal:{{ $env.BRIDGE_PORT || '8765' }}/command",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {"name": "Authorization", "value": "=Bearer {{ $env.JARVIS_BRIDGE_SECRET }}"},
-            {"name": "Content-Type", "value": "application/json"}
-          ]
-        },
+        "url": "=ws://localhost:{{ $env.BRIDGE_PORT || '8765' }}/jarvis-bridge",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.bridgeCommand) }}",
-        "options": {
-          "timeout": 35000,
-          "retryOnFail": true,
-          "maxTries": 2
-        },
+        "jsonBody": "={{ JSON.stringify({ type: 'command', payload: { command_id: $json.command_id, action: $json.action, params: $json.params, requires_confirmation: $json.requires_confirmation, source: 'n8n' }, id: $json.command_id }) }}",
+        "options": {"timeout": 15000, "retryOnFail": true, "maxTries": 2},
         "jsCode": ""
       },
-      "id": "lb-send-001",
-      "name": "Send to Laptop",
+      "id": "lb-ws-001",
+      "name": "Send to Local Bridge",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [820, 300]
     },
     {
       "parameters": {
-        "jsCode": "const result = $json;\nconst cmd = $input.item.json.bridgeCommand;\nlet responseText;\n\nif (result.status === 'denied') {\n  responseText = '\\u26d4 The action was denied on your laptop for safety.';\n} else if (result.status === 'error') {\n  responseText = '\\u274c Error: ' + (result.error || 'Unknown error from laptop.');\n} else if (result.status === 'timeout') {\n  responseText": "⏰ The laptop did not respond in time. Is the JARVIS companion app running?';\n} else if (result.status === 'success') {\n  const action = cmd.action;\n  switch (action) {\n    case 'screenshot':\n      responseText = '\\ud83d\udcf7 Screenshot captured.' + (result.file_path ? ' Saved to: ' + result.file_path : '');\n      break;\n    case 'browser_open':\n    case 'browser_navigate':\n      responseText = '\\ud83c\udf10 Browser opened: ' + (cmd.params?.url || '');\n      break;\n    case 'app_open':\n      responseText = '\\ud83d\ude80 Opened: ' + (cmd.params?.app_name || 'application');\n      break;\n    case 'shell_exec':\n      responseText = '\\ud83d\udcbb Command result:\\n```\\n' + (result.stdout || '').slice(0, 2000) + '\\n```';\n      break;\n    case 'file_list':\n      const files = result.files || [];\n      responseText = '\\ud83d\udcc1 Files in ' + (cmd.params?.path || '~') + ':\\n' + files.slice(0, 20).map(f => '  ' + f).join('\\n');\n      break;\n    default:\n      responseText = '\\u2705 Done: ' + action;\n  }\n} else {\n  responseText = 'Received response from laptop.';\n}\n\nreturn [{ json: { ...$input.item.json, responseText, success: result.status === 'success' } }];"
+        "jsCode": "const action = $json.action || 'unknown';\nconst params = $json.params || {};\n\n// Fallback HTTP bridge\nconst http = require('http');\n\nreturn new Promise((resolve) => {\n  const postData = JSON.stringify({\n    type: 'command',\n    payload: {\n      command_id: $json.command_id,\n      action: action,\n      params: params,\n      requires_confirmation: $json.requires_confirmation\n    }\n  });\n\n  const req = http.request(\n    { hostname: 'localhost', port: parseInt($env.BRIDGE_PORT || '8765'), path: '/', method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) } },\n    (res) => {\n      let data = '';\n      res.on('data', chunk => data += chunk);\n      res.on('end', () => {\n        try {\n          const result = JSON.parse(data);\n          resolve([{ json: { ...$json, ...result, bridge_used: 'http' } }]);\n        } catch (e) {\n          resolve([{ json: { ...$json, responseText: data, bridge_used: 'http' } }]);\n        }\n      });\n    }\n  );\n  req.on('error', () => {\n    resolve([{ json: { ...$json, responseText: 'Local device bridge unavailable. Ensure bridge_server.py is running.', success: false } }]);\n  });\n  req.write(postData);\n  req.end();\n});"
+      },
+      "id": "lb-http-001",
+      "name": "HTTP Bridge Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $json;\n\n// Check if we got a valid bridge response\nif (res.status) {\n  const status = res.status;\n  const output = res.stdout || res.result || '';\n  const error = res.stderr || res.error || '';\n\n  if (status === 'success') {\n    return [{ json: { ...$json, responseText: `\u2705 Command executed:\n\n${output}`, success: true } }];\n  } else if (status === 'blocked') {\n    return [{ json: { ...$json, responseText: `\ud83d\udeab Command blocked by safety policy.`, success: false } }];\n  } else if (status === 'denied') {\n    return [{ json: { ...$json, responseText: `\u274c User denied the operation.`, success: false } }];\n  } else if (status === 'timeout') {\n    return [{ json: { ...$json, responseText: `\u23f0 Command timed out.`, success: false } }];\n  } else {\n    return [{ json: { ...$json, responseText: `\u26a0\ufe0f Error:\n${error}\n${output}`, success: false } }];\n  }\n}\n\n// Direct response from HTTP fallback\nreturn [{ json: { ...$json, responseText: res.responseText || 'Device operation completed.', success: res.success !== false } }];"
       },
       "id": "lb-format-001",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1060, 300]
+      "position": [1300, 300]
     }
   ],
   "connections": {
-    "Input": {"main": [[{"node": "Build Command", "type": "main", "index": 0}]]},
-    "Build Command": {"main": [[{"node": "Send to Laptop", "type": "main", "index": 0}]]},
-    "Send to Laptop": {"main": [[{"node": "Format Response", "type": "main", "index": 0}]]}
+    "Input": {"main": [[{"node": "Map Intent to Command", "type": "main", "index": 0}]]},
+    "Map Intent to Command": {"main": [[{"node": "Send to Local Bridge", "type": "main", "index": 0}]]},
+    "Send to Local Bridge": {"main": [[{"node": "HTTP Bridge Fallback", "type": "main", "index": 0}]]},
+    "HTTP Bridge Fallback": {"main": [[{"node": "Format Response", "type": "main", "index": 0}]]}
   },
   "settings": {"executionOrder": "v1"},
   "staticData": null,

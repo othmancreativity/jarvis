@@ -1,4 +1,4 @@
-# JARVIS 4.0 — Desktop Companion App
+# JARVIS 4.5 — Desktop Companion App
 # Python Dependencies
 # Install: pip install -r requirements.txt
 
@@ -21,6 +21,10 @@ mss>=9.0.0
 opencv-python>=4.8.0
 Pillow>=10.0.0
 
+# OCR (optional)
+# pytesseract>=0.3.10
+# tesseract-ocr (system package)
+
 # System Info
 psutil>=5.9.0
 
@@ -28,8 +32,6 @@ psutil>=5.9.0
 # pyttsx3>=2.90
 # gTTS>=2.4.0
 
-# Audio playback (optional)
-# pygame>=2.5.0
-
 # Utils
 python-dotenv>=1.0.0
+requests>=2.31.0

@@ -1,5 +1,5 @@
 {
-  "name": "JARVIS 4.0 — General Chat",
+  "name": "JARVIS 4.5 — General Chat",
   "nodes": [
     {
       "parameters": {"jsCode": "return [$input.item];"},
@@ -11,36 +11,30 @@
     },
     {
       "parameters": {
-        "promptType": "define",
-        "text": "={{ $json.inputText }}",
-        "options": {
-          "systemMessage": "={{ 'You are Jarvis, a highly capable personal AI assistant - helpful, proactive, precise, and concise.\\n\\nUser: ' + ($json.metadata?.clientInfo?.firstName || 'User') + '\\nLanguage: ' + ($json.userLang || 'English') + '\\nTime: ' + new Date().toISOString() + '\\n\\nRespond concisely. Be helpful but not verbose. If the user needs a Google service, say so clearly.' }}",
-          "maxIterations": 3
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: ($env.JARVIS_MODEL || 'llama-3.3-70b-versatile'), temperature: 0.3, messages: [{ role: 'system', content: 'You are JARVIS 4.5, a highly capable personal AI Operating Assistant. You are helpful, proactive, precise, and concise. You can help with general questions, coding, analysis, and creative tasks. You have access to local device control and Google services through specialized agents. Respond concisely but thoroughly.' }, { role: 'user', content: ($json.inputText || '') }] }) }}",
+        "options": {"timeout": 20000, "retryOnFail": true, "maxTries": 2},
         "jsCode": ""
       },
-      "id": "gc-agent-001",
-      "name": "Chat Agent",
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 1.7,
+      "id": "gc-llm-001",
+      "name": "Chat LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [580, 300]
     },
     {
       "parameters": {
-        "model": "llama-3.3-70b-versatile",
-        "options": {"temperature": 0.3},
-        "jsCode": ""
-      },
-      "id": "gc-llm-001",
-      "name": "Groq Chat",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
-      "typeVersion": 1,
-      "position": [580, 520],
-      "credentials": {"groqApi": {"name": "Groq account"}}
-    },
-    {
-      "parameters": {
-        "jsCode": "const output = $json.output || $json.choices?.[0]?.message?.content || 'I apologize, I could not generate a response.';\nreturn [{ json: { ...$input.item.json, responseText: output.trim(), success: true } }];"
+        "jsCode": "const content = $json.choices?.[0]?.message?.content || 'I apologize, I could not generate a response.';\nreturn [{ json: { ...$input.item.json, responseText: content.trim(), success: true } }];"
       },
       "id": "gc-format-001",
       "name": "Format Output",
@@ -50,9 +44,8 @@
     }
   ],
   "connections": {
-    "Input": {"main": [[{"node": "Chat Agent", "type": "main", "index": 0}]]},
-    "Groq Chat": {"ai_languageModel": [[{"node": "Chat Agent", "type": "ai_languageModel", "index": 0}]]},
-    "Chat Agent": {"main": [[{"node": "Format Output", "type": "main", "index": 0}]]}
+    "Input": {"main": [[{"node": "Chat LLM", "type": "main", "index": 0}]]},
+    "Chat LLM": {"main": [[{"node": "Format Output", "type": "main", "index": 0}]]}
   },
   "settings": {"executionOrder": "v1"},
   "staticData": null,

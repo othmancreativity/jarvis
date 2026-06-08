@@ -1,5 +1,5 @@
 {
-  "name": "JARVIS 4.0 — Service Dispatcher",
+  "name": "JARVIS 4.5 — Service Dispatcher",
   "nodes": [
     {
       "parameters": {"jsCode": "return [$input.item];"},
@@ -34,92 +34,18 @@
       "typeVersion": 3,
       "position": [580, 300]
     },
+    {"parameters": {"workflowId": "=jarvis-youtube-agent"}, "id": "sd-youtube-001", "name": "YouTube Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 60]},
+    {"parameters": {"workflowId": "=jarvis-drive-agent"}, "id": "sd-drive-001", "name": "Drive Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 140]},
+    {"parameters": {"workflowId": "=jarvis-gmail-agent"}, "id": "sd-gmail-001", "name": "Gmail Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 220]},
+    {"parameters": {"workflowId": "=jarvis-calendar-agent"}, "id": "sd-calendar-001", "name": "Calendar Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 300]},
+    {"parameters": {"workflowId": "=jarvis-translate-agent"}, "id": "sd-translate-001", "name": "Translate Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 380]},
+    {"parameters": {"workflowId": "=jarvis-contacts-agent"}, "id": "sd-contacts-001", "name": "Contacts Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 460]},
+    {"parameters": {"workflowId": "=jarvis-docs-agent"}, "id": "sd-docs-001", "name": "Docs Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 540]},
+    {"parameters": {"workflowId": "=jarvis-slides-agent"}, "id": "sd-slides-001", "name": "Slides Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 620]},
+    {"parameters": {"workflowId": "=jarvis-tasks-agent"}, "id": "sd-tasks-001", "name": "Tasks Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 700]},
+    {"parameters": {"workflowId": "=jarvis-sheets-agent"}, "id": "sd-sheets-001", "name": "Sheets Agent", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.1, "position": [820, 780]},
     {
-      "parameters": {"workflowId": "=jarvis-youtube-agent", "jsCode": ""},
-      "id": "sd-youtube-001",
-      "name": "YouTube Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 60]
-    },
-    {
-      "parameters": {"workflowId": "=jarvis-drive-agent", "jsCode": ""},
-      "id": "sd-drive-001",
-      "name": "Drive Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 140]
-    },
-    {
-      "parameters": {"workflowId": "=jarvis-gmail-agent", "jsCode": ""},
-      "id": "sd-gmail-001",
-      "name": "Gmail Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 220]
-    },
-    {
-      "parameters": {"workflowId": "=jarvis-calendar-agent", "jsCode": ""},
-      "id": "sd-calendar-001",
-      "name": "Calendar Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 300]
-    },
-    {
-      "parameters": {"workflowId": "=jarvis-translate-agent", "jsCode": ""},
-      "id": "sd-translate-001",
-      "name": "Translate Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 380]
-    },
-    {
-      "parameters": {"workflowId": "=jarvis-contacts-agent", "jsCode": ""},
-      "id": "sd-contacts-001",
-      "name": "Contacts Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 460]
-    },
-    {
-      "parameters": {"workflowId": "=jarvis-docs-agent", "jsCode": ""},
-      "id": "sd-docs-001",
-      "name": "Docs Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 540]
-    },
-    {
-      "parameters": {"workflowId": "=jarvis-slides-agent", "jsCode": ""},
-      "id": "sd-slides-001",
-      "name": "Slides Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 620]
-    },
-    {
-      "parameters": {"workflowId": "=jarvis-sheets-agent", "jsCode": ""},
-      "id": "sd-sheets-001",
-      "name": "Sheets Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 700]
-    },
-    {
-      "parameters": {"workflowId": "=jarvis-tasks-agent", "jsCode": ""},
-      "id": "sd-tasks-001",
-      "name": "Tasks Agent",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [820, 780]
-    },
-    {
-      "parameters": {
-        "mode": "combine",
-        "combinationMode": "mergeByPosition",
-        "options": {}
-      },
+      "parameters": {"mode": "combine", "combinationMode": "mergeByPosition", "options": {}},
       "id": "sd-merge-001",
       "name": "Merge Agent Outputs",
       "type": "n8n-nodes-base.merge",
@@ -139,8 +65,8 @@
         [{"node": "Contacts Agent", "type": "main", "index": 0}],
         [{"node": "Docs Agent", "type": "main", "index": 0}],
         [{"node": "Slides Agent", "type": "main", "index": 0}],
-        [{"node": "Sheets Agent", "type": "main", "index": 0}],
-        [{"node": "Tasks Agent", "type": "main", "index": 0}]
+        [{"node": "Tasks Agent", "type": "main", "index": 0}],
+        [{"node": "Sheets Agent", "type": "main", "index": 0}]
       ]
     },
     "YouTube Agent": {"main": [[{"node": "Merge Agent Outputs", "type": "main", "index": 0}]]},
@@ -151,8 +77,8 @@
     "Contacts Agent": {"main": [[{"node": "Merge Agent Outputs", "type": "main", "index": 0}]]},
     "Docs Agent": {"main": [[{"node": "Merge Agent Outputs", "type": "main", "index": 0}]]},
     "Slides Agent": {"main": [[{"node": "Merge Agent Outputs", "type": "main", "index": 0}]]},
-    "Sheets Agent": {"main": [[{"node": "Merge Agent Outputs", "type": "main", "index": 0}]]},
-    "Tasks Agent": {"main": [[{"node": "Merge Agent Outputs", "type": "main", "index": 0}]]}
+    "Tasks Agent": {"main": [[{"node": "Merge Agent Outputs", "type": "main", "index": 0}]]},
+    "Sheets Agent": {"main": [[{"node": "Merge Agent Outputs", "type": "main", "index": 0}]]}
   },
   "settings": {"executionOrder": "v1"},
   "staticData": null,

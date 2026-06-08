@@ -1,5 +1,5 @@
 {
-  "name": "JARVIS 4.0 — Memory Persist",
+  "name": "JARVIS 4.5 — Memory Persist",
   "nodes": [
     {
       "parameters": {"jsCode": "return [$input.item];"},
@@ -11,66 +11,18 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO jarvis_logs (session_key, source, intent, input_text, response_text, execution_ms, error) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-        "options": {
-          "queryParams": "={{ [$json.sessionId || '', $json.source || '', $json.intent || '', $json.inputText || '', $json.responseText || '', (Date.now() - ($json.startTime || Date.now())), $json.error || null] }}"
-        },
-        "jsCode": ""
+        "jsCode": "const context_dir = '/tmp/jarvis_context';\nconst session_file = `${context_dir}/session.json`;\n\nconst session = {\n  userId: $json.userId || 'default',\n  sessionId: $json.sessionId || '',\n  lastMessage: $json.inputText || '',\n  lastResponse: $json.responseText || '',\n  lastIntent: $json.intent || '',\n  timestamp: new Date().toISOString(),\n  version: '4.5.0'\n};\n\ntry {\n  const fs = require('fs');\n  if (!fs.existsSync(context_dir)) {\n    fs.mkdirSync(context_dir, { recursive: true });\n  }\n  fs.writeFileSync(session_file, JSON.stringify(session, null, 2));\n  $json.memorySaved = true;\n  $json.memoryPath = session_file;\n} catch (e) {\n  $json.memorySaved = false;\n  $json.memoryError = e.message;\n}\n\nreturn [{ json: { ...$json, success: true } }];"
       },
-      "id": "mp-log-001",
-      "name": "Log Execution",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [580, 300],
-      "continueOnFail": true,
-      "credentials": {"postgres": {"name": "Postgres account"}}
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE jarvis_stm SET messages = messages || $1::jsonb, updated_at = NOW() RETURNING jsonb_array_length(messages) as msg_count",
-        "options": {
-          "queryParams": "={{ [JSON.stringify([{role:'user',content:$json.inputText||'',ts:new Date().toISOString()},{role:'assistant',content:$json.responseText||'',ts:new Date().toISOString()}])] }}"
-        },
-        "jsCode": ""
-      },
-      "id": "mp-stm-001",
-      "name": "Update STM",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [820, 300],
-      "continueOnFail": true,
-      "credentials": {"postgres": {"name": "Postgres account"}}
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT jsonb_array_length(messages) as count FROM jarvis_stm LIMIT 1",
-        "jsCode": ""
-      },
-      "id": "mp-check-001",
-      "name": "Check Message Count",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [1060, 300],
-      "continueOnFail": true,
-      "credentials": {"postgres": {"name": "Postgres account"}}
-    },
-    {
-      "parameters": {
-        "jsCode": "const count = $json.count || 0;\nconst threshold = parseInt($env.STM_SUMMARY_THRESHOLD || '25', 10);\nreturn [{ json: { ...$input.item.json, needsSummary: count >= threshold, messageCount: count } }];"
-      },
-      "id": "mp-if-summary-001",
-      "name": "Need Summary?",
+      "id": "mp-save-001",
+      "name": "Save to Local Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1300, 300]
+      "position": [580, 300]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -80,46 +32,32 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: ($env.SUMMARY_LLM_MODEL || 'llama-3.1-8b-instant'), temperature: 0.1, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: 'Summarize this conversation into a JSON object with keys: summary (string, max 300 words), key_facts (array of strings, max 10).' }, { role: 'user', content: JSON.stringify({ recent_messages: $json.messages }) }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama-3.1-8b-instant', temperature: 0.2, messages: [{ role: 'system', content: 'Extract key facts and user preferences from this conversation. Return ONLY a JSON array of objects with shape {\"category\": \"profile|preference|fact\", \"key\": \"string\", \"value\": \"string\"}. Be concise.' }, { role: 'user', content: 'User: ' + ($json.inputText || '') + '\\nAssistant: ' + ($json.responseText || '') }] }) }}",
         "options": {"timeout": 15000, "retryOnFail": true, "maxTries": 2},
         "jsCode": ""
       },
-      "id": "mp-summary-llm-001",
-      "name": "Summary LLM",
+      "id": "mp-extract-001",
+      "name": "Extract Facts (LLM)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1540, 200]
+      "position": [820, 300],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE jarvis_stm SET rolling_summary = $1, messages = '[]'::jsonb, updated_at = NOW()",
-        "options": {
-          "queryParams": "={{ [$json.summary || 'Session summarized.'] }}"
-        },
-        "jsCode": ""
+        "jsCode": "const facts = [];\ntry {\n  const raw = $json.choices?.[0]?.message?.content || '[]';\n  const cleaned = raw.replace(/```json|```/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  if (Array.isArray(parsed)) {\n    facts.push(...parsed);\n  }\n} catch (e) {\n  // Silent fail - memory extraction is best-effort\n}\nreturn [{ json: { ...$json, facts: facts, memoryExtracted: facts.length > 0 } }];"
       },
-      "id": "mp-save-summary-001",
-      "name": "Save Summary",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [1780, 200],
-      "continueOnFail": true,
-      "credentials": {"postgres": {"name": "Postgres account"}}
+      "id": "mp-parse-001",
+      "name": "Parse Facts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 300]
     }
   ],
   "connections": {
-    "Input": {"main": [[{"node": "Log Execution", "type": "main", "index": 0}]]},
-    "Log Execution": {"main": [[{"node": "Update STM", "type": "main", "index": 0}]]},
-    "Update STM": {"main": [[{"node": "Check Message Count", "type": "main", "index": 0}]]},
-    "Check Message Count": {"main": [[{"node": "Need Summary?", "type": "main", "index": 0}]]},
-    "Need Summary?": {
-      "main": [
-        [{"node": "Summary LLM", "type": "main", "index": 0}],
-        []
-      ]
-    },
-    "Summary LLM": {"main": [[{"node": "Save Summary", "type": "main", "index": 0}]]}
+    "Input": {"main": [[{"node": "Save to Local Context", "type": "main", "index": 0}]]},
+    "Save to Local Context": {"main": [[{"node": "Extract Facts (LLM)", "type": "main", "index": 0}]]},
+    "Extract Facts (LLM)": {"main": [[{"node": "Parse Facts", "type": "main", "index": 0}]]}
   },
   "settings": {"executionOrder": "v1"},
   "staticData": null,
