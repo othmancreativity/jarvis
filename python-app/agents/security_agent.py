@@ -5,7 +5,10 @@ Monitors all operations for security threats.
 Enforces policies, detects anomalies, manages emergency stops.
 """
 
+from __future__ import annotations
+
 import logging
+import time
 from typing import Any
 from agents.base_agent import BaseAgent
 from agents.message_bus import AgentMessage, MessageType, message_bus
@@ -34,8 +37,8 @@ class SecurityAgent(BaseAgent):
         self.register_capability("emergency_response")
         self.register_capability("audit_logging")
         self._threat_count = 0
-        self._last_threat_time = 0
-        self._auto_stop_threshold = 5  # Auto emergency stop after N threats
+        self._last_threat_time: float = 0.0
+        self._auto_stop_threshold = permission_engine._auto_stop_threshold if hasattr(permission_engine, '_auto_stop_threshold') else 5
 
     async def handle_command(self, message: AgentMessage) -> None:
         """Handle security commands."""
@@ -78,7 +81,6 @@ class SecurityAgent(BaseAgent):
             triggered_by = payload.get("triggered_by", "unknown")
             permission_engine.trigger_emergency_stop()
             audit_logger.log_emergency_stop(triggered_by)
-            # Broadcast emergency to all agents
             await message_bus.send(AgentMessage(
                 sender=self.agent_id,
                 recipient="*",
@@ -102,13 +104,12 @@ class SecurityAgent(BaseAgent):
 
     async def handle_event(self, message: AgentMessage) -> None:
         """Monitor all events for security threats."""
-        # Check for suspicious patterns
         payload = message.payload
 
-        # Count rapid threats
+        # Check for suspicious patterns
         if payload.get("event") in ("permission_denied", "command_blocked", "error"):
             self._threat_count += 1
-            self._last_threat_time = logging._startTime
+            self._last_threat_time = time.time()
 
             if self._threat_count >= self._auto_stop_threshold:
                 logger.critical(f"Auto emergency stop triggered: {self._threat_count} threats")

@@ -9,17 +9,23 @@ A comprehensive, production-grade AI Operating Assistant that combines cloud-bas
 - **Planner** — Task decomposition and planning
 - **Executor** — Tool execution and coordination
 - **Browser** — Web automation via Playwright
-- **Memory** — Multi-layer memory system (working, episodic, semantic, procedural)
+- **Memory** — 6-layer memory system (working, episodic, semantic, procedural, preference, project)
 - **Vision** — Screen analysis and OCR
 - **Coding** — Code generation and syntax checking
-- **Google** — Unified Google services (YouTube, Drive, Gmail, Calendar, Translate, Contacts, Docs, Sheets, Slides, Tasks)
+- **Google** — Full Google services with real API calls (YouTube, Drive, Gmail, Calendar, Translate, Contacts, Docs, Sheets, Slides, Tasks)
 - **Security** — Permission engine and audit logging
-- **Scheduler** — Task scheduling and reminders
+- **Scheduler** — Task scheduling and reminders with background execution
+
+### Central Orchestrator (JarvisCore)
+- Unified intent classification and routing
+- Continuous agent loop with state machine
+- Session management with automatic context trimming
+- Multi-step plan execution with error recovery
 
 ### Security Subsystem
 - **Permission Engine** — Deny-by-default with 5 permission levels
 - **Audit Logger** — Chain-hashed, tamper-resistant logging
-- **Emergency Stop** — Global kill switch
+- **Emergency Stop** — Global kill switch with auto-threshold
 - **Input Validation** — Path traversal prevention, shell injection blocking
 
 ### Memory Architecture
@@ -27,98 +33,91 @@ A comprehensive, production-grade AI Operating Assistant that combines cloud-bas
 - **Episodic Memory** — Session history with outcomes
 - **Semantic Memory** — Long-term facts and user preferences
 - **Procedural Memory** — Learned workflows with success tracking
+- **Preference Memory** — User preference learning
+- **Project Memory** — Project-specific context retention
 
-### Local Device Automation (25+ tools)
-- **Browser** — Open, navigate, tabs, screenshot, download
+### Wake Word System
+- **Keyboard shortcut** — Ctrl+Shift+J activation
+- **UDP trigger** — Remote activation via port 19876
+- **Text trigger** — Detects "Jarvis" in messages
+- **Optional voice** — Porcupine integration for voice wake word
+
+### Local Device Automation (30+ tools)
+- **Browser** — Open, navigate, tabs, screenshot, download, scroll
 - **Applications** — Open, close, restart, focus, list (cross-platform)
 - **Files** — List, read, write, move, copy, delete, search, compress, extract
-- **Screen** — Screenshot, recording, OCR
+- **Screen** — Screenshot, recording, OCR, color sampling
 - **Shell** — Safe execution with pattern blocking
-- **System** — Info, processes, monitoring
+- **System** — Info, processes, monitoring, kill
 
-### WebSocket Bridge
-- Bidirectional communication between n8n and local device
-- Bearer token authentication
-- Heartbeat mechanism
-- Auto-reconnect support
+### Desktop UI
+- PyQt6 interface with dark theme
+- Real-time audio visualization
+- Multilingual support (EN + AR with RTL)
+- Safety confirmation dialogs with auto-timeout
+- System tray integration
+- Emergency stop button
+- Status panel with live system monitoring
 
 ## Architecture
 
 ```
-User → Telegram / Website / Local
-         ↓
-    n8n Orchestrator
-         ↓
-    Intent Router → General Chat / Service Dispatcher / Local Bridge
-                        ↓                    ↓                  ↓
-                      LLM               Google Agents     Device Bridge
-                        ↓                    ↓                  ↓
-                 Response ←───────── Response ←────────── Response
+User Input (Text / Voice / Hotkey / UDP)
+    ↓
+JarvisCore (Central Orchestrator)
+    ↓
+Intent Classifier → Agent Router
+    ↓
+Agent(s) via Message Bus
+    ↓
+Automation Layer / Google API / LLM
+    ↓
+Response to User
 ```
 
 ## Quick Start
 
 ### Prerequisites
 - Python 3.10+
-- n8n instance (cloud or self-hosted)
-- Telegram bot token
-- Groq API key
-- Google API key
+- n8n instance (optional, for workflow integration)
 
-### 1. Install Dependencies
+### 1. Install
 
 ```bash
 cd python-app
 pip install -r requirements.txt
+# Or install as package:
+pip install -e .
 playwright install chromium
 ```
 
-### 2. Set Environment Variables
+### 2. Configure
 
 ```bash
-export TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
-export GROQ_API_KEY="your_groq_api_key"
-export GOOGLE_API_KEY="your_google_api_key"
-export JARVIS_BRIDGE_SECRET="your_secure_secret"
-export OWNER_USER_ID="your_telegram_user_id"
+cp .env.example .env
+# Edit .env with your API keys
 ```
 
-### 3. Run the Desktop Companion
+### 3. Run
 
 ```bash
 python main.py
 ```
 
-### 4. Import Workflows into n8n
+## Configuration
 
-Import all JSON files from the `workflow/` directory into your n8n instance:
+Configuration priority: Environment variables > `.env` file > `~/.jarvis/config.yaml` > defaults
 
-1. `jarvis-4-5-main.json` — Main orchestrator
-2. `jarvis-intent-router.json` — Intent classification
-3. `jarvis-general-chat.json` — General chat handler
-4. `jarvis-service-dispatcher.json` — Routes to Google service agents
-5. `jarvis-youtube-agent.json` — YouTube search
-6. `jarvis-drive-agent.json` — Google Drive
-7. `jarvis-gmail-agent.json` — Gmail
-8. `jarvis-calendar-agent.json` — Google Calendar
-9. `jarvis-translate-agent.json` — Translation
-10. `jarvis-contacts-agent.json` — Google Contacts
-11. `jarvis-docs-agent.json` — Google Docs
-12. `jarvis-slides-agent.json` — Google Slides
-13. `jarvis-tasks-agent.json` — Google Tasks
-14. `jarvis-sheets-agent.json` — Google Sheets
-15. `jarvis-local-bridge.json` — Local device bridge
-16. `jarvis-response-sender.json` — Response delivery
-17. `jarvis-memory-persist.json` — Memory persistence
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GROQ_API_KEY` | Yes* | Groq API key for LLM |
+| `GOOGLE_API_KEY` | Yes* | Google API key |
+| `GOOGLE_ACCESS_TOKEN` | Optional | Google OAuth token |
+| `TELEGRAM_BOT_TOKEN` | Optional | Telegram bot token |
+| `JARVIS_BRIDGE_SECRET` | Yes | Bridge auth secret |
+| `JARVIS_LANG` | Optional | UI language (en/ar) |
 
-### 5. Connect Workflows
-
-In n8n, connect workflow executions:
-- Main orchestrator → Intent Router (sub-workflow)
-- Main orchestrator → General Chat (sub-workflow)
-- Main orchestrator → Service Dispatcher (sub-workflow)
-- Main orchestrator → Local Bridge (sub-workflow)
-- Service Dispatcher → Individual service agents
+*Required for full functionality. JARVIS works in limited mode without them.
 
 ## File Structure
 
@@ -127,81 +126,77 @@ jarvis-4.5/
 ├── python-app/
 │   ├── main.py                    # PyQt6 desktop application
 │   ├── bridge_server.py           # WebSocket bridge server
-│   ├── requirements.txt           # Python dependencies
+│   ├── pyproject.toml             # Package config
+│   ├── requirements.txt           # Dependencies
+│   ├── .env.example               # Environment template
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── tool_registry.py       # 25+ tool definitions with schemas
-│   │   ├── agent_runtime.py       # State machine with 11 states
-│   │   └── message_bus.py         # Inter-agent communication
-│   ├── security/
-│   │   ├── __init__.py
-│   │   ├── permissions.py         # Permission engine (5 levels)
-│   │   ├── audit.py              # Chain-hashed audit logger
-│   │   └── validator.py          # Input validation & sanitization
-│   ├── memory/
-│   │   ├── __init__.py
-│   │   └── memory_system.py      # 4-layer memory architecture
+│   │   ├── jarvis_core.py         # Central orchestrator (NEW)
+│   │   ├── agent_runtime.py       # State machine
+│   │   └── tool_registry.py       # 30+ tool definitions
 │   ├── agents/
 │   │   ├── __init__.py
-│   │   ├── base_agent.py         # Abstract base for all agents
-│   │   ├── planner_agent.py      # Task decomposition
-│   │   ├── execution_agent.py    # Tool execution coordinator
-│   │   ├── browser_agent.py      # Web automation
-│   │   ├── memory_agent.py       # Memory operations
-│   │   ├── vision_agent.py       # Screen analysis
-│   │   ├── coding_agent.py       # Code generation
-│   │   ├── google_agent.py       # Google services
-│   │   ├── security_agent.py     # Security monitoring
-│   │   └── scheduler_agent.py    # Task scheduling
+│   │   ├── base_agent.py          # Abstract base
+│   │   ├── message_bus.py         # Inter-agent communication
+│   │   ├── planner_agent.py
+│   │   ├── execution_agent.py
+│   │   ├── browser_agent.py
+│   │   ├── memory_agent.py
+│   │   ├── vision_agent.py
+│   │   ├── coding_agent.py
+│   │   ├── google_agent.py        # Full API implementation (NEW)
+│   │   ├── security_agent.py
+│   │   └── scheduler_agent.py
 │   ├── automation/
 │   │   ├── __init__.py
-│   │   ├── browser.py            # Full browser control (Playwright)
-│   │   ├── apps.py               # Application lifecycle
-│   │   ├── files.py              # File operations with safety
-│   │   ├── screen.py             # Screenshot, recording, OCR
-│   │   ├── shell.py              # Safe shell execution
-│   │   └── system_info.py        # System monitoring
+│   │   ├── browser.py             # Playwright controller
+│   │   ├── apps.py                # App lifecycle
+│   │   ├── files.py               # File operations
+│   │   ├── screen.py              # Screenshot/OCR
+│   │   ├── shell.py               # Safe shell
+│   │   └── system_info.py         # System monitoring
+│   ├── security/
+│   │   ├── __init__.py
+│   │   ├── permissions.py         # Permission engine
+│   │   ├── audit.py               # Audit logger
+│   │   └── validator.py           # Input validation
+│   ├── memory/
+│   │   ├── __init__.py
+│   │   └── memory_system.py       # 6-layer memory
+│   ├── wake_word/
+│   │   └── __init__.py            # Wake word system (NEW)
+│   ├── config/
+│   │   └── __init__.py            # Configuration manager (NEW)
 │   ├── ui/
-│   │   └── (Qt UI components)
-│   └── locales/
-│       ├── en.json               # English translations
-│       └── ar.json               # Arabic translations
-├── workflow/
-│   ├── jarvis-4-5-main.json
-│   ├── jarvis-intent-router.json
-│   ├── jarvis-general-chat.json
-│   ├── jarvis-service-dispatcher.json
-│   ├── jarvis-youtube-agent.json
-│   ├── jarvis-drive-agent.json
-│   ├── jarvis-gmail-agent.json
-│   ├── jarvis-calendar-agent.json
-│   ├── jarvis-translate-agent.json
-│   ├── jarvis-contacts-agent.json
-│   ├── jarvis-docs-agent.json
-│   ├── jarvis-slides-agent.json
-│   ├── jarvis-tasks-agent.json
-│   ├── jarvis-sheets-agent.json
-│   ├── jarvis-local-bridge.json
-│   ├── jarvis-response-sender.json
-│   ├── jarvis-memory-persist.json
-│   └── tool-registry.json
-├── docs/
-│   ├── design.md                 # Architecture documentation
-│   └── README.md
-└── README.md
+│   │   └── __init__.py
+│   ├── locales/
+│   │   ├── en.json                # English
+│   │   └── ar.json                # Arabic
+│   └── tests/                     # Test suite (NEW)
+│       ├── test_security.py
+│       ├── test_memory.py
+│       ├── test_tool_registry.py
+│       └── test_automation.py
+├── workflow/                      # n8n workflow JSONs
+└── docs/
+    └── COMPREHENSIVE_AUDIT_JARVIS_4.5.md
 ```
 
-## Security Features
+## Testing
 
-- **Deny-by-default** permission system
-- **5 permission levels**: none, notify, confirm, whitelist, deny
-- **Pattern-based blocking** for dangerous shell commands
-- **Path traversal prevention** in all file operations
-- **Protected path detection** (SSH keys, credentials, system dirs)
-- **Chain-hashed audit logging** for tamper resistance
-- **Emergency stop** button in desktop app
-- **Rate limiting** (default: 30 req/min)
-- **Owner-only access** for Telegram mode
+```bash
+cd python-app
+pytest tests/ -v
+```
+
+## Security
+
+- Deny-by-default permission system
+- 5 permission levels: none, notify, confirm, whitelist, deny
+- Pattern-based blocking for dangerous commands
+- Path traversal prevention
+- Chain-hashed audit logging
+- Emergency stop with auto-threshold
 
 ## License
 

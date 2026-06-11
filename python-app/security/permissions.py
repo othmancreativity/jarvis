@@ -138,6 +138,7 @@ class PermissionEngine:
         self.whitelist = WhitelistManager()
         self.confirmation_callback: Optional[Callable[[PermissionRequest], PermissionResult]] = None
         self._emergency_stop = False
+        self._auto_stop_threshold = 5  # Auto emergency stop after N threats
         self._lock = threading.RLock()
         self._stats = {
             "total_requests": 0,

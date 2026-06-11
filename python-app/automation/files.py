@@ -86,17 +86,54 @@ class FileController:
             except (OSError, ValueError):
                 return False, f"Invalid path: {path}"
 
-        # Check protected paths
-        for protected in self.PROTECTED_PATHS:
-            if protected.lower() in path_lower:
-                return False, f"Access to protected path blocked: {protected}"
-
-        # Check system directories
+        # Check system directories (exact prefix match only)
+        system_prefixes = ["/sys", "/proc", "/dev", "/boot", "/bin", "/sbin",
+                          "/lib", "/lib64", "/etc", "/usr", "/root"]
         try:
-            if any(abs_path.startswith(p) for p in ["/sys/", "/proc/", "/dev/"]):
-                return False, "System directories are protected"
+            # Check if path starts with any system prefix
+            for prefix in system_prefixes:
+                if abs_path.startswith(prefix + "/") or abs_path.rstrip("/") == prefix:
+                    # Exception: allow within home directory subdirs that happen to match
+                    home = str(Path.home().resolve())
+                    if not abs_path.startswith(home):
+                        return False, "System directories are protected"
+
+            # Block paths that escape home directory and land in system areas
+            home = str(Path.home().resolve())
+            path_parts = Path(abs_path).parts
+            system_components = {"sys", "proc", "dev", "boot", "bin", "sbin",
+                                "lib", "lib64", "etc", "usr", "root"}
+            if not abs_path.startswith(home):
+                for part in path_parts:
+                    if part in system_components:
+                        return False, f"Access to system directory blocked: {part}"
         except Exception:
             pass
+
+        # Check protected path components (match as path components, not substrings)
+        home = str(Path.home().resolve())
+        path_parts = Path(abs_path).parts
+        protected_components = {".ssh", ".gnupg", ".aws", ".kube", ".docker", ".env", ".npmrc", ".pypirc"}
+
+        # Allow paths within home directory (user workspace)
+        if abs_path.startswith(home):
+            # Still block access to credential files within home
+            for part in path_parts:
+                part_lower = part.lower()
+                if part_lower in protected_components:
+                    return False, f"Access to protected path blocked: {part}"
+                # Block private key files
+                if part_lower.startswith("id_") and part_lower.endswith(("_rsa", "_dsa", "_ecdsa", "_ed25519")):
+                    return False, f"Access to private key blocked: {part}"
+                if part_lower.endswith((".pem", ".key", ".p12", ".pfx", ".keystore")):
+                    if part_lower not in ("key",):  # Allow generic names like "key.txt"
+                        return False, f"Access to credential file blocked: {part}"
+        else:
+            # Outside home — block known sensitive directories
+            for part in path_parts:
+                part_lower = part.lower()
+                if part_lower in protected_components:
+                    return False, f"Access to protected path blocked: {part}"
 
         return True, None
 

@@ -1,24 +1,17 @@
 #!/usr/bin/env python3
 """
 JARVIS 4.5 — Desktop Companion App
-===================================
-Modern Python desktop application for the JARVIS AI Operating Assistant.
-
-Features:
-    - Real-time audio frequency visualization (pyqtgraph)
+====================================
+Integrated desktop application with:
+    - Central orchestrator (JarvisCore)
+    - Real-time agent runtime monitoring
     - Multilingual support (EN + AR with RTL)
     - Safety confirmation dialogs
     - WebSocket bridge for n8n integration
     - LLM integration via Groq API
-    - Agent runtime monitoring
-    - Emergency stop button
+    - Emergency stop
     - System tray integration
-
-Environment:
-    JARVIS_BRIDGE_SECRET  — Shared secret for n8n bridge auth
-    BRIDGE_PORT           — WebSocket port (default: 8765)
-    GROQ_API_KEY          — Groq API key for LLM chat
-    JARVIS_MODEL          — Display name of active LLM model
+    - Graceful shutdown on SIGTERM/SIGINT
 """
 
 from __future__ import annotations
@@ -28,11 +21,31 @@ import os
 import asyncio
 import json
 import logging
+import signal
 import time
-import urllib.request
-import urllib.error
+import traceback
 from pathlib import Path
 from datetime import datetime
+
+# ── Logging Setup (must be first) ──────────────────────────────────────
+
+from config import config
+
+LOG_DIR = config.log_dir
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "app.log"
+
+logging.basicConfig(
+    level=getattr(logging, config.log_level.upper(), logging.INFO),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+logger = logging.getLogger("jarvis.app")
+
+# ── PyQt6 Imports ───────────────────────────────────────────────────────
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -47,26 +60,10 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import QAction, QFont, QIcon, QPalette, QColor, QKeySequence, QShortcut
 
-# ── Logging ──────────────────────────────────────────────────────────────
-
-LOG_DIR = Path.home() / ".jarvis"
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / "app.log"
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
-        logging.StreamHandler(sys.stdout),
-    ],
-)
-logger = logging.getLogger("jarvis.app")
-
 # ── i18n ─────────────────────────────────────────────────────────────────
 
 DEFAULT_LANG = "en"
-CURRENT_LANG = os.environ.get("JARVIS_LANG", DEFAULT_LANG)
+CURRENT_LANG = config.language
 
 def load_translations(lang: str = CURRENT_LANG) -> dict:
     """Load translation strings."""
@@ -74,27 +71,28 @@ def load_translations(lang: str = CURRENT_LANG) -> dict:
     file_path = locales_dir / f"{lang}.json"
     if not file_path.exists():
         file_path = locales_dir / f"{DEFAULT_LANG}.json"
-    with open(file_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
-# Global translation function set after QApplication creation
-_ = None
+_translations = load_translations(CURRENT_LANG)
+
+def _(key: str, fallback: str = "") -> str:
+    """Get translated string."""
+    return _translations.get(key, fallback or key)
 
 # ── Safety Dialog ────────────────────────────────────────────────────────
 
 class SafetyDialog(QDialog):
     """Modal dialog for confirming risky operations."""
 
+    confirmed = pyqtSignal(dict)
+
     def __init__(self, action: str, target: str, risk: str, parent=None):
         super().__init__(parent)
-        self.action = action
-        self.target = target
-        self.risk = risk
-        self.result_data = {"confirmed": False, "remember": False}
-        self._setup_ui()
-
-    def _setup_ui(self):
-        self.setWindowTitle(_("safety_dialog_title") if _ else "Action Requires Confirmation")
+        self.setWindowTitle(_("safety_dialog_title", "Action Requires Confirmation"))
         self.setMinimumWidth(500)
         self.setModal(True)
         self.setStyleSheet("""
@@ -108,33 +106,28 @@ class SafetyDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
 
-        # Header
-        header = QLabel(f"<h2 style='color: #f59e0b; margin: 0;'>⚠️ { _('action_requires_confirmation') if _ else 'Action Requires Confirmation'}</h2>")
+        header = QLabel(f'<h2 style="color: #f59e0b; margin: 0;">⚠️  {_("action_requires_confirmation", "Action Requires Confirmation")}</h2>')
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(header)
 
-        # Details
         details = QFrame()
         details.setStyleSheet("background: #1e293b; border-radius: 8px; padding: 12px;")
         dlayout = QVBoxLayout(details)
         dlayout.setSpacing(8)
-
-        dlayout.addWidget(QLabel(f"<b>{_('action') if _ else 'Action'}:</b> <span style='color: #e2e8f0;'>{self.action}</span>"))
-        dlayout.addWidget(QLabel(f"<b>{_('target') if _ else 'Target'}:</b> <span style='color: #38bdf8;'>{self.target}</span>"))
-        dlayout.addWidget(QLabel(f"<b>{_('risk') if _ else 'Risk'}:</b> <span style='color: #ef4444;'>{self.risk}</span>"))
-        dlayout.addWidget(QLabel(f"<small style='color: #94a3b8;'>{_('requested_by') if _ else 'Requested by'}: n8n (JARVIS 4.5) | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</small>"))
+        dlayout.addWidget(QLabel(f'<b>{_("action", "Action")}:</b> <span style="color: #e2e8f0;">{action}</span>'))
+        dlayout.addWidget(QLabel(f'<b>{_("target", "Target")}:</b> <span style="color: #38bdf8;">{target}</span>'))
+        dlayout.addWidget(QLabel(f'<b>{_("risk", "Risk")}:</b> <span style="color: #ef4444;">{risk}</span>'))
+        dlayout.addWidget(QLabel(f'<small style="color: #94a3b8;">{_("requested_by", "Requested by")}: JARVIS 4.5 | {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</small>'))
         layout.addWidget(details)
 
-        # Remember checkbox
-        self.remember_cb = QCheckBox(_("remember_choice_5min") if _ else "Remember my choice for 5 minutes")
+        self.remember_cb = QCheckBox(_("remember_choice_5min", "Remember my choice for 5 minutes"))
         layout.addWidget(self.remember_cb)
 
-        # Buttons
         btn_layout = QHBoxLayout()
-        self.deny_btn = QPushButton(f"❌ {_('deny') if _ else 'Deny'}")
+        self.deny_btn = QPushButton(f"❌  {_("deny", "Deny")}")
         self.deny_btn.setStyleSheet("background: #ef4444; color: white;")
         self.deny_btn.clicked.connect(self._on_deny)
-        self.allow_btn = QPushButton(f"✅ {_('allow') if _ else 'Allow'}")
+        self.allow_btn = QPushButton(f"✅  {_("allow", "Allow")}")
         self.allow_btn.setStyleSheet("background: #22c55e; color: white;")
         self.allow_btn.clicked.connect(self._on_allow)
         btn_layout.addWidget(self.deny_btn)
@@ -142,8 +135,7 @@ class SafetyDialog(QDialog):
         btn_layout.addWidget(self.allow_btn)
         layout.addLayout(btn_layout)
 
-        # Timeout
-        self.timeout_label = QLabel(f"⏱️ {_('auto_deny_in') if _ else 'Auto-deny in'} 60s")
+        self.timeout_label = QLabel(f"⏱️  {_("auto_deny_in", "Auto-deny in")} 60s")
         self.timeout_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.timeout_label.setStyleSheet("color: #94a3b8;")
         layout.addWidget(self.timeout_label)
@@ -155,85 +147,89 @@ class SafetyDialog(QDialog):
 
     def _tick(self):
         self.remaining -= 1
-        self.timeout_label.setText(f"⏱️ {_('auto_deny_in') if _ else 'Auto-deny in'} {self.remaining}s")
+        self.timeout_label.setText(f'⏱️  {_("auto_deny_in", "Auto-deny in")} {self.remaining}s')
         if self.remaining <= 0:
             self._on_deny()
 
     def _on_allow(self):
-        self.result_data = {"confirmed": True, "remember": self.remember_cb.isChecked()}
         self.timer.stop()
+        self.confirmed.emit({"confirmed": True, "remember": self.remember_cb.isChecked()})
         self.accept()
 
     def _on_deny(self):
-        self.result_data = {"confirmed": False, "remember": self.remember_cb.isChecked()}
         self.timer.stop()
+        self.confirmed.emit({"confirmed": False, "remember": self.remember_cb.isChecked()})
         self.reject()
 
 
 # ── Audio Visualization ──────────────────────────────────────────────────
 
 class AudioVizWidget(QFrame):
-    """Real-time audio frequency visualization using simulated data."""
+    """Simulated audio frequency visualization."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(120)
-        self.setMaximumHeight(160)
+        self.setMinimumHeight(100)
+        self.setMaximumHeight(140)
         self.setStyleSheet("background: #0f172a; border-radius: 8px;")
         self._bars = [0.0] * 32
+        self._active = False
+
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._update_bars)
         self._timer.start(50)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
-        self.label = QLabel(f"🎤 { _('audio_visualization') if _ else 'Audio Frequency Visualization'}")
+        self.label = QLabel(f'🎤  {_("audio_visualization", "Audio Visualization")}')
         self.label.setStyleSheet("color: #94a3b8; font-size: 11px;")
         layout.addWidget(self.label)
 
     def _update_bars(self):
         import random
         import math
-        self._bars = [
-            max(0.05, min(1.0, abs(math.sin(i * 0.3 + time.time() * 2) * random.uniform(0.5, 1.0))))
-            for i in range(32)
-        ]
+        if self._active:
+            self._bars = [
+                max(0.05, min(1.0, abs(math.sin(i * 0.3 + time.time() * 3) * random.uniform(0.5, 1.0))))
+                for i in range(32)
+            ]
+        else:
+            self._bars = [max(0.02, v * 0.95) for v in self._bars]
         self.update()
+
+    def set_active(self, active: bool):
+        self._active = active
 
     def paintEvent(self, event):
         from PyQt6.QtGui import QPainter, QBrush, QColor, QLinearGradient
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
         width = self.width() - 16
         height = self.height() - 30
         bar_width = width / 32
-
         gradient = QLinearGradient(0, height, 0, 0)
         gradient.setColorAt(0.0, QColor("#3b82f6"))
         gradient.setColorAt(0.5, QColor("#8b5cf6"))
         gradient.setColorAt(1.0, QColor("#ec4899"))
-
         for i, val in enumerate(self._bars):
             bar_h = val * height
             x = 8 + i * bar_width
             y = 20 + height - bar_h
             painter.fillRect(int(x), int(y), int(bar_width - 1), int(bar_h), gradient)
-
         painter.end()
 
 
 # ── Status Panel ─────────────────────────────────────────────────────────
 
 class StatusPanel(QFrame):
-    """Bottom status panel with model info and bridge status."""
+    """Bottom status panel with system info."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.model_name = os.environ.get("JARVIS_MODEL", "llama-4-scout-17b-16e-instruct")
-        self.bridge_status = "disconnected"
-        self.pending_confirmations = 0
         self._setup_ui()
+        self._update_timer = QTimer(self)
+        self._update_timer.timeout.connect(self._refresh)
+        self._update_timer.start(5000)
 
     def _setup_ui(self):
         self.setStyleSheet("background: #1e293b; border-radius: 8px; padding: 4px;")
@@ -241,33 +237,44 @@ class StatusPanel(QFrame):
         layout.setContentsMargins(8, 4, 8, 4)
         layout.setSpacing(2)
 
-        self.model_label = QLabel(f"🤖 <b>Model:</b> {self.model_name}")
+        self.model_label = QLabel(f'🤖  <b>Model:</b> {config.model}')
         self.model_label.setStyleSheet("color: #e2e8f0; font-size: 11px;")
         layout.addWidget(self.model_label)
 
-        self.bridge_label = QLabel(f"🔗 <b>Bridge:</b> <span style='color: #ef4444;'>●</span> Disconnected")
+        self.bridge_label = QLabel(f'🔗  <b>Bridge:</b> <span style="color: #ef4444;">●</span> Disconnected')
         self.bridge_label.setStyleSheet("color: #e2e8f0; font-size: 11px;")
         layout.addWidget(self.bridge_label)
 
-        self.agent_label = QLabel(f"🎯 <b>Agents:</b> 9 active")
+        self.agent_label = QLabel(f'🎯  <b>Agents:</b> 9 active')
         self.agent_label.setStyleSheet("color: #e2e8f0; font-size: 11px;")
         layout.addWidget(self.agent_label)
 
-        self.runtime_label = QLabel(f"⏱️ <b>Runtime:</b> idle")
+        self.runtime_label = QLabel(f'⏱️  <b>Runtime:</b> idle')
         self.runtime_label.setStyleSheet("color: #e2e8f0; font-size: 11px;")
         layout.addWidget(self.runtime_label)
 
+        self.memory_label = QLabel(f'💾  <b>Memory:</b> —')
+        self.memory_label.setStyleSheet("color: #e2e8f0; font-size: 11px;")
+        layout.addWidget(self.memory_label)
+
     def set_bridge_connected(self, connected: bool):
-        self.bridge_status = "connected" if connected else "disconnected"
         color = "#22c55e" if connected else "#ef4444"
         status = "Connected" if connected else "Disconnected"
-        self.bridge_label.setText(f"🔗 <b>Bridge:</b> <span style='color: {color};'>●</span> {status}")
+        self.bridge_label.setText(f'🔗  <b>Bridge:</b> <span style="color: {color};">●</span> {status}')
 
     def set_runtime_state(self, state: str):
-        self.runtime_label.setText(f"⏱️ <b>Runtime:</b> {state}")
+        self.runtime_label.setText(f'⏱️  <b>Runtime:</b> {state}')
 
-    def set_pending_confirmations(self, count: int):
-        self.pending_confirmations = count
+    def set_memory_usage(self, usage: str):
+        self.memory_label.setText(f'💾  <b>Memory:</b> {usage}')
+
+    def _refresh(self):
+        try:
+            import psutil
+            mem = psutil.virtual_memory()
+            self.memory_label.setText(f'💾  <b>Memory:</b> {mem.percent}% used')
+        except ImportError:
+            pass
 
 
 # ── Chat Panel ───────────────────────────────────────────────────────────
@@ -286,7 +293,6 @@ class ChatPanel(QFrame):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Chat history
         self.history = QTextEdit()
         self.history.setReadOnly(True)
         self.history.setStyleSheet("""
@@ -301,10 +307,9 @@ class ChatPanel(QFrame):
         """)
         layout.addWidget(self.history)
 
-        # Input area
         input_row = QHBoxLayout()
         self.input_field = QLineEdit()
-        self.input_field.setPlaceholderText(_("type_message") if _ else "Type a message...")
+        self.input_field.setPlaceholderText(_("type_message", "Type a message..."))
         self.input_field.returnPressed.connect(self._send)
         self.input_field.setStyleSheet("""
             QLineEdit {
@@ -363,111 +368,144 @@ class ChatPanel(QFrame):
         self.history.clear()
 
 
+# ── Core Thread ──────────────────────────────────────────────────────────
+
+class CoreThread(QThread):
+    """Runs the JarvisCore orchestrator in a background thread."""
+
+    response_ready = pyqtSignal(str)
+    status_update = pyqtSignal(str, dict)
+    initialized = pyqtSignal()
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.core = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._running = True
+
+    def run(self):
+        try:
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+            self._loop.run_until_complete(self._main())
+        except Exception as e:
+            logger.error(f"Core thread error: {e}")
+            self.error_occurred.emit(str(e))
+
+    async def _main(self):
+        try:
+            from core.jarvis_core import JarvisCore
+            self.core = JarvisCore()
+
+            # Wire callbacks
+            self.core.on_response(self._on_response)
+            self.core.on_status_update(self._on_status)
+
+            # Initialize
+            await self.core.initialize()
+            self.initialized.emit()
+
+            # Run
+            await self.core.run()
+        except Exception as e:
+            logger.error(f"Core init error: {e}\n{traceback.format_exc()}")
+            self.error_occurred.emit(f"Core initialization failed: {e}")
+
+    def _on_response(self, text: str):
+        self.response_ready.emit(text)
+
+    def _on_status(self, status: str, data: dict):
+        self.status_update.emit(status, data)
+
+    def process_message(self, text: str):
+        """Send a message to the core for processing."""
+        if self.core and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self.core.process_input(text),
+                self._loop,
+            )
+
+    def emergency_stop(self):
+        if self.core:
+            self.core.emergency_stop()
+
+    def get_status(self) -> dict:
+        if self.core:
+            return self.core.get_status()
+        return {}
+
+    def stop(self):
+        self._running = False
+        if self.core and self._loop:
+            asyncio.run_coroutine_threadsafe(self.core.stop(), self._loop)
+        self.quit()
+        self.wait(5000)
+
+
 # ── Bridge Thread ────────────────────────────────────────────────────────
 
 class BridgeThread(QThread):
-    """Runs the WebSocket bridge server in a background thread."""
+    """Runs the WebSocket bridge server with auto-reconnect."""
 
     message_received = pyqtSignal(dict)
     client_connected = pyqtSignal()
     client_disconnected = pyqtSignal()
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, port: int = 8765, secret: str = ""):
+    def __init__(self, port: int = None, secret: str = None):
         super().__init__()
-        self.port = port
-        self.secret = secret
+        self.port = port or config.bridge_port
+        self.secret = secret or config.bridge_secret
         self._running = True
-        self._loop: asyncio.AbstractEventLoop | None = None
+        self._retry_count = 0
+        self._max_retries = 5
 
     def run(self):
-        try:
-            import websockets
-            self._loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self._loop)
+        while self._running and self._retry_count < self._max_retries:
+            try:
+                import websockets
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
 
-            from bridge_server import BridgeServer
+                from bridge_server import BridgeServer
 
-            async def start():
-                server = BridgeServer()
-                await server.start()
+                async def start():
+                    server = BridgeServer()
+                    await server.start()
 
-            self._loop.run_until_complete(start())
-        except ImportError:
-            self.error_occurred.emit("websockets library not installed")
-        except Exception as e:
-            self.error_occurred.emit(str(e))
+                logger.info(f"Bridge server starting on port {self.port}")
+                loop.run_until_complete(start())
+                self._retry_count = 0  # Reset on success
+            except ImportError as e:
+                self.error_occurred.emit(f"websockets not installed: {e}")
+                break
+            except Exception as e:
+                self._retry_count += 1
+                logger.error(f"Bridge error (attempt {self._retry_count}): {e}")
+                self.error_occurred.emit(str(e))
+                time.sleep(min(2 ** self._retry_count, 30))  # Exponential backoff
 
     def stop(self):
         self._running = False
-        if self._loop and self._loop.is_running():
-            self._loop.call_soon_threadsafe(self._loop.stop)
         self.quit()
         self.wait(3000)
-
-
-# ── LLM Worker ───────────────────────────────────────────────────────────
-
-class LLMWorker(QThread):
-    """Worker thread for LLM API calls."""
-
-    response_ready = pyqtSignal(str)
-    error_occurred = pyqtSignal(str)
-
-    def __init__(self, api_key: str, model: str, message: str, context: list = None):
-        super().__init__()
-        self.api_key = api_key
-        self.model = model
-        self.message = message
-        self.context = context or []
-
-    def run(self):
-        try:
-            messages = [{"role": "system", "content": "You are JARVIS 4.5, a highly capable personal AI assistant. Be helpful, concise, and precise."}]
-            for ctx in self.context[-5:]:
-                messages.append(ctx)
-            messages.append({"role": "user", "content": self.message})
-
-            req = urllib.request.Request(
-                "https://api.groq.com/openai/v1/chat/completions",
-                data=json.dumps({
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": 0.3,
-                    "max_tokens": 2000,
-                }).encode(),
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
-                method="POST",
-            )
-
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read())
-                content = data["choices"][0]["message"]["content"]
-                self.response_ready.emit(content)
-        except urllib.error.HTTPError as e:
-            self.error_occurred.emit(f"API Error: {e.code} - {e.reason}")
-        except Exception as e:
-            self.error_occurred.emit(str(e))
 
 
 # ── Main Window ──────────────────────────────────────────────────────────
 
 class JarvisMainWindow(QMainWindow):
-    """Main application window for JARVIS 4.5 Companion."""
+    """Main application window for JARVIS 4.5."""
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("JARVIS 4.5 — AI Operating Assistant")
+        self.setWindowTitle(_("app_title", "JARVIS 4.5 — AI Operating Assistant"))
         self.setMinimumSize(1000, 750)
-        self._llm_workers: list[LLMWorker] = []
-        self._chat_context: list[dict] = []
         self._setup_ui()
         self._setup_tray()
         self._setup_shortcuts()
         self._apply_theme()
+        self._start_core()
 
     def _setup_ui(self):
         central = QWidget()
@@ -516,19 +554,16 @@ class JarvisMainWindow(QMainWindow):
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(10)
 
-        # Audio viz
         self.audio_viz = AudioVizWidget()
         right_layout.addWidget(self.audio_viz)
 
-        # Status panel
         self.status_panel = StatusPanel()
         right_layout.addWidget(self.status_panel)
 
-        # Quick actions
         actions_frame = QFrame()
         actions_frame.setStyleSheet("background: #1e293b; border-radius: 8px; padding: 8px;")
         actions_layout = QVBoxLayout(actions_frame)
-        actions_label = QLabel("<b>Quick Actions</b>")
+        actions_label = QLabel(f"<b>{_("quick_actions", "Quick Actions")}</b>")
         actions_label.setStyleSheet("color: #e2e8f0;")
         actions_layout.addWidget(actions_label)
 
@@ -553,7 +588,7 @@ class JarvisMainWindow(QMainWindow):
 
         # Status bar
         self.status_bar = QStatusBar()
-        self.status_bar.showMessage("JARVIS 4.5 Ready")
+        self.status_bar.showMessage("JARVIS 4.5 Initializing...")
         self.setStatusBar(self.status_bar)
 
     def _setup_tray(self):
@@ -562,11 +597,11 @@ class JarvisMainWindow(QMainWindow):
         self.tray.setToolTip("JARVIS 4.5")
 
         tray_menu = QMenu()
-        show_action = QAction(_("show") if _ else "Show", self)
+        show_action = QAction(_("show", "Show"), self)
         show_action.triggered.connect(self.show)
         tray_menu.addAction(show_action)
 
-        quit_action = QAction(_("quit") if _ else "Quit", self)
+        quit_action = QAction(_("quit", "Quit"), self)
         quit_action.triggered.connect(self._quit)
         tray_menu.addAction(quit_action)
 
@@ -595,75 +630,86 @@ class JarvisMainWindow(QMainWindow):
             QSplitter::handle { background: #334155; }
         """)
 
+    def _start_core(self):
+        """Start the core orchestrator."""
+        self.core_thread = CoreThread()
+        self.core_thread.response_ready.connect(self._handle_response)
+        self.core_thread.status_update.connect(self._handle_status)
+        self.core_thread.initialized.connect(self._on_core_ready)
+        self.core_thread.error_occurred.connect(self._handle_error)
+        self.core_thread.start()
+
+        # Start bridge server
+        self.bridge_thread = BridgeThread()
+        self.bridge_thread.client_connected.connect(
+            lambda: self.status_panel.set_bridge_connected(True)
+        )
+        self.bridge_thread.client_disconnected.connect(
+            lambda: self.status_panel.set_bridge_connected(False)
+        )
+        self.bridge_thread.start()
+
+    def _on_core_ready(self):
+        self.status_bar.showMessage("JARVIS 4.5 Ready")
+        self.chat_panel.add_message("system", "JARVIS 4.5 is ready. How can I help you?")
+
     def _tray_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
-            self.show()
+            self.showNormal()
+            self.activateWindow()
 
     def _toggle_language(self):
-        global CURRENT_LANG, _
+        global CURRENT_LANG, _translations
         CURRENT_LANG = "ar" if CURRENT_LANG == "en" else "en"
-        _ = load_translations(CURRENT_LANG)
+        _translations = load_translations(CURRENT_LANG)
         if CURRENT_LANG == "ar":
             self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         else:
-            self.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        self.chat_panel.input_field.setPlaceholderText(_("type_message"))
-        logger.info(f"Language switched to: {CURRENT_LANG}")
-        QMessageBox.information(self, _("language_changed"), f"Language: {CURRENT_LANG.upper()}")
+            self.setLayoutDirection(Qt.Orientation.LeftToRight)
+        self.chat_panel.input_field.setPlaceholderText(_("type_message", "Type a message..."))
+        QMessageBox.information(self, _("language_changed", "Language Changed"), f"Language: {CURRENT_LANG.upper()}")
 
     def _emergency_stop(self):
-        """Trigger emergency stop."""
-        from security.permissions import permission_engine
-        permission_engine.trigger_emergency_stop()
-        self.chat_panel.add_message("system", "🛑 EMERGENCY STOP ACTIVATED — All operations halted")
+        self.core_thread.emergency_stop()
+        self.chat_panel.add_message("system", _('emergency_stop_activated', "🛑 EMERGENCY STOP ACTIVATED"))
         self.status_panel.set_runtime_state("emergency_stop")
         logger.critical("Emergency stop activated from UI")
 
     def _clear_chat(self):
         self.chat_panel.clear_history()
-        self._chat_context.clear()
-        self.chat_panel.add_message("system", "Chat history cleared")
+        self.chat_panel.add_message("system", _('chat_cleared', "Chat history cleared"))
 
     def _quit(self):
         self.tray.hide()
+        if hasattr(self, 'core_thread'):
+            self.core_thread.stop()
+        if hasattr(self, 'bridge_thread'):
+            self.bridge_thread.stop()
         QApplication.quit()
 
     def _process_message(self, text: str):
-        """Process user message through LLM."""
-        api_key = os.environ.get("GROQ_API_KEY", "")
-        model = os.environ.get("JARVIS_MODEL", "llama-3.3-70b-versatile")
-
-        if not api_key:
-            self.chat_panel.add_message("error", "GROQ_API_KEY not set. Please set your API key.")
-            return
-
+        """Process user message through the core orchestrator."""
+        self.audio_viz.set_active(True)
         self.status_panel.set_runtime_state("processing")
-
-        worker = LLMWorker(api_key, model, text, self._chat_context)
-        worker.response_ready.connect(self._handle_response)
-        worker.error_occurred.connect(self._handle_llm_error)
-        worker.finished.connect(lambda: self._cleanup_worker(worker))
-        self._llm_workers.append(worker)
-        worker.start()
-
-        self._chat_context.append({"role": "user", "content": text})
+        self.core_thread.process_message(text)
 
     def _handle_response(self, text: str):
         self.chat_panel.add_message("assistant", text)
-        self._chat_context.append({"role": "assistant", "content": text})
+        self.audio_viz.set_active(False)
         self.status_panel.set_runtime_state("idle")
 
-    def _handle_llm_error(self, error: str):
-        self.chat_panel.add_message("error", f"LLM Error: {error}")
+    def _handle_status(self, status: str, data: dict):
+        if status == "state_change":
+            self.status_panel.set_runtime_state(data.get("to", "unknown"))
+        elif status == "emergency_stop":
+            self.status_panel.set_runtime_state("emergency_stop")
+
+    def _handle_error(self, error: str):
+        self.chat_panel.add_message("error", f"Error: {error}")
+        self.audio_viz.set_active(False)
         self.status_panel.set_runtime_state("error")
 
-    def _cleanup_worker(self, worker):
-        if worker in self._llm_workers:
-            self._llm_workers.remove(worker)
-        worker.deleteLater()
-
     def _quick_action(self, action: str):
-        """Handle quick action buttons."""
         actions = {
             "screenshot": "Take a screenshot and describe what you see.",
             "ocr": "Perform OCR on the screen and extract all visible text.",
@@ -676,13 +722,13 @@ class JarvisMainWindow(QMainWindow):
         self.chat_panel.input_field.setFocus()
 
     def show_safety_dialog(self, action: str, target: str, risk: str) -> dict:
-        """Show safety confirmation dialog."""
         dialog = SafetyDialog(action, target, risk, self)
+        result = {}
+        dialog.confirmed.connect(lambda r: result.update(r))
         dialog.exec()
-        return dialog.result_data
+        return result
 
     def closeEvent(self, event):
-        """Handle window close — minimize to tray instead."""
         if self.tray.isVisible():
             self.hide()
             self.tray.showMessage(
@@ -698,44 +744,40 @@ class JarvisMainWindow(QMainWindow):
 
 # ── Entry Point ──────────────────────────────────────────────────────────
 
+def handle_signal(signum, frame):
+    """Handle shutdown signals gracefully."""
+    logger.info(f"Received signal {signum}, shutting down...")
+    QApplication.quit()
+
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("JARVIS")
     app.setApplicationVersion("4.5.0")
     app.setQuitOnLastWindowClosed(False)
 
-    # Load translations
-    global _
-    _ = load_translations(CURRENT_LANG)
+    # Signal handlers
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
 
-    if CURRENT_LANG == "ar":
-        app.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-
-    # Qt translations for standard dialogs
+    # Qt translations
     qt_translator = QTranslator()
     qt_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
     qt_translator.load(f"qt_{CURRENT_LANG}", qt_path)
     app.installTranslator(qt_translator)
 
-    # Create main window
     window = JarvisMainWindow()
     window.show()
 
-    # Start bridge server in background thread
-    bridge_secret = os.environ.get("JARVIS_BRIDGE_SECRET", "change-me-in-production")
-    bridge_port = int(os.environ.get("BRIDGE_PORT", "8765"))
-    bridge_thread = BridgeThread(port=bridge_port, secret=bridge_secret)
-    bridge_thread.client_connected.connect(lambda: window.status_panel.set_bridge_connected(True))
-    bridge_thread.client_disconnected.connect(lambda: window.status_panel.set_bridge_connected(False))
-    bridge_thread.start()
+    logger.info("JARVIS 4.5 Desktop App started")
 
-    logger.info("JARVIS 4.5 Companion App started")
+    # Use timer to handle Unix signals
+    timer = QTimer()
+    timer.start(500)
+    timer.timeout.connect(lambda: None)
 
-    try:
-        exit_code = app.exec()
-    finally:
-        bridge_thread.stop()
-
+    exit_code = app.exec()
+    logger.info("JARVIS 4.5 Desktop App stopped")
     sys.exit(exit_code)
 
 

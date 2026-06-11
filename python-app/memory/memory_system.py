@@ -536,8 +536,13 @@ class MemorySystem:
 
     def export_all(self) -> dict:
         """Export all memory for backup."""
+        working_data = {}
+        for k in self.working.keys():
+            entry = self.working.get(k)
+            if entry:
+                working_data[k] = entry.content
         return {
-            "working": {k: v.content for k, v in self.working.values()},
+            "working": working_data,
             "semantic": [asdict(e) for e in self.recall_fact()],
             "procedures": [asdict(e) for e in self.recall_procedure()],
         }
