@@ -1,0 +1,157 @@
+{
+  "registry_version": "4.5.0",
+  "description": "Complete Tool/Operation Registry for JARVIS 4.5 — Source of truth for all operations including Google services and local device control",
+  "services": {
+    "youtube": {
+      "description": "YouTube Data API v3",
+      "base_url": "https://www.googleapis.com/youtube/v3",
+      "operations": {
+        "search": {"description": "Search for videos", "method": "GET", "endpoint": "/search", "required_params": ["q"], "optional_params": ["maxResults", "type", "order"], "risky": false},
+        "get_video": {"description": "Get video details by ID", "method": "GET", "endpoint": "/videos", "required_params": ["id"], "optional_params": ["part"], "risky": false},
+        "get_channel": {"description": "Get channel details by ID", "method": "GET", "endpoint": "/channels", "required_params": ["id"], "optional_params": ["part"], "risky": false},
+        "list_playlists": {"description": "List playlists for a channel", "method": "GET", "endpoint": "/playlists", "required_params": ["channelId"], "optional_params": ["maxResults"], "risky": false}
+      }
+    },
+    "drive": {
+      "description": "Google Drive API v3",
+      "base_url": "https://www.googleapis.com/drive/v3",
+      "operations": {
+        "list": {"description": "List files in Drive", "method": "GET", "endpoint": "/files", "required_params": [], "optional_params": ["pageSize", "q", "orderBy"], "risky": false},
+        "get": {"description": "Get file metadata", "method": "GET", "endpoint": "/files/{fileId}", "required_params": ["fileId"], "optional_params": ["fields"], "risky": false},
+        "create": {"description": "Create a new file/folder", "method": "POST", "endpoint": "/files", "required_params": ["name"], "optional_params": ["mimeType", "parents"], "risky": false},
+        "update": {"description": "Update file metadata", "method": "PATCH", "endpoint": "/files/{fileId}", "required_params": ["fileId"], "optional_params": ["name", "mimeType"], "risky": false},
+        "delete": {"description": "Delete a file (moves to trash)", "method": "DELETE", "endpoint": "/files/{fileId}", "required_params": ["fileId"], "optional_params": [], "risky": true},
+        "upload": {"description": "Upload file content", "method": "POST", "endpoint": "/upload/drive/v3/files", "required_params": ["uploadType"], "optional_params": ["name"], "risky": false},
+        "download": {"description": "Download file content", "method": "GET", "endpoint": "/files/{fileId}?alt=media", "required_params": ["fileId"], "optional_params": [], "risky": false}
+      }
+    },
+    "gmail": {
+      "description": "Gmail API v1",
+      "base_url": "https://gmail.googleapis.com/gmail/v1",
+      "operations": {
+        "list": {"description": "List emails", "method": "GET", "endpoint": "/users/me/messages", "required_params": [], "optional_params": ["maxResults", "q", "labelIds"], "risky": false},
+        "get": {"description": "Get email by ID", "method": "GET", "endpoint": "/users/me/messages/{id}", "required_params": ["id"], "optional_params": ["format"], "risky": false},
+        "send": {"description": "Send an email", "method": "POST", "endpoint": "/users/me/messages/send", "required_params": ["raw"], "optional_params": [], "risky": true},
+        "trash": {"description": "Move email to trash", "method": "POST", "endpoint": "/users/me/messages/{id}/trash", "required_params": ["id"], "optional_params": [], "risky": true},
+        "delete": {"description": "Permanently delete email", "method": "DELETE", "endpoint": "/users/me/messages/{id}", "required_params": ["id"], "optional_params": [], "risky": true}
+      }
+    },
+    "calendar": {
+      "description": "Google Calendar API v3",
+      "base_url": "https://www.googleapis.com/calendar/v3",
+      "operations": {
+        "list": {"description": "List events", "method": "GET", "endpoint": "/calendars/{calendarId}/events", "required_params": ["calendarId"], "optional_params": ["timeMin", "timeMax", "maxResults"], "risky": false},
+        "get": {"description": "Get event by ID", "method": "GET", "endpoint": "/calendars/{calendarId}/events/{eventId}", "required_params": ["calendarId", "eventId"], "optional_params": [], "risky": false},
+        "create": {"description": "Create an event", "method": "POST", "endpoint": "/calendars/{calendarId}/events", "required_params": ["calendarId", "summary", "start", "end"], "optional_params": ["description", "location", "attendees"], "risky": false},
+        "update": {"description": "Update an event", "method": "PATCH", "endpoint": "/calendars/{calendarId}/events/{eventId}", "required_params": ["calendarId", "eventId"], "optional_params": ["summary", "start", "end"], "risky": false},
+        "delete": {"description": "Delete an event", "method": "DELETE", "endpoint": "/calendars/{calendarId}/events/{eventId}", "required_params": ["calendarId", "eventId"], "optional_params": [], "risky": true}
+      }
+    },
+    "translate": {
+      "description": "Google Cloud Translation API v2",
+      "base_url": "https://translation.googleapis.com/language/translate/v2",
+      "operations": {
+        "translate": {"description": "Translate text", "method": "POST", "endpoint": "", "required_params": ["q", "target"], "optional_params": ["source", "format"], "risky": false},
+        "detect": {"description": "Detect language of text", "method": "POST", "endpoint": "/detect", "required_params": ["q"], "optional_params": [], "risky": false},
+        "list_languages": {"description": "List supported languages", "method": "GET", "endpoint": "/languages", "required_params": [], "optional_params": ["target"], "risky": false}
+      }
+    },
+    "contacts": {
+      "description": "Google People API v1",
+      "base_url": "https://people.googleapis.com/v1",
+      "operations": {
+        "list": {"description": "List contacts", "method": "GET", "endpoint": "/people/me/connections", "required_params": [], "optional_params": ["pageSize", "personFields"], "risky": false},
+        "get": {"description": "Get contact by resource name", "method": "GET", "endpoint": "/{resourceName}", "required_params": ["resourceName"], "optional_params": ["personFields"], "risky": false},
+        "create": {"description": "Create a contact", "method": "POST", "endpoint": "/people:createContact", "required_params": [], "optional_params": ["names", "emailAddresses", "phoneNumbers"], "risky": false},
+        "update": {"description": "Update a contact", "method": "PATCH", "endpoint": "/{resourceName}:updateContact", "required_params": ["resourceName"], "optional_params": ["names", "emailAddresses"], "risky": false},
+        "delete": {"description": "Delete a contact", "method": "DELETE", "endpoint": "/{resourceName}:deleteContact", "required_params": ["resourceName"], "optional_params": [], "risky": true}
+      }
+    },
+    "docs": {
+      "description": "Google Docs API v1",
+      "base_url": "https://docs.googleapis.com/v1",
+      "operations": {
+        "create": {"description": "Create a document", "method": "POST", "endpoint": "/documents", "required_params": [], "optional_params": ["title"], "risky": false},
+        "get": {"description": "Get document content", "method": "GET", "endpoint": "/documents/{documentId}", "required_params": ["documentId"], "optional_params": [], "risky": false},
+        "batch_update": {"description": "Batch update document", "method": "POST", "endpoint": "/documents/{documentId}:batchUpdate", "required_params": ["documentId", "requests"], "optional_params": [], "risky": false}
+      }
+    },
+    "slides": {
+      "description": "Google Slides API v1",
+      "base_url": "https://slides.googleapis.com/v1",
+      "operations": {
+        "create": {"description": "Create a presentation", "method": "POST", "endpoint": "/presentations", "required_params": [], "optional_params": ["title"], "risky": false},
+        "get": {"description": "Get presentation", "method": "GET", "endpoint": "/presentations/{presentationId}", "required_params": ["presentationId"], "optional_params": [], "risky": false},
+        "batch_update": {"description": "Batch update presentation", "method": "POST", "endpoint": "/presentations/{presentationId}:batchUpdate", "required_params": ["presentationId", "requests"], "optional_params": [], "risky": false}
+      }
+    },
+    "tasks": {
+      "description": "Google Tasks API v1",
+      "base_url": "https://tasks.googleapis.com/tasks/v1",
+      "operations": {
+        "list_tasklists": {"description": "List task lists", "method": "GET", "endpoint": "/users/@me/lists", "required_params": [], "optional_params": ["maxResults"], "risky": false},
+        "list_tasks": {"description": "List tasks in a task list", "method": "GET", "endpoint": "/lists/{tasklist}/tasks", "required_params": ["tasklist"], "optional_params": ["showCompleted"], "risky": false},
+        "get": {"description": "Get a task", "method": "GET", "endpoint": "/lists/{tasklist}/tasks/{task}", "required_params": ["tasklist", "task"], "optional_params": [], "risky": false},
+        "create": {"description": "Create a task", "method": "POST", "endpoint": "/lists/{tasklist}/tasks", "required_params": ["tasklist"], "optional_params": ["title", "notes", "due"], "risky": false},
+        "update": {"description": "Update a task", "method": "PATCH", "endpoint": "/lists/{tasklist}/tasks/{task}", "required_params": ["tasklist", "task"], "optional_params": ["title", "status", "notes"], "risky": false},
+        "delete": {"description": "Delete a task", "method": "DELETE", "endpoint": "/lists/{tasklist}/tasks/{task}", "required_params": ["tasklist", "task"], "optional_params": [], "risky": true}
+      }
+    },
+    "sheets": {
+      "description": "Google Sheets API v4",
+      "base_url": "https://sheets.googleapis.com/v4",
+      "operations": {
+        "create": {"description": "Create a spreadsheet", "method": "POST", "endpoint": "/spreadsheets", "required_params": [], "optional_params": ["properties"], "risky": false},
+        "get": {"description": "Get spreadsheet metadata", "method": "GET", "endpoint": "/spreadsheets/{spreadsheetId}", "required_params": ["spreadsheetId"], "optional_params": ["ranges"], "risky": false},
+        "read_values": {"description": "Read cell values", "method": "GET", "endpoint": "/spreadsheets/{spreadsheetId}/values/{range}", "required_params": ["spreadsheetId", "range"], "optional_params": [], "risky": false},
+        "write_values": {"description": "Write cell values", "method": "PUT", "endpoint": "/spreadsheets/{spreadsheetId}/values/{range}", "required_params": ["spreadsheetId", "range", "values"], "optional_params": ["valueInputOption"], "risky": false},
+        "append_values": {"description": "Append values to range", "method": "POST", "endpoint": "/spreadsheets/{spreadsheetId}/values/{range}:append", "required_params": ["spreadsheetId", "range", "values"], "optional_params": ["valueInputOption"], "risky": false}
+      }
+    },
+    "local_device": {
+      "description": "Local device automation via Python companion app",
+      "operations": {
+        "browser_open": {"description": "Open Chrome browser", "risky": false, "requires_confirmation": false},
+        "browser_navigate": {"description": "Navigate to URL", "risky": false, "requires_confirmation": false},
+        "browser_close": {"description": "Close browser", "risky": false, "requires_confirmation": false},
+        "browser_new_tab": {"description": "Open new tab", "risky": false, "requires_confirmation": false},
+        "browser_close_tab": {"description": "Close tab", "risky": false, "requires_confirmation": false},
+        "browser_list_tabs": {"description": "List open tabs", "risky": false, "requires_confirmation": false},
+        "browser_screenshot": {"description": "Capture browser screenshot", "risky": false, "requires_confirmation": false},
+        "browser_download": {"description": "Download file via browser", "risky": true, "requires_confirmation": true},
+        "screenshot": {"description": "Capture screen screenshot", "risky": false, "requires_confirmation": false},
+        "screen_record_start": {"description": "Start screen recording", "risky": true, "requires_confirmation": true},
+        "screen_record_stop": {"description": "Stop screen recording", "risky": false, "requires_confirmation": false},
+        "screen_ocr": {"description": "Extract text from screen", "risky": false, "requires_confirmation": false},
+        "app_open": {"description": "Open application", "risky": false, "requires_confirmation": false},
+        "app_close": {"description": "Close application", "risky": true, "requires_confirmation": false},
+        "app_restart": {"description": "Restart application", "risky": true, "requires_confirmation": true},
+        "app_focus": {"description": "Focus application window", "risky": false, "requires_confirmation": false},
+        "app_list_running": {"description": "List running applications", "risky": false, "requires_confirmation": false},
+        "file_list": {"description": "List directory", "risky": false, "requires_confirmation": false},
+        "file_read": {"description": "Read file", "risky": false, "requires_confirmation": false},
+        "file_write": {"description": "Write file", "risky": true, "requires_confirmation": true},
+        "file_move": {"description": "Move/rename file", "risky": true, "requires_confirmation": true},
+        "file_copy": {"description": "Copy file", "risky": true, "requires_confirmation": false},
+        "file_delete": {"description": "Delete file", "risky": true, "requires_confirmation": true},
+        "file_search": {"description": "Search files", "risky": false, "requires_confirmation": false},
+        "file_compress": {"description": "Compress files", "risky": true, "requires_confirmation": false},
+        "file_extract": {"description": "Extract archive", "risky": true, "requires_confirmation": false},
+        "file_get_info": {"description": "Get file info", "risky": false, "requires_confirmation": false},
+        "shell_exec": {"description": "Execute shell command", "risky": true, "requires_confirmation": true},
+        "system_info": {"description": "Get system information", "risky": false, "requires_confirmation": false},
+        "system_processes": {"description": "List processes", "risky": false, "requires_confirmation": false},
+        "system_kill_process": {"description": "Kill process", "risky": true, "requires_confirmation": true}
+      }
+    }
+  },
+  "risk_levels": {
+    "none": "No risk - read-only operations",
+    "low": "Minor system changes",
+    "medium": "Moderate impact",
+    "high": "Significant changes - requires confirmation",
+    "critical": "Destructive - requires explicit confirmation"
+  },
+  "auth_note": "All Google services require valid Google OAuth tokens. Local device requires JARVIS_BRIDGE_SECRET.",
+  "version": "4.5.0"
+}

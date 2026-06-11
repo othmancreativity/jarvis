@@ -1,0 +1,65 @@
+{
+  "name": "JARVIS 4.5 — Memory Persist",
+  "nodes": [
+    {
+      "parameters": {"jsCode": "return [$input.item];"},
+      "id": "mp-input-001",
+      "name": "Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [340, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context_dir = '/tmp/jarvis_context';\nconst session_file = `${context_dir}/session.json`;\n\nconst session = {\n  userId: $json.userId || 'default',\n  sessionId: $json.sessionId || '',\n  lastMessage: $json.inputText || '',\n  lastResponse: $json.responseText || '',\n  lastIntent: $json.intent || '',\n  timestamp: new Date().toISOString(),\n  version: '4.5.0'\n};\n\ntry {\n  const fs = require('fs');\n  if (!fs.existsSync(context_dir)) {\n    fs.mkdirSync(context_dir, { recursive: true });\n  }\n  fs.writeFileSync(session_file, JSON.stringify(session, null, 2));\n  $json.memorySaved = true;\n  $json.memoryPath = session_file;\n} catch (e) {\n  $json.memorySaved = false;\n  $json.memoryError = e.message;\n}\n\nreturn [{ json: { ...$json, success: true } }];"
+      },
+      "id": "mp-save-001",
+      "name": "Save to Local Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [580, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama-3.1-8b-instant', temperature: 0.2, messages: [{ role: 'system', content: 'Extract key facts and user preferences from this conversation. Return ONLY a JSON array of objects with shape {\"category\": \"profile|preference|fact\", \"key\": \"string\", \"value\": \"string\"}. Be concise.' }, { role: 'user', content: 'User: ' + ($json.inputText || '') + '\\nAssistant: ' + ($json.responseText || '') }] }) }}",
+        "options": {"timeout": 15000, "retryOnFail": true, "maxTries": 2},
+        "jsCode": ""
+      },
+      "id": "mp-extract-001",
+      "name": "Extract Facts (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [820, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const facts = [];\ntry {\n  const raw = $json.choices?.[0]?.message?.content || '[]';\n  const cleaned = raw.replace(/```json|```/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  if (Array.isArray(parsed)) {\n    facts.push(...parsed);\n  }\n} catch (e) {\n  // Silent fail - memory extraction is best-effort\n}\nreturn [{ json: { ...$json, facts: facts, memoryExtracted: facts.length > 0 } }];"
+      },
+      "id": "mp-parse-001",
+      "name": "Parse Facts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 300]
+    }
+  ],
+  "connections": {
+    "Input": {"main": [[{"node": "Save to Local Context", "type": "main", "index": 0}]]},
+    "Save to Local Context": {"main": [[{"node": "Extract Facts (LLM)", "type": "main", "index": 0}]]},
+    "Extract Facts (LLM)": {"main": [[{"node": "Parse Facts", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "staticData": null,
+  "tags": []
+}

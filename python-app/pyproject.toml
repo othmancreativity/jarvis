@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis-4.6"
+version = "4.6.0"
+description = "JARVIS 4.6 - AI Operating Assistant with multi-agent architecture and local device control"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "JARVIS Systems Architect"}]
+keywords = ["ai", "assistant", "automation", "multi-agent", "desktop-control", "jarvis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "PyQt6>=6.6.0",
+    "websockets>=12.0",
+    "playwright>=1.40.0",
+    "mss>=9.0.0",
+    "opencv-python>=4.8.0",
+    "Pillow>=10.0.0",
+    "psutil>=5.9.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+    "pyyaml>=6.0.1",
+    "groq>=0.4.0",
+    "aiofiles>=23.2.0",
+    "aiohttp>=3.9.0",
+    "cryptography>=41.0.0",
+    "packaging>=23.0",
+    "click>=8.1.0",
+    "python-json-logger>=2.0.0",
+    "platformdirs>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-qt>=4.2.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+local_llm = [
+    "ollama>=0.1.0",
+    "sentence-transformers>=2.2.0",
+]
+vector = [
+    "faiss-cpu>=1.7.0",
+    "sentence-transformers>=2.2.0",
+]
+ocr = [
+    "pytesseract>=0.3.10",
+]
+audio = [
+    "pyaudio>=0.2.14",
+    "numpy>=1.26.0",
+]
+wake_word = [
+    "pynput>=1.7.0",
+    "pvporcupine>=3.0.0",
+]
+all = [
+    "jarvis-4.6[dev,local_llm,vector,ocr,audio,wake_word]",
+]
+
+[project.scripts]
+jarvis = "main:main"
+jarvis-cli = "cli:cli"
+jarvis-bridge = "bridge_server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "agents*", "automation*", "security*", "memory*", "ui*", "wake_word*", "config*", "jarvis*", "plugins*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
